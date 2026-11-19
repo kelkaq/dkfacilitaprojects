@@ -1,0 +1,8 @@
+{
+  "name": "DK Facilita — Certifica Software - DK",
+  "description": "Ecossistema comercial multiempresa da DK Facilita com o produto principal Certifica Software - DK para gestão de treinamentos de NRs, provas digitais, certificados com QR Code e dossiês de colaboradores.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

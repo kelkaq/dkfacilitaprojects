@@ -1,0 +1,613 @@
+// ============================================================================
+// DK FACILITA — CERTIFICA SOFTWARE - DK
+// Schema Prisma Completo (PostgreSQL) — Arquitetura SaaS Multiempresa
+// Isolamento estrito por empresa_id em todas as entidades operacionais
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// ENUMS GLOBAIS E DE NEGÓCIO
+// ----------------------------------------------------------------------------
+
+enum CicloCobranca {
+  MENSAL
+  SEMESTRAL
+  ANUAL
+}
+
+enum StatusEmpresa {
+  TRIAL
+  ATIVA
+  INADIMPLENTE
+  SUSPENSA
+  CANCELADA
+}
+
+enum StatusAssinatura {
+  TRIAL
+  ATIVA
+  ATRASADA
+  SUSPENSA
+  CANCELADA
+}
+
+enum StatusFatura {
+  PENDENTE
+  PAGA
+  VENCIDA
+  CANCELADA
+  ESTORNADA
+}
+
+enum MetodoPagamento {
+  PIX
+  CARTAO_CREDITO
+  BOLETO
+}
+
+enum PerfilUsuario {
+  SUPER_ADMIN
+  ADMIN_EMPRESA
+  RT
+  INSTRUTOR_TST
+}
+
+enum ModoIdentificacaoProva {
+  CPF
+  CPF_PIN
+  CPF_PIN_SELFIE
+}
+
+enum StatusTurma {
+  RASCUNHO
+  ABERTA
+  ENCERRADA
+  CANCELADA
+}
+
+enum StatusTentativaProva {
+  EM_ANDAMENTO
+  APROVADO
+  REPROVADO
+}
+
+enum StatusCertificado {
+  EMITIDO
+  REVOGADO
+}
+
+enum TipoNotificacaoAdmin {
+  NOVO_TRIAL
+  NOVA_VENDA
+  UPGRADE
+  ADICIONAL_CONTRATADO
+  PAGAMENTO_ATRASADO
+  TRIAL_EXPIRANDO
+}
+
+// ============================================================================
+// 1. TABELAS GLOBAIS (CATÁLOGO COMERCIAL E NORMATIVO DK FACILITA)
+// ============================================================================
+
+model Plano {
+  id                  String   @id @default(uuid())
+  slug                String   @unique // autonomo-tst, essencial, profissional, enterprise
+  nome                String
+  subtitulo           String
+  descricao           String
+  precoMensalCentavos Int      @map("preco_mensal_centavos")
+  descontoSemestral   Int      @default(10) @map("desconto_semestral") // %
+  descontoAnual       Int      @default(20) @map("desconto_anual")     // %
+  limiteColaboradores Int      @map("limite_colaboradores")
+  limiteUsuarios      Int      @map("limite_usuarios")
+  limiteObras         Int      @map("limite_obras")
+  incluiCartaAnuencia Boolean  @default(false) @map("inclui_carta_anuencia")
+  incluiDossieLink    Boolean  @default(true) @map("inclui_dossie_link")
+  incluiAlertasWpp    Boolean  @default(false) @map("inclui_alertas_wpp")
+  incluiDominioProprio Boolean @default(false) @map("inclui_dominio_proprio")
+  destaque            Boolean  @default(false)
+  ativo               Boolean  @default(true)
+  ordem               Int      @default(0)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  assinaturas Assinatura[]
+
+  @@map("planos")
+}
+
+model Adicional {
+  id                  String   @id @default(uuid())
+  slug                String   @unique
+  nome                String
+  descricao           String
+  precoMensalCentavos Int      @map("preco_mensal_centavos")
+  tipoCobranca        String   @default("RECORRENTE") @map("tipo_cobranca") // RECORRENTE | UNICO
+  recursoChave        String   @map("recurso_chave") // modelo_proprio, colaboradores_extra, usuarios_extra, carta_anuencia_dossie, alertas_whatsapp, dominio_proprio
+  incrementoQtd       Int      @default(0) @map("incremento_qtd")
+  ativo               Boolean  @default(true)
+  ordem               Int      @default(0)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  assinaturasAdicionais AssinaturaAdicional[]
+
+  @@map("adicionais")
+}
+
+model NrGlobal {
+  id               String   @id @default(uuid())
+  codigo           String   @unique // NR-01, NR-06, NR-10, NR-11, NR-12, NR-18, NR-20, NR-33, NR-34, NR-35
+  titulo           String
+  descricao        String
+  baseLegal        String   @map("base_legal")
+  validadePadraoMeses Int   @default(24) @map("validade_padrao_meses")
+  ativa            Boolean  @default(true)
+  ordem            Int      @default(0)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  variacoes NrGlobalVariacao[]
+
+  @@map("nrs_globais")
+}
+
+model NrGlobalVariacao {
+  id                 String   @id @default(uuid())
+  nrGlobalId         String   @map("nr_global_id")
+  slug               String   @unique
+  nome               String   // Ex.: Executante 8h, Observador 8h, Reciclagem 4h
+  modalidade         String   @default("INICIAL") // INICIAL | RECICLAGEM | COMPLEMENTAR
+  cargaHorariaHoras  Int      @map("carga_horaria_horas")
+  validadeMeses      Int      @map("validade_meses")
+  notaMinimaAprovacao Int     @default(70) @map("nota_minima_aprovacao")
+  ordem              Int      @default(0)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  nrGlobal   NrGlobal               @relation(fields: [nrGlobalId], references: [id], onDelete: Cascade)
+  linhas     NrGlobalConteudoLinha[]
+
+  @@index([nrGlobalId])
+  @@map("nrs_globais_variacoes")
+}
+
+model NrGlobalConteudoLinha {
+  id               String   @id @default(uuid())
+  variacaoId       String   @map("variacao_id")
+  ordem            Int
+  descricao        String
+  cargaHorariaMin  Int?     @map("carga_horaria_min")
+
+  variacao NrGlobalVariacao @relation(fields: [variacaoId], references: [id], onDelete: Cascade)
+
+  @@index([variacaoId, ordem])
+  @@map("nrs_globais_conteudo_linhas")
+}
+
+model ModeloCertificadoGlobal {
+  id              String   @id @default(uuid())
+  slug            String   @unique
+  nome            String
+  descricao       String
+  categoria       String   @default("GRATUITO") // GRATUITO | PREMIUM
+  layoutConfig    Json     @map("layout_config") // estrutura visual frente/verso (cores neutras, moldura, 1-2 colunas)
+  previewCssToken String   @map("preview_css_token")
+  ativo           Boolean  @default(true)
+  ordem           Int      @default(0)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  empresas Empresa[]
+
+  @@map("modelos_certificado_globais")
+}
+
+// ============================================================================
+// 2. TENANT (EMPRESAS), ASSINATURAS, FATURAS E CONTROLE FINANCEIRO ASAAS
+// ============================================================================
+
+model Empresa {
+  id                     String        @id @default(uuid())
+  cnpj                   String        @unique
+  razaoSocial            String        @map("razao_social")
+  nomeFantasia           String?       @map("nome_fantasia")
+  emailFinanceiro        String        @map("email_financeiro")
+  whatsapp               String
+  endereco               String?
+  cidade                 String?
+  uf                     String?
+  logoUrl                String?       @map("logo_url")
+  corPrimaria            String        @default("#0F172A") @map("cor_primaria")
+  corSecundaria          String        @default("#1D4ED8") @map("cor_secundaria")
+  prefixoCertificado     String        @default("CERT") @map("prefixo_certificado")
+  modeloCertificadoId    String?       @map("modelo_certificado_id")
+  modeloProprioUrl       String?       @map("modelo_proprio_url")
+  modeloProprioConfig    Json?         @map("modelo_proprio_config")
+  dominioProprio         String?       @unique @map("dominio_proprio")
+  status                 StatusEmpresa @default(TRIAL)
+  trialExpiraEm          DateTime?     @map("trial_expira_em")
+  onboardingConcluido    Boolean       @default(false) @map("onboarding_concluido")
+  asaasCustomerId        String?       @unique @map("asaas_customer_id")
+  featureFlags           Json          @default("{}") @map("feature_flags")
+  createdAt              DateTime      @default(now()) @map("created_at")
+  updatedAt              DateTime      @updatedAt @map("updated_at")
+
+  modeloCertificado   ModeloCertificadoGlobal? @relation(fields: [modeloCertificadoId], references: [id])
+  assinaturas         Assinatura[]
+  faturas             Fatura[]
+  usuarios            Usuario[]
+  contratosObras      ContratoObra[]
+  colaboradores       Colaborador[]
+  assinaturasDigitais AssinaturaDigital[]
+  treinamentos        TreinamentoEmpresa[]
+  bancoQuestoes       BancoQuestao[]
+  turmas              TurmaAplicacao[]
+  provasTentativas    ProvaTentativa[]
+  certificados        Certificado[]
+  cartasAnuencia      CartaAnuencia[]
+  logsAnalytics       LogAcessoAnalytics[]
+
+  @@map("empresas")
+}
+
+model Assinatura {
+  id                  String           @id @default(uuid())
+  empresaId           String           @map("empresa_id")
+  planoId             String           @map("plano_id")
+  ciclo               CicloCobranca    @default(MENSAL)
+  status              StatusAssinatura @default(TRIAL)
+  valorCentavos       Int              @map("valor_centavos")
+  asaasSubscriptionId String?          @unique @map("asaas_subscription_id")
+  inicioEm            DateTime         @default(now()) @map("inicio_em")
+  proximaCobrancaEm   DateTime?        @map("proxima_cobranca_em")
+  canceladaEm         DateTime?        @map("cancelada_em")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  empresa    Empresa               @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  plano      Plano                 @relation(fields: [planoId], references: [id])
+  adicionais AssinaturaAdicional[]
+  faturas    Fatura[]
+
+  @@index([empresaId])
+  @@map("assinaturas")
+}
+
+model AssinaturaAdicional {
+  id            String   @id @default(uuid())
+  assinaturaId  String   @map("assinatura_id")
+  adicionalId   String   @map("adicional_id")
+  quantidade    Int      @default(1)
+  valorCentavos Int      @map("valor_centavos")
+  ativo         Boolean  @default(true)
+  contratadoEm  DateTime @default(now()) @map("contratado_em")
+
+  assinatura Assinatura @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+  adicional  Adicional  @relation(fields: [adicionalId], references: [id])
+
+  @@unique([assinaturaId, adicionalId])
+  @@map("assinaturas_adicionais")
+}
+
+model Fatura {
+  id               String          @id @default(uuid())
+  empresaId        String          @map("empresa_id")
+  assinaturaId     String?         @map("assinatura_id")
+  descricao        String
+  valorCentavos    Int             @map("valor_centavos")
+  status           StatusFatura    @default(PENDENTE)
+  metodoPagamento  MetodoPagamento @default(PIX) @map("metodo_pagamento")
+  asaasPaymentId   String?         @unique @map("asaas_payment_id")
+  pixQrCodePayload String?         @map("pix_qr_code_payload")
+  pixQrCodeBase64  String?         @map("pix_qr_code_base64")
+  invoiceUrl       String?         @map("invoice_url")
+  vencimentoEm     DateTime        @map("vencimento_em")
+  pagoEm           DateTime?       @map("pago_em")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+
+  empresa    Empresa     @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  assinatura Assinatura? @relation(fields: [assinaturaId], references: [id])
+
+  @@index([empresaId, status])
+  @@map("faturas")
+}
+
+// ============================================================================
+// 3. USUÁRIOS, CONTRATOS/OBRAS, COLABORADORES E ASSINATURAS DIGITAIS
+// ============================================================================
+
+model Usuario {
+  id                  String        @id @default(uuid())
+  empresaId           String?       @map("empresa_id") // null apenas para SUPER_ADMIN global
+  nome                String
+  email               String        @unique
+  senhaHash           String        @map("senha_hash")
+  perfil              PerfilUsuario @default(ADMIN_EMPRESA)
+  registroProfissional String?      @map("registro_profissional") // Ex.: CREA, MTE/TST
+  cargo               String?
+  ativo               Boolean       @default(true)
+  ultimoAcessoEm      DateTime?     @map("ultimo_acesso_em")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  empresa             Empresa?            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  assinaturasDigitais AssinaturaDigital[]
+  turmasInstrutor     TurmaAplicacao[]    @relation("TurmaInstrutor")
+  turmasRt            TurmaAplicacao[]    @relation("TurmaRT")
+
+  @@index([empresaId])
+  @@map("usuarios")
+}
+
+model ContratoObra {
+  id           String   @id @default(uuid())
+  empresaId    String   @map("empresa_id")
+  codigo       String
+  nome         String
+  clienteFinal String?  @map("cliente_final")
+  localizacao  String?
+  ativo        Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  empresa       Empresa        @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  colaboradores Colaborador[]
+  turmas        TurmaAplicacao[]
+
+  @@unique([empresaId, codigo])
+  @@index([empresaId])
+  @@map("contratos_obras")
+}
+
+model Colaborador {
+  id             String   @id @default(uuid())
+  empresaId      String   @map("empresa_id")
+  contratoObraId String?  @map("contrato_obra_id")
+  nome           String
+  cpf            String
+  rg             String?
+  funcao         String
+  matricula      String?
+  email          String?
+  telefone       String?
+  ativo          Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  empresa          Empresa          @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  contratoObra     ContratoObra?    @relation(fields: [contratoObraId], references: [id])
+  provasTentativas ProvaTentativa[]
+  certificados     Certificado[]
+  cartasAnuencia   CartaAnuencia[]
+
+  @@unique([empresaId, cpf])
+  @@index([empresaId])
+  @@map("colaboradores")
+}
+
+model AssinaturaDigital {
+  id             String   @id @default(uuid())
+  empresaId      String   @map("empresa_id")
+  usuarioId      String?  @map("usuario_id")
+  tipo           String   // INSTRUTOR | RT | EMPRESA | COLABORADOR
+  nomeSignatario String   @map("nome_signatario")
+  registro       String?
+  imagemDataUrl  String   @map("imagem_data_url")
+  ativa          Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  empresa Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([empresaId])
+  @@map("assinaturas_digitais")
+}
+
+// ============================================================================
+// 4. TREINAMENTOS DA EMPRESA (CONTEÚDO LINHA POR LINHA) E BANCO DE QUESTÕES
+// ============================================================================
+
+model TreinamentoEmpresa {
+  id                  String   @id @default(uuid())
+  empresaId           String   @map("empresa_id")
+  nrCodigo            String   @map("nr_codigo")      // Ex.: NR-34
+  nrTitulo            String   @map("nr_titulo")      // Norma Pai
+  variacaoNome        String   @map("variacao_nome")  // Ex.: Executante 8h
+  modalidade          String   @default("INICIAL")    // INICIAL | RECICLAGEM | COMPLEMENTAR
+  cargaHorariaHoras   Int      @map("carga_horaria_horas")
+  validadeMeses       Int      @default(24) @map("validade_meses")
+  notaMinimaAprovacao Int      @default(70) @map("nota_minima_aprovacao")
+  baseLegal           String?  @map("base_legal")
+  ativo               Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  empresa        Empresa                     @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  conteudoLinhas TreinamentoConteudoLinha[]
+  questoes       BancoQuestao[]
+  turmas         TurmaAplicacao[]
+
+  @@index([empresaId, nrCodigo])
+  @@map("treinamentos_empresa")
+}
+
+model TreinamentoConteudoLinha {
+  id              String @id @default(uuid())
+  treinamentoId   String @map("treinamento_id")
+  ordem           Int
+  descricao       String
+  cargaHorariaMin Int?   @map("carga_horaria_min")
+
+  treinamento TreinamentoEmpresa @relation(fields: [treinamentoId], references: [id], onDelete: Cascade)
+
+  @@index([treinamentoId, ordem])
+  @@map("treinamentos_conteudo_linhas")
+}
+
+model BancoQuestao {
+  id            String   @id @default(uuid())
+  empresaId     String   @map("empresa_id")
+  treinamentoId String   @map("treinamento_id")
+  enunciado     String
+  alternativas  Json     // [{ id: "A", texto: "..." }, ...]
+  correta       String   // "A" | "B" | "C" | "D"
+  peso          Int      @default(1)
+  ativa         Boolean  @default(true)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  empresa     Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  treinamento TreinamentoEmpresa @relation(fields: [treinamentoId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId, treinamentoId])
+  @@map("banco_questoes")
+}
+
+// ============================================================================
+// 5. TURMAS, PROVAS, CERTIFICADOS IMUTÁVEIS E CARTAS DE ANUÊNCIA
+// ============================================================================
+
+model TurmaAplicacao {
+  id                String                 @id @default(uuid())
+  empresaId         String                 @map("empresa_id")
+  treinamentoId     String                 @map("treinamento_id")
+  contratoObraId    String?                @map("contrato_obra_id")
+  instrutorId       String?                @map("instrutor_id")
+  rtId              String?                @map("rt_id")
+  codigoTurma       String                 @map("codigo_turma")
+  titulo            String
+  dataRealizacao    DateTime               @map("data_realizacao")
+  localRealizacao   String?                @map("local_realizacao")
+  tokenPublico      String                 @unique @map("token_publico")
+  modoIdentificacao ModoIdentificacaoProva @default(CPF) @map("modo_identificacao")
+  pinAcesso         String?                @map("pin_acesso")
+  status            StatusTurma            @default(ABERTA)
+  createdAt         DateTime               @default(now()) @map("created_at")
+  updatedAt         DateTime               @updatedAt @map("updated_at")
+
+  empresa      Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  treinamento  TreinamentoEmpresa @relation(fields: [treinamentoId], references: [id])
+  contratoObra ContratoObra?      @relation(fields: [contratoObraId], references: [id])
+  instrutor    Usuario?           @relation("TurmaInstrutor", fields: [instrutorId], references: [id])
+  rt           Usuario?           @relation("TurmaRT", fields: [rtId], references: [id])
+  tentativas   ProvaTentativa[]
+  certificados Certificado[]
+
+  @@index([empresaId, status])
+  @@map("turmas_aplicacoes")
+}
+
+model ProvaTentativa {
+  id                String               @id @default(uuid())
+  empresaId         String               @map("empresa_id")
+  turmaId           String               @map("turma_id")
+  colaboradorId     String               @map("colaborador_id")
+  respostasJson     Json                 @map("respostas_json")
+  notaPercentual    Int                  @map("nota_percentual")
+  status            StatusTentativaProva @default(EM_ANDAMENTO)
+  assinaturaDataUrl String?              @map("assinatura_data_url")
+  selfieDataUrl     String?              @map("selfie_data_url")
+  ipOrigem          String?              @map("ip_origem")
+  userAgent         String?              @map("user_agent")
+  iniciadaEm        DateTime             @default(now()) @map("iniciada_em")
+  concluidaEm       DateTime?            @map("concluida_em")
+
+  empresa     Empresa        @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  turma       TurmaAplicacao @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  colaborador Colaborador    @relation(fields: [colaboradorId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId, turmaId])
+  @@index([colaboradorId])
+  @@map("provas_tentativas")
+}
+
+model Certificado {
+  id                     String            @id @default(uuid())
+  empresaId              String            @map("empresa_id")
+  turmaId                String            @map("turma_id")
+  colaboradorId          String            @map("colaborador_id")
+  numeroCertificado      String            @map("numero_certificado")
+  codigoValidacaoQr      String            @unique @map("codigo_validacao_qr")
+  nrCodigo               String            @map("nr_codigo")
+  treinamentoTitulo      String            @map("treinamento_titulo")
+  cargaHorariaHoras      Int               @map("carga_horaria_horas")
+  dataRealizacao         DateTime          @map("data_realizacao")
+  dataValidade           DateTime          @map("data_validade")
+  status                 StatusCertificado @default(EMITIDO)
+  snapshotConteudoLinhas Json              @map("snapshot_conteudo_linhas") // IMUTÁVEL após emissão
+  snapshotEmpresa        Json              @map("snapshot_empresa")         // logo, CNPJ, endereço, assinaturas
+  snapshotColaborador    Json              @map("snapshot_colaborador")     // nome, CPF, função
+  emitidoEm              DateTime          @default(now()) @map("emitido_em")
+
+  empresa     Empresa        @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  turma       TurmaAplicacao @relation(fields: [turmaId], references: [id])
+  colaborador Colaborador    @relation(fields: [colaboradorId], references: [id])
+
+  @@unique([empresaId, numeroCertificado])
+  @@index([empresaId, dataValidade])
+  @@map("certificados")
+}
+
+model CartaAnuencia {
+  id                 String   @id @default(uuid())
+  empresaId          String   @map("empresa_id")
+  colaboradorId      String   @map("colaborador_id")
+  titulo             String
+  nrReferencia       String   @map("nr_referencia")
+  textoLegal         String   @map("texto_legal")
+  assinaturaRespUrl  String?  @map("assinatura_resp_url")
+  emitidaEm          DateTime @default(now()) @map("emitida_em")
+  validadeEm         DateTime @map("validade_em")
+
+  empresa     Empresa     @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  colaborador Colaborador @relation(fields: [colaboradorId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId, colaboradorId])
+  @@map("cartas_anuencia")
+}
+
+// ============================================================================
+// 6. ANALYTICS, PRESENÇA ONLINE (HEARTBEAT) E NOTIFICAÇÕES SUPER ADMIN
+// ============================================================================
+
+model LogAcessoAnalytics {
+  id             String   @id @default(uuid())
+  empresaId      String?  @map("empresa_id")
+  usuarioId      String?  @map("usuario_id")
+  sessaoId       String   @map("sessao_id")
+  rota           String
+  origem         String   @default("SITE") // SITE | APP | ADMIN | PROVA_PUBLICA | VALIDACAO_QR
+  ipHash         String?  @map("ip_hash")
+  userAgent      String?  @map("user_agent")
+  ultimoPingEm   DateTime @default(now()) @map("ultimo_ping_em")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  empresa Empresa? @relation(fields: [empresaId], references: [id], onDelete: SetNull)
+
+  @@index([ultimoPingEm])
+  @@index([empresaId, createdAt])
+  @@map("logs_acesso_analytics")
+}
+
+model NotificacaoAdmin {
+  id        String               @id @default(uuid())
+  tipo      TipoNotificacaoAdmin
+  titulo    String
+  mensagem  String
+  empresaId String?              @map("empresa_id")
+  lida      Boolean              @default(false)
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  @@index([lida, createdAt])
+  @@map("notificacoes_admin")
+}

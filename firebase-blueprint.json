@@ -1,0 +1,348 @@
+{
+  "entities": {
+    "Plano": {
+      "title": "Plano Comercial",
+      "description": "Plano de assinatura da DK Facilita para o Certifica Software - DK",
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string", "maxLength": 64 },
+        "nome": { "type": "string", "maxLength": 100 },
+        "subtitulo": { "type": "string", "maxLength": 200 },
+        "descricao": { "type": "string", "maxLength": 600 },
+        "precoMensalCentavos": { "type": "integer" },
+        "descontoSemestral": { "type": "integer" },
+        "descontoAnual": { "type": "integer" },
+        "limiteColaboradores": { "type": "integer" },
+        "limiteUsuarios": { "type": "integer" },
+        "limiteObras": { "type": "integer" },
+        "incluiCartaAnuencia": { "type": "boolean" },
+        "incluiDossieLink": { "type": "boolean" },
+        "incluiAlertasWpp": { "type": "boolean" },
+        "incluiDominioProprio": { "type": "boolean" },
+        "destaque": { "type": "boolean" },
+        "ativo": { "type": "boolean" },
+        "ordem": { "type": "integer" }
+      },
+      "required": ["slug", "nome", "subtitulo", "descricao", "precoMensalCentavos", "ativo", "ordem"]
+    },
+    "Adicional": {
+      "title": "Adicional Comercial",
+      "description": "Serviço adicional contratável na loja ou painel do cliente",
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string", "maxLength": 64 },
+        "nome": { "type": "string", "maxLength": 120 },
+        "descricao": { "type": "string", "maxLength": 600 },
+        "precoMensalCentavos": { "type": "integer" },
+        "tipoCobranca": { "type": "string", "enum": ["RECORRENTE", "UNICO"] },
+        "recursoChave": { "type": "string", "maxLength": 64 },
+        "incrementoQtd": { "type": "integer" },
+        "ativo": { "type": "boolean" },
+        "ordem": { "type": "integer" }
+      },
+      "required": ["slug", "nome", "descricao", "precoMensalCentavos", "tipoCobranca", "recursoChave", "ativo", "ordem"]
+    },
+    "NrGlobal": {
+      "title": "Norma Regulamentadora Global",
+      "description": "Norma Pai do catálogo global com variações e conteúdo programático linha por linha",
+      "type": "object",
+      "properties": {
+        "codigo": { "type": "string", "maxLength": 20 },
+        "titulo": { "type": "string", "maxLength": 240 },
+        "descricao": { "type": "string", "maxLength": 800 },
+        "baseLegal": { "type": "string", "maxLength": 240 },
+        "validadePadraoMeses": { "type": "integer" },
+        "ativa": { "type": "boolean" },
+        "ordem": { "type": "integer" },
+        "variacoes": { "type": "array" }
+      },
+      "required": ["codigo", "titulo", "descricao", "baseLegal", "validadePadraoMeses", "ativa", "ordem", "variacoes"]
+    },
+    "ModeloCertificadoGlobal": {
+      "title": "Modelo de Certificado Global",
+      "description": "Modelo visual neutro gratuito para emissão de certificados",
+      "type": "object",
+      "properties": {
+        "slug": { "type": "string", "maxLength": 64 },
+        "nome": { "type": "string", "maxLength": 120 },
+        "descricao": { "type": "string", "maxLength": 500 },
+        "categoria": { "type": "string", "enum": ["GRATUITO", "PREMIUM"] },
+        "previewCssToken": { "type": "string", "maxLength": 64 },
+        "layoutConfig": { "type": "object" },
+        "ativo": { "type": "boolean" },
+        "ordem": { "type": "integer" }
+      },
+      "required": ["slug", "nome", "descricao", "categoria", "previewCssToken", "layoutConfig", "ativo", "ordem"]
+    },
+    "Empresa": {
+      "title": "Empresa Tenant",
+      "description": "Tenant isolado no Certifica Software - DK com identidade visual dinâmica",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "cnpj": { "type": "string", "maxLength": 18 },
+        "razaoSocial": { "type": "string", "maxLength": 200 },
+        "emailFinanceiro": { "type": "string", "format": "email", "maxLength": 160 },
+        "whatsapp": { "type": "string", "maxLength": 32 },
+        "corPrimaria": { "type": "string", "maxLength": 16 },
+        "prefixoCertificado": { "type": "string", "maxLength": 16 },
+        "status": { "type": "string", "enum": ["TRIAL", "ATIVA", "INADIMPLENTE", "SUSPENSA", "CANCELADA"] },
+        "onboardingConcluido": { "type": "boolean" }
+      },
+      "required": ["ownerUid", "cnpj", "razaoSocial", "emailFinanceiro", "whatsapp", "status"]
+    },
+    "UsuarioTenant": {
+      "title": "Usuário da Empresa",
+      "description": "Membro autorizado de uma empresa (Admin, RT ou Instrutor/TST)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "nome": { "type": "string", "maxLength": 140 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "perfil": { "type": "string", "enum": ["ADMIN_EMPRESA", "RT", "INSTRUTOR_TST"] },
+        "ativo": { "type": "boolean" }
+      },
+      "required": ["uid", "empresaId", "nome", "email", "perfil", "ativo"]
+    },
+    "FaturaTenant": {
+      "title": "Fatura da Empresa",
+      "description": "Cobrança Asaas Pix QR Code ou Cartão vinculada à empresa",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "descricao": { "type": "string", "maxLength": 240 },
+        "valorCentavos": { "type": "integer" },
+        "status": { "type": "string", "enum": ["PENDENTE", "PAGA", "VENCIDA", "CANCELADA", "ESTORNADA"] },
+        "metodoPagamento": { "type": "string", "enum": ["PIX", "CARTAO_CREDITO", "BOLETO"] },
+        "tipoItem": { "type": "string", "enum": ["PLANO", "ADICIONAL", "UPGRADE"] }
+      },
+      "required": ["empresaId", "descricao", "valorCentavos", "status", "metodoPagamento", "tipoItem"]
+    },
+    "ContratoObra": {
+      "title": "Contrato / Obra",
+      "description": "Contrato ou frente de obra da empresa",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "codigo": { "type": "string", "maxLength": 64 },
+        "nome": { "type": "string", "maxLength": 180 },
+        "clienteFinal": { "type": "string", "maxLength": 180 },
+        "localizacao": { "type": "string", "maxLength": 200 },
+        "ativo": { "type": "boolean" }
+      },
+      "required": ["empresaId", "codigo", "nome", "ativo"]
+    },
+    "Colaborador": {
+      "title": "Colaborador",
+      "description": "Trabalhador cadastrado na empresa",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "nome": { "type": "string", "maxLength": 160 },
+        "cpf": { "type": "string", "maxLength": 18 },
+        "funcao": { "type": "string", "maxLength": 120 },
+        "ativo": { "type": "boolean" }
+      },
+      "required": ["empresaId", "nome", "cpf", "funcao", "ativo"]
+    },
+    "AssinaturaDigital": {
+      "title": "Assinatura Digital",
+      "description": "Assinatura digitalizada de Instrutor, RT ou empresa",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "tipo": { "type": "string", "enum": ["INSTRUTOR", "RT", "EMPRESA"] },
+        "nomeSignatario": { "type": "string", "maxLength": 140 },
+        "registro": { "type": "string", "maxLength": 80 },
+        "imagemDataUrl": { "type": "string", "maxLength": 200000 },
+        "ativa": { "type": "boolean" }
+      },
+      "required": ["empresaId", "tipo", "nomeSignatario", "imagemDataUrl", "ativa"]
+    },
+    "TreinamentoEmpresa": {
+      "title": "Treinamento da Empresa",
+      "description": "NR customizada da empresa com conteúdo programático estruturado linha por linha",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "nrCodigo": { "type": "string", "maxLength": 20 },
+        "nrTitulo": { "type": "string", "maxLength": 240 },
+        "variacaoNome": { "type": "string", "maxLength": 160 },
+        "modalidade": { "type": "string", "enum": ["INICIAL", "RECICLAGEM", "COMPLEMENTAR"] },
+        "cargaHorariaHoras": { "type": "integer" },
+        "validadeMeses": { "type": "integer" },
+        "notaMinimaAprovacao": { "type": "integer" },
+        "conteudoLinhas": { "type": "array" },
+        "ativo": { "type": "boolean" }
+      },
+      "required": ["empresaId", "nrCodigo", "nrTitulo", "variacaoNome", "cargaHorariaHoras", "validadeMeses", "conteudoLinhas", "ativo"]
+    },
+    "BancoQuestao": {
+      "title": "Questão de Prova",
+      "description": "Questão objetiva vinculada a um treinamento da empresa",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "treinamentoId": { "type": "string", "maxLength": 128 },
+        "enunciado": { "type": "string", "maxLength": 1000 },
+        "alternativas": { "type": "array" },
+        "correta": { "type": "string", "maxLength": 4 },
+        "ativa": { "type": "boolean" }
+      },
+      "required": ["empresaId", "treinamentoId", "enunciado", "alternativas", "correta", "ativa"]
+    },
+    "TurmaAplicacao": {
+      "title": "Turma / Aplicação",
+      "description": "Turma de treinamento com link/QR público e modo de identificação",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "treinamentoId": { "type": "string", "maxLength": 128 },
+        "codigoTurma": { "type": "string", "maxLength": 64 },
+        "titulo": { "type": "string", "maxLength": 200 },
+        "tokenPublico": { "type": "string", "maxLength": 64 },
+        "modoIdentificacao": { "type": "string", "enum": ["CPF", "CPF_PIN", "CPF_PIN_SELFIE"] },
+        "status": { "type": "string", "enum": ["RASCUNHO", "ABERTA", "ENCERRADA", "CANCELADA"] }
+      },
+      "required": ["empresaId", "treinamentoId", "codigoTurma", "titulo", "tokenPublico", "modoIdentificacao", "status"]
+    },
+    "ProvaTentativa": {
+      "title": "Tentativa de Prova",
+      "description": "Prova realizada pelo colaborador com assinatura na tela e evidência opcional de selfie",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "turmaId": { "type": "string", "maxLength": 128 },
+        "colaboradorId": { "type": "string", "maxLength": 128 },
+        "colaboradorNome": { "type": "string", "maxLength": 160 },
+        "colaboradorCpf": { "type": "string", "maxLength": 18 },
+        "notaPercentual": { "type": "integer" },
+        "status": { "type": "string", "enum": ["EM_ANDAMENTO", "APROVADO", "REPROVADO"] }
+      },
+      "required": ["empresaId", "turmaId", "colaboradorId", "colaboradorNome", "colaboradorCpf", "notaPercentual", "status"]
+    },
+    "Certificado": {
+      "title": "Certificado Emitido",
+      "description": "Certificado com snapshot imutável do conteúdo programático e código QR único",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "turmaId": { "type": "string", "maxLength": 128 },
+        "colaboradorId": { "type": "string", "maxLength": 128 },
+        "numeroCertificado": { "type": "string", "maxLength": 64 },
+        "codigoValidacaoQr": { "type": "string", "maxLength": 64 },
+        "nrCodigo": { "type": "string", "maxLength": 20 },
+        "treinamentoTitulo": { "type": "string", "maxLength": 200 },
+        "cargaHorariaHoras": { "type": "integer" },
+        "status": { "type": "string", "enum": ["EMITIDO", "REVOGADO"] }
+      },
+      "required": ["empresaId", "turmaId", "colaboradorId", "numeroCertificado", "codigoValidacaoQr", "nrCodigo", "treinamentoTitulo", "cargaHorariaHoras", "status"]
+    },
+    "CartaAnuencia": {
+      "title": "Carta de Anuência",
+      "description": "Documento formal de anuência vinculado ao colaborador e dossiê",
+      "type": "object",
+      "properties": {
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "colaboradorId": { "type": "string", "maxLength": 128 },
+        "titulo": { "type": "string", "maxLength": 200 },
+        "nrReferencia": { "type": "string", "maxLength": 40 },
+        "textoLegal": { "type": "string", "maxLength": 4000 }
+      },
+      "required": ["empresaId", "colaboradorId", "titulo", "nrReferencia", "textoLegal"]
+    },
+    "CertificadoPublico": {
+      "title": "Validação Pública de Certificado",
+      "description": "Espelho público imutável para validação via QR Code (permanece acessível mesmo se empresa suspensa)",
+      "type": "object",
+      "properties": {
+        "codigoValidacaoQr": { "type": "string", "maxLength": 64 },
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "numeroCertificado": { "type": "string", "maxLength": 64 },
+        "nrCodigo": { "type": "string", "maxLength": 20 },
+        "treinamentoTitulo": { "type": "string", "maxLength": 200 },
+        "colaboradorNome": { "type": "string", "maxLength": 160 },
+        "colaboradorCpfMascarado": { "type": "string", "maxLength": 20 },
+        "empresaRazaoSocial": { "type": "string", "maxLength": 200 },
+        "cargaHorariaHoras": { "type": "integer" },
+        "status": { "type": "string", "enum": ["EMITIDO", "REVOGADO"] }
+      },
+      "required": ["codigoValidacaoQr", "empresaId", "numeroCertificado", "nrCodigo", "treinamentoTitulo", "colaboradorNome", "empresaRazaoSocial", "cargaHorariaHoras", "status"]
+    },
+    "TurmaPublica": {
+      "title": "Gateway Público de Prova",
+      "description": "Metadados seguros da turma para acesso público via link ou QR Code pelo colaborador",
+      "type": "object",
+      "properties": {
+        "tokenPublico": { "type": "string", "maxLength": 64 },
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "turmaId": { "type": "string", "maxLength": 128 },
+        "titulo": { "type": "string", "maxLength": 200 },
+        "modoIdentificacao": { "type": "string", "enum": ["CPF", "CPF_PIN", "CPF_PIN_SELFIE"] },
+        "status": { "type": "string", "enum": ["RASCUNHO", "ABERTA", "ENCERRADA", "CANCELADA"] }
+      },
+      "required": ["tokenPublico", "empresaId", "turmaId", "titulo", "modoIdentificacao", "status"]
+    },
+    "DossiePublico": {
+      "title": "Dossiê Compartilhável Temporário",
+      "description": "Snapshot temporário do dossiê unificado do colaborador para compartilhamento externo",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string", "maxLength": 64 },
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "colaboradorId": { "type": "string", "maxLength": 128 },
+        "colaboradorNome": { "type": "string", "maxLength": 160 },
+        "expiraEmIso": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["token", "empresaId", "colaboradorId", "colaboradorNome", "expiraEmIso"]
+    },
+    "NotificacaoAdmin": {
+      "title": "Notificação Super Admin",
+      "description": "Alertas comerciais e financeiros para o dono do software",
+      "type": "object",
+      "properties": {
+        "tipo": { "type": "string", "enum": ["NOVO_TRIAL", "NOVA_VENDA", "UPGRADE", "ADICIONAL_CONTRATADO", "PAGAMENTO_ATRASADO", "TRIAL_EXPIRANDO"] },
+        "titulo": { "type": "string", "maxLength": 160 },
+        "mensagem": { "type": "string", "maxLength": 600 },
+        "empresaId": { "type": "string", "maxLength": 128 },
+        "lida": { "type": "boolean" }
+      },
+      "required": ["tipo", "titulo", "mensagem", "lida"]
+    },
+    "AnalyticsHeartbeat": {
+      "title": "Heartbeat de Analytics",
+      "description": "Rastreio de acessos e presença online em tempo real",
+      "type": "object",
+      "properties": {
+        "sessaoId": { "type": "string", "maxLength": 64 },
+        "rota": { "type": "string", "maxLength": 200 },
+        "origem": { "type": "string", "enum": ["SITE", "APP", "ADMIN", "PROVA_PUBLICA", "VALIDACAO_QR"] }
+      },
+      "required": ["sessaoId", "rota", "origem"]
+    }
+  },
+  "firestore": {
+    "/planos/{planoId}": { "schema": { "$ref": "#/entities/Plano" }, "description": "Catálogo global de planos comerciais" },
+    "/adicionais/{adicionalId}": { "schema": { "$ref": "#/entities/Adicional" }, "description": "Catálogo global de serviços adicionais" },
+    "/nrs_globais/{nrId}": { "schema": { "$ref": "#/entities/NrGlobal" }, "description": "Catálogo global de NRs com variações e conteúdo linha por linha" },
+    "/modelos_certificado_globais/{modeloId}": { "schema": { "$ref": "#/entities/ModeloCertificadoGlobal" }, "description": "Modelos neutros gratuitos de certificados" },
+    "/notificacoes_admin/{notificacaoId}": { "schema": { "$ref": "#/entities/NotificacaoAdmin" }, "description": "Central de notificações do Super Admin" },
+    "/logs_acesso_analytics/{sessaoId}": { "schema": { "$ref": "#/entities/AnalyticsHeartbeat" }, "description": "Telemetria de acessos e heartbeat online" },
+    "/certificados_publicos/{codigoQr}": { "schema": { "$ref": "#/entities/CertificadoPublico" }, "description": "Validação pública permanente de QR Code" },
+    "/turmas_publicas/{tokenPublico}": { "schema": { "$ref": "#/entities/TurmaPublica" }, "description": "Gateway público de prova mobile" },
+    "/dossies_publicos/{tokenDossie}": { "schema": { "$ref": "#/entities/DossiePublico" }, "description": "Link temporário de dossiê do colaborador" },
+    "/empresas/{empresaId}": { "schema": { "$ref": "#/entities/Empresa" }, "description": "Tenants isolados por empresa_id" },
+    "/empresas/{empresaId}/membros/{uid}": { "schema": { "$ref": "#/entities/UsuarioTenant" }, "description": "Controle RBAC de membros da empresa" },
+    "/empresas/{empresaId}/faturas/{faturaId}": { "schema": { "$ref": "#/entities/FaturaTenant" }, "description": "Faturas e cobranças Asaas da empresa" },
+    "/empresas/{empresaId}/contratos_obras/{obraId}": { "schema": { "$ref": "#/entities/ContratoObra" }, "description": "Contratos e obras da empresa" },
+    "/empresas/{empresaId}/colaboradores/{colaboradorId}": { "schema": { "$ref": "#/entities/Colaborador" }, "description": "Colaboradores da empresa" },
+    "/empresas/{empresaId}/assinaturas_digitais/{assinaturaId}": { "schema": { "$ref": "#/entities/AssinaturaDigital" }, "description": "Assinaturas digitalizadas da empresa" },
+    "/empresas/{empresaId}/treinamentos_empresa/{treinamentoId}": { "schema": { "$ref": "#/entities/TreinamentoEmpresa" }, "description": "Treinamentos e NRs com conteúdo linha por linha" },
+    "/empresas/{empresaId}/banco_questoes/{questaoId}": { "schema": { "$ref": "#/entities/BancoQuestao" }, "description": "Banco de questões da empresa" },
+    "/empresas/{empresaId}/turmas_aplicacoes/{turmaId}": { "schema": { "$ref": "#/entities/TurmaAplicacao" }, "description": "Turmas e aplicações de provas" },
+    "/empresas/{empresaId}/provas_tentativas/{tentativaId}": { "schema": { "$ref": "#/entities/ProvaTentativa" }, "description": "Tentativas de prova e evidências" },
+    "/empresas/{empresaId}/certificados/{certificadoId}": { "schema": { "$ref": "#/entities/Certificado" }, "description": "Certificados emitidos imutáveis" },
+    "/empresas/{empresaId}/cartas_anuencia/{cartaId}": { "schema": { "$ref": "#/entities/CartaAnuencia" }, "description": "Cartas de anuência da empresa" }
+  }
+}
