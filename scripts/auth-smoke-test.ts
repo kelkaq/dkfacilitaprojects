@@ -16,6 +16,10 @@ const app = express();
 app.use(express.json());
 app.use(apiRouter);
 const server = app.listen(0, '127.0.0.1');
+await new Promise<void>((resolve, reject) => {
+  server.once('listening', resolve);
+  server.once('error', reject);
+});
 const address = server.address();
 if (!address || typeof address === 'string') throw new Error('Falha ao iniciar teste HTTP.');
 const base = `http://127.0.0.1:${address.port}`;
