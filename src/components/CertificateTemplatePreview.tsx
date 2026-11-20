@@ -1,16 +1,21 @@
 import React from 'react';
 import { QrCode } from 'lucide-react';
 import type { ModeloCertificadoCatalogo } from '../data/globalCatalogSeed.ts';
+import { formatDocumentWithLabel } from '../lib/brazilAddress.ts';
 
 interface Props {
   modelo: ModeloCertificadoCatalogo;
   empresaPreview?: {
     razaoSocial?: string;
     cnpj?: string;
+    tipoPessoa?: 'PF' | 'PJ';
+    exibirDocumento?: boolean;
     endereco?: string;
     logoUrl?: string | null;
     corPrimaria?: string;
     prefixoCertificado?: string;
+    telefoneRodape?: string;
+    emailRodape?: string;
   };
 }
 
@@ -38,10 +43,19 @@ export const CertificateTemplatePreview: React.FC<Props> = ({ modelo, empresaPre
     activeHeaderBg.toLowerCase() === '#0f172a' ||
     (moldura === 'corporativa-barra' && activeHeaderBg.toLowerCase() !== '#ffffff');
 
-  const razao = empresaPreview?.razaoSocial || 'Razão Social da Empresa Contratante';
-  const cnpj = empresaPreview?.cnpj || 'CNPJ dinâmico';
-  const endereco = empresaPreview?.endereco || 'Endereço da unidade';
+  const razao = empresaPreview?.razaoSocial?.trim() || 'Nome da Empresa ou Profissional';
+  const showDoc = empresaPreview?.exibirDocumento !== false;
+  const formattedDoc =
+    showDoc && empresaPreview?.cnpj
+      ? formatDocumentWithLabel(empresaPreview.cnpj, empresaPreview.tipoPessoa)
+      : '';
+  const endereco = empresaPreview?.endereco?.trim() || '';
+  const subtitleParts = [formattedDoc, endereco].filter(Boolean);
+  const subtitleLine = subtitleParts.join(' · ') || 'Identidade configurada em Configurações & Certificados';
   const prefixo = empresaPreview?.prefixoCertificado || 'CERT';
+  const footerContact = [empresaPreview?.telefoneRodape, empresaPreview?.emailRodape]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div
@@ -57,7 +71,7 @@ export const CertificateTemplatePreview: React.FC<Props> = ({ modelo, empresaPre
           {empresaPreview?.logoUrl ? (
             <img
               src={empresaPreview.logoUrl}
-              alt="Logo da empresa"
+              alt="Logo do certificado"
               referrerPolicy="no-referrer"
               className="h-7 max-w-[76px] object-contain rounded bg-white/95 px-1 py-0.5 shrink-0"
             />
@@ -85,7 +99,7 @@ export const CertificateTemplatePreview: React.FC<Props> = ({ modelo, empresaPre
                 isDarkHeader ? 'text-slate-200' : 'text-slate-500'
               }`}
             >
-              {cnpj} · {endereco}
+              {subtitleLine}
             </p>
           </div>
         </div>
@@ -99,7 +113,7 @@ export const CertificateTemplatePreview: React.FC<Props> = ({ modelo, empresaPre
       </div>
 
       {/* Corpo Frente */}
-      <div className="p-4 space-y-3">
+      <div className="p-4 space-y-3 bg-white">
         <div className="text-center space-y-1">
           <p className="text-[11px] font-medium tracking-wider text-slate-500">
             CERTIFICADO DE CAPACITAÇÃO
@@ -142,10 +156,12 @@ export const CertificateTemplatePreview: React.FC<Props> = ({ modelo, empresaPre
         </div>
       </div>
 
-      {/* Rodapé informativo do verso */}
-      <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500">
-        <span>Verso: Conteúdo programático em 1 ou 2 colunas automáticas</span>
-        <span className="font-mono text-slate-600">{moldura}</span>
+      {/* Rodapé informativo */}
+      <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 text-[11px] text-slate-500">
+        <span className="truncate">
+          {footerContact || 'Verso: Conteúdo programático em 1 ou 2 colunas automáticas'}
+        </span>
+        <span className="font-mono text-slate-600 shrink-0">{moldura}</span>
       </div>
     </div>
   );

@@ -17,6 +17,7 @@ import {
   deleteTreinamentoEmpresa,
   saveTreinamentoEmpresa,
 } from '../../services/operationalCrudService.ts';
+import { formatDocumentWithLabel } from '../../lib/brazilAddress.ts';
 
 interface NrsManagerModuleProps {
   empresa: EmpresaDoc;
@@ -843,8 +844,14 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
 
             <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-3 text-[9px] text-slate-500">
               <div className="min-w-0">
-                <p className="font-semibold text-slate-800 truncate">{empresa.razaoSocial}</p>
-                <p className="font-mono">CNPJ {empresa.cnpj}</p>
+                <p className="font-semibold text-slate-800 truncate">
+                  {empresa.certificadoNomeExibicao || empresa.nomeFantasia || empresa.razaoSocial}
+                </p>
+                {empresa.certificadoExibirDocumento !== false && (
+                  <p className="font-mono">
+                    {formatDocumentWithLabel(empresa.cnpj, empresa.tipoPessoa)}
+                  </p>
+                )}
                 <p className="truncate">{baseLegal || 'Conformidade com Normas Regulamentadoras MTE'}</p>
               </div>
               <div className="w-10 h-10 rounded border border-slate-300 bg-slate-50 flex items-center justify-center font-mono text-[8px] text-slate-500 shrink-0">

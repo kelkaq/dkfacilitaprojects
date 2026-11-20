@@ -26,6 +26,16 @@ export interface EmpresaDoc {
   whatsapp: string;
   cupomAplicado?: string | null;
   descontoCupomCentavos?: number | null;
+  // Dados separados para emissão de certificados (independentes do faturamento DK Facilita)
+  certificadoNomeExibicao?: string | null;
+  certificadoExibirDocumento?: boolean | null;
+  certificadoTelefoneRodape?: string | null;
+  certificadoEmailRodape?: string | null;
+  cep?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
   endereco?: string | null;
   cidade?: string | null;
   uf?: string | null;
@@ -90,6 +100,13 @@ export interface ObraDoc {
   nome: string;
   clienteFinal?: string | null;
   localizacao?: string | null;
+  cep?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
   ativo: boolean;
   createdAt?: Timestamp | null;
 }
@@ -106,6 +123,13 @@ export interface ColaboradorDoc {
   matricula?: string | null;
   email?: string | null;
   telefone?: string | null;
+  cep?: string | null;
+  logradouro?: string | null;
+  numero?: string | null;
+  complemento?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  uf?: string | null;
   ativo: boolean;
   createdAt?: Timestamp | null;
 }
@@ -218,6 +242,10 @@ export interface CertificadoDoc {
   snapshotEmpresa: {
     razaoSocial: string;
     cnpj: string;
+    tipoPessoa?: 'PF' | 'PJ' | null;
+    exibirDocumento?: boolean | null;
+    telefoneRodape?: string | null;
+    emailRodape?: string | null;
     endereco?: string;
     cidade?: string;
     uf?: string;

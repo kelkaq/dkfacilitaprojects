@@ -32,6 +32,12 @@ export interface RegisterCompanyInput {
   nomeAdministrador?: string;
   emailFinanceiro: string;
   whatsapp: string;
+  cep?: string;
+  logradouro?: string;
+  numero?: string;
+  complemento?: string;
+  bairro?: string;
+  endereco?: string;
   cidade?: string;
   uf?: string;
   plano: PlanoCatalogo;
@@ -91,7 +97,16 @@ export async function registerNewTenantCompany(
       typeof input.descontoCupomCentavos === 'number' && input.descontoCupomCentavos > 0
         ? Math.round(input.descontoCupomCentavos)
         : null,
-    endereco: null,
+    certificadoNomeExibicao: input.nomeFantasia?.trim() || input.razaoSocial.trim(),
+    certificadoExibirDocumento: true,
+    certificadoTelefoneRodape: input.whatsapp.trim(),
+    certificadoEmailRodape: input.emailFinanceiro.trim().toLowerCase(),
+    cep: input.cep?.trim() || null,
+    logradouro: input.logradouro?.trim() || null,
+    numero: input.numero?.trim() || null,
+    complemento: input.complemento?.trim() || null,
+    bairro: input.bairro?.trim() || null,
+    endereco: input.endereco?.trim() || null,
     cidade: input.cidade?.trim() || null,
     uf: input.uf?.trim().toUpperCase() || null,
     logoUrl: null,
@@ -182,16 +197,29 @@ export async function registerNewTenantCompany(
   }
 }
 
-export async function listMyEmpresas(isSuperAdmin: boolean): Promise<EmpresaDoc[]> {
+export async function listMyEmpresas(includeAllAsSuperAdmin = false): Promise<EmpresaDoc[]> {
   const user = auth.currentUser;
   if (!user) return [];
   const path = 'empresas';
   try {
-    const q = isSuperAdmin
+    const q = includeAllAsSuperAdmin
       ? query(collection(db, path))
       : query(collection(db, path), where('ownerUid', '==', user.uid));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ ...(d.data() as EmpresaDoc), id: d.id }));
+    const seenIds = new Set<string>();
+    const results: EmpresaDoc[] = [];
+    for (const d of snap.docs) {
+      if (seenIds.has(d.id)) continue;
+      seenIds.add(d.id);
+      const data = { ...(d.data() as EmpresaDoc), id: d.id };
+      // Filtra qualquer registro legado de testes com marca antiga
+      const combinedName = `${data.razaoSocial || ''} ${data.nomeFantasia || ''}`.toLowerCase();
+      if (!includeAllAsSuperAdmin && /\balfa\b/.test(combinedName)) {
+        continue;
+      }
+      results.push(data);
+    }
+    return results.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, path);
   }

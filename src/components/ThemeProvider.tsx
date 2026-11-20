@@ -9,7 +9,7 @@ interface ThemeContextValue {
   toggleTheme: () => void;
 }
 
-const STORAGE_KEY = 'dkfacilita_theme';
+const STORAGE_KEY = 'dkfacilita_theme_v2';
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: 'dark',

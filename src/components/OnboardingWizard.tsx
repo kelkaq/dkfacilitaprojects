@@ -1,8 +1,15 @@
-import React, { useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Trash2, Upload } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Trash2, Upload } from 'lucide-react';
 import type { GlobalCatalogSnapshot } from '../services/catalogService.ts';
 import type { EmpresaDoc } from '../types/domain.ts';
 import { updateEmpresaIdentidade } from '../services/operationalCrudService.ts';
+import {
+  detectDocumentKind,
+  formatDocumentWithLabel,
+  formatStructuredAddressLine,
+  type StructuredAddress,
+} from '../lib/brazilAddress.ts';
+import { ViaCepAddressFields } from './ViaCepAddressFields.tsx';
 import { CertificateTemplatePreview } from './CertificateTemplatePreview.tsx';
 import { ThemeToggleButton } from './ThemeProvider.tsx';
 
@@ -21,15 +28,30 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
+  const docKind = detectDocumentKind(empresa.cnpj, empresa.tipoPessoa);
+  const formattedDoc = formatDocumentWithLabel(empresa.cnpj, empresa.tipoPessoa);
+
   // Passo 1: Identidade visual e endereço para certificados
+  const [certNomeExibicao, setCertNomeExibicao] = useState(
+    empresa.certificadoNomeExibicao || empresa.nomeFantasia || empresa.razaoSocial || ''
+  );
+  const [exibirDocumento, setExibirDocumento] = useState(
+    empresa.certificadoExibirDocumento !== false
+  );
   const [logoUrl, setLogoUrl] = useState<string | null>(empresa.logoUrl || null);
   const [corPrimaria, setCorPrimaria] = useState(empresa.corPrimaria || '#0F172A');
   const [prefixoCertificado, setPrefixoCertificado] = useState(
     empresa.prefixoCertificado || 'CERT'
   );
-  const [endereco, setEndereco] = useState(empresa.endereco || '');
-  const [cidade, setCidade] = useState(empresa.cidade || '');
-  const [uf, setUf] = useState(empresa.uf || 'RJ');
+  const [addr, setAddr] = useState<StructuredAddress>({
+    cep: empresa.cep || '',
+    logradouro: empresa.logradouro || '',
+    numero: empresa.numero || '',
+    complemento: empresa.complemento || '',
+    bairro: empresa.bairro || '',
+    cidade: empresa.cidade || '',
+    uf: empresa.uf || '',
+  });
 
   // Passo 2: Modelo gratuito ou interesse em modelo próprio
   const [modeloId, setModeloId] = useState(
@@ -41,6 +63,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const enderecoFormatado = useMemo(() => {
+    const computed = formatStructuredAddressLine(addr);
+    return computed || empresa.endereco || '';
+  }, [addr, empresa.endereco]);
 
   const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,27 +93,32 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     setSaving(true);
     setError(null);
     try {
-      await updateEmpresaIdentidade(empresa.id, {
+      const cleanPrefix =
+        prefixoCertificado.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'CERT';
+      const displayName = certNomeExibicao.trim() || empresa.razaoSocial;
+      const patch = {
+        certificadoNomeExibicao: displayName,
+        nomeFantasia: displayName,
+        certificadoExibirDocumento: exibirDocumento,
         logoUrl,
         corPrimaria,
-        prefixoCertificado: prefixoCertificado.trim().toUpperCase() || 'CERT',
-        endereco: endereco.trim(),
-        cidade: cidade.trim(),
-        uf: uf.trim().toUpperCase(),
+        prefixoCertificado: cleanPrefix,
+        cep: addr.cep.trim() || null,
+        logradouro: addr.logradouro.trim() || null,
+        numero: addr.numero.trim() || null,
+        complemento: addr.complemento.trim() || null,
+        bairro: addr.bairro.trim() || null,
+        endereco: enderecoFormatado || null,
+        cidade: addr.cidade.trim() || null,
+        uf: addr.uf.trim().toUpperCase() || null,
         modeloCertificadoId: modeloId,
         onboardingConcluido: true,
-      });
+      };
+      await updateEmpresaIdentidade(empresa.id, patch);
 
       onCompleted({
         ...empresa,
-        logoUrl,
-        corPrimaria,
-        prefixoCertificado: prefixoCertificado.trim().toUpperCase() || 'CERT',
-        endereco: endereco.trim(),
-        cidade: cidade.trim(),
-        uf: uf.trim().toUpperCase(),
-        modeloCertificadoId: modeloId,
-        onboardingConcluido: true,
+        ...patch,
       });
     } catch (err) {
       setError(
@@ -143,19 +175,64 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           <div className="dk-glass-card rounded-2xl p-6 sm:p-8 space-y-6">
             <div>
               <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                Passo 1 — Logotipo, cor principal e dados de emissão
+                Passo 1 — Logotipo, cor principal e dados impressos nos certificados
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                Essas informações são aplicadas automaticamente no cabeçalho dos seus certificados
-                PDF e na página de provas dos colaboradores.
+                Você pode editar estes dados a qualquer momento no menu{' '}
+                <strong className="text-slate-900 dark:text-white">
+                  Configurações &amp; Certificados
+                </strong>
+                . Os dados de faturamento da conta permanecem separados.
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Nome Fantasia ou Nome Profissional nos Certificados
+                </label>
+                <input
+                  value={certNomeExibicao}
+                  onChange={(e) => setCertNomeExibicao(e.target.value)}
+                  placeholder="Nome que aparecerá no cabeçalho dos certificados"
+                  className={inputCls}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  {docKind} do Titular Confirmado
+                </label>
+                <input
+                  readOnly
+                  value={empresa.cnpj}
+                  className="w-full px-3.5 py-2 text-sm font-mono bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-600 dark:text-slate-400"
+                />
+              </div>
+
+              <label className="flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] cursor-pointer self-end">
+                <span className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200">
+                  {exibirDocumento ? (
+                    <Eye className="w-4 h-4 text-blue-500 shrink-0" />
+                  ) : (
+                    <EyeOff className="w-4 h-4 text-slate-400 shrink-0" />
+                  )}
+                  Exibir {docKind} nos certificados
+                </span>
+                <input
+                  type="checkbox"
+                  checked={exibirDocumento}
+                  onChange={(e) => setExibirDocumento(e.target.checked)}
+                  className="w-4 h-4 accent-blue-600"
+                />
+              </label>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Upload de Logo */}
               <div className="space-y-2.5">
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
-                  Logo da Empresa (PNG, JPG ou SVG até 140 KB)
+                  Logo Próprio (PNG, JPG ou SVG até 140 KB)
                 </label>
                 <div className="border border-dashed border-slate-300 dark:border-white/15 rounded-xl p-5 bg-slate-50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-3 text-center">
                   {logoUrl ? (
@@ -243,50 +320,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 pt-4 border-t border-slate-200/80 dark:border-white/10">
-              <div className="sm:col-span-3">
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  CNPJ Confirmado
-                </label>
-                <input
-                  readOnly
-                  value={empresa.cnpj}
-                  className="w-full px-3.5 py-2 text-sm font-mono bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-600 dark:text-slate-400"
-                />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Cidade
-                </label>
-                <input
-                  value={cidade}
-                  onChange={(e) => setCidade(e.target.value)}
-                  placeholder="Cidade da sede"
-                  className={inputCls}
-                />
-              </div>
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  UF
-                </label>
-                <input
-                  value={uf}
-                  maxLength={2}
-                  onChange={(e) => setUf(e.target.value.toUpperCase())}
-                  className={`${inputCls} font-mono`}
-                />
-              </div>
-              <div className="sm:col-span-6">
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Endereço completo (exibido no rodapé/cabeçalho do certificado)
-                </label>
-                <input
-                  value={endereco}
-                  onChange={(e) => setEndereco(e.target.value)}
-                  placeholder="Av. / Rua, número, bairro"
-                  className={inputCls}
-                />
-              </div>
+            <div className="pt-4 border-t border-slate-200/80 dark:border-white/10 space-y-3">
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                Endereço impresso nos certificados (busca automática por CEP)
+              </p>
+              <ViaCepAddressFields value={addr} onChange={setAddr} />
             </div>
 
             <div className="flex justify-end pt-2">
@@ -311,8 +349,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 Todos os modelos abaixo são gratuitos e já exibem a identidade visual configurada no
-                Passo 1. Você também pode contratar a implantação de um Modelo Próprio (.pptx)
-                exclusivo.
+                Passo 1. Você pode trocar o modelo a qualquer momento em{' '}
+                <strong className="text-slate-900 dark:text-white">
+                  Configurações &amp; Certificados
+                </strong>
+                .
               </p>
             </div>
 
@@ -345,9 +386,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                       <CertificateTemplatePreview
                         modelo={modelo}
                         empresaPreview={{
-                          razaoSocial: empresa.razaoSocial,
+                          razaoSocial: certNomeExibicao.trim() || empresa.razaoSocial,
                           cnpj: empresa.cnpj,
-                          endereco: endereco || `${cidade}${uf ? `/${uf}` : ''}`,
+                          tipoPessoa: docKind === 'CPF' ? 'PF' : 'PJ',
+                          exibirDocumento,
+                          endereco: enderecoFormatado,
                           logoUrl,
                           corPrimaria,
                           prefixoCertificado,
@@ -407,28 +450,28 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 Passo 3 — Confirmação final de primeiro acesso
               </h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                Revise os dados abaixo. Você poderá ajustar logotipo, cores e modelo a qualquer
-                momento nas configurações da empresa.
+                Revise os dados abaixo. Você poderá ajustar logotipo, cores, modelo e assinaturas a
+                qualquer momento em Configurações &amp; Certificados.
               </p>
             </div>
 
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-5 text-xs">
               <div>
-                <dt className="text-slate-500 dark:text-slate-400">Empresa</dt>
+                <dt className="text-slate-500 dark:text-slate-400">Nome nos Certificados</dt>
                 <dd className="mt-0.5 font-semibold text-slate-900 dark:text-white">
-                  {empresa.razaoSocial}
+                  {certNomeExibicao.trim() || empresa.razaoSocial}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500 dark:text-slate-400">CNPJ</dt>
+                <dt className="text-slate-500 dark:text-slate-400">{docKind} nos Certificados</dt>
                 <dd className="mt-0.5 font-mono text-slate-900 dark:text-slate-200">
-                  {empresa.cnpj}
+                  {exibirDocumento ? formattedDoc : `Oculto nos certificados (${docKind} privado)`}
                 </dd>
               </div>
               <div>
                 <dt className="text-slate-500 dark:text-slate-400">Endereço nos Certificados</dt>
                 <dd className="mt-0.5 text-slate-900 dark:text-slate-200">
-                  {endereco || 'Não informado'} {cidade ? `· ${cidade}/${uf}` : ''}
+                  {enderecoFormatado || 'Não informado'}
                 </dd>
               </div>
               <div>

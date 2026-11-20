@@ -36,6 +36,13 @@ import {
   saveAssinaturaDigital,
 } from '../../services/operationalCrudService.ts';
 import { SignaturePadCanvas } from './SignaturePadCanvas.tsx';
+import {
+  EMPTY_ADDRESS,
+  formatDocumentWithLabel,
+  formatStructuredAddressLine,
+  type StructuredAddress,
+} from '../../lib/brazilAddress.ts';
+import { ViaCepAddressFields } from '../ViaCepAddressFields.tsx';
 
 interface ColaboradoresDossieModuleProps {
   empresa: EmpresaDoc;
@@ -81,12 +88,13 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
   const [cFuncao, setCFuncao] = useState('');
   const [cObraId, setCObraId] = useState('');
   const [cTelefone, setCTelefone] = useState('');
+  const [cAddr, setCAddr] = useState<StructuredAddress>({ ...EMPTY_ADDRESS });
 
   // Nova Obra
   const [oCodigo, setOCodigo] = useState('');
   const [oNome, setONome] = useState('');
   const [oCliente, setOCliente] = useState('');
-  const [oLocal, setOLocal] = useState('');
+  const [oAddr, setOAddr] = useState<StructuredAddress>({ ...EMPTY_ADDRESS });
 
   // Nova Carta de Anuência
   const [showCartaForm, setShowCartaForm] = useState(false);
@@ -163,6 +171,13 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
         contratoObraId: obra?.id || null,
         contratoObraNome: obra ? `${obra.codigo} — ${obra.nome}` : null,
         telefone: cTelefone,
+        cep: cAddr.cep,
+        logradouro: cAddr.logradouro,
+        numero: cAddr.numero,
+        complemento: cAddr.complemento,
+        bairro: cAddr.bairro,
+        cidade: cAddr.cidade,
+        uf: cAddr.uf,
       });
       await onRefresh();
       setSelectedColabId(created.id);
@@ -171,6 +186,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
       setCCpf('');
       setCFuncao('');
       setCTelefone('');
+      setCAddr({ ...EMPTY_ADDRESS });
       setFeedback({ type: 'ok', text: `Colaborador ${created.nome} cadastrado com sucesso.` });
     } catch (err) {
       setFeedback({
@@ -208,13 +224,20 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
         codigo: oCodigo,
         nome: oNome,
         clienteFinal: oCliente,
-        localizacao: oLocal,
+        localizacao: formatStructuredAddressLine(oAddr),
+        cep: oAddr.cep,
+        logradouro: oAddr.logradouro,
+        numero: oAddr.numero,
+        complemento: oAddr.complemento,
+        bairro: oAddr.bairro,
+        cidade: oAddr.cidade,
+        uf: oAddr.uf,
       });
       await onRefresh();
       setOCodigo('');
       setONome('');
       setOCliente('');
-      setOLocal('');
+      setOAddr({ ...EMPTY_ADDRESS });
       setFeedback({ type: 'ok', text: 'Contrato / Obra cadastrado com sucesso.' });
     } catch (err) {
       setFeedback({
@@ -343,7 +366,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
   th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
   th { background: #f8fafc; }
 </style></head><body>
-  <p class="meta">${empresa.razaoSocial} · CNPJ ${empresa.cnpj}</p>
+  <p class="meta">${empresa.certificadoNomeExibicao || empresa.nomeFantasia || empresa.razaoSocial}${empresa.certificadoExibirDocumento !== false ? ` · ${formatDocumentWithLabel(empresa.cnpj, empresa.tipoPessoa)}` : ''}</p>
   <h1>Dossiê Unificado — ${activeColab.nome}</h1>
   <p class="meta">CPF: ${activeColab.cpf} · Função: ${activeColab.funcao} · Obra: ${activeColab.contratoObraNome || 'Geral'}</p>
   <h2>Certificados Emitidos (${colabCerts.length})</h2>
@@ -478,12 +501,15 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                   ))}
                 </select>
               </div>
-              <div className="flex items-center justify-between gap-3">
+              <div className="pt-2 border-t border-slate-200 dark:border-white/10">
+                <ViaCepAddressFields value={cAddr} onChange={setCAddr} compact />
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <input
                   value={cTelefone}
                   onChange={(e) => setCTelefone(e.target.value)}
                   placeholder="WhatsApp / Telefone (opcional)"
-                  className="w-64 px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
+                  className="w-64 px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#060913] text-slate-900 dark:text-white"
                 />
                 <button
                   type="submit"
@@ -878,12 +904,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
               placeholder="Contratante / Cliente final (opcional)"
               className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
             />
-            <input
-              value={oLocal}
-              onChange={(e) => setOLocal(e.target.value)}
-              placeholder="Cidade / Polo industrial (opcional)"
-              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
-            />
+            <ViaCepAddressFields value={oAddr} onChange={setOAddr} compact />
             <button
               type="submit"
               disabled={busy}

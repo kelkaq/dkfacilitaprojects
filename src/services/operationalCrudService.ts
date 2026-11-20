@@ -55,9 +55,18 @@ export async function updateEmpresaIdentidade(
   patch: Partial<{
     nomeFantasia: string;
     whatsapp: string;
-    endereco: string;
-    cidade: string;
-    uf: string;
+    certificadoNomeExibicao: string | null;
+    certificadoExibirDocumento: boolean;
+    certificadoTelefoneRodape: string | null;
+    certificadoEmailRodape: string | null;
+    cep: string | null;
+    logradouro: string | null;
+    numero: string | null;
+    complemento: string | null;
+    bairro: string | null;
+    endereco: string | null;
+    cidade: string | null;
+    uf: string | null;
     logoUrl: string | null;
     corPrimaria: string;
     corSecundaria: string;
@@ -96,7 +105,19 @@ export async function listObras(empresaId: string): Promise<ObraDoc[]> {
 export async function createObra(
   empresa: EmpresaDoc,
   limits: EffectivePlanLimits,
-  input: { codigo: string; nome: string; clienteFinal?: string; localizacao?: string }
+  input: {
+    codigo: string;
+    nome: string;
+    clienteFinal?: string;
+    localizacao?: string;
+    cep?: string;
+    logradouro?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    cidade?: string;
+    uf?: string;
+  }
 ): Promise<ObraDoc> {
   assertTenantOperationalAccess(empresa);
   const atuais = await listObras(empresa.id);
@@ -115,6 +136,13 @@ export async function createObra(
     nome: input.nome.trim(),
     clienteFinal: input.clienteFinal?.trim() || null,
     localizacao: input.localizacao?.trim() || null,
+    cep: input.cep?.trim() || null,
+    logradouro: input.logradouro?.trim() || null,
+    numero: input.numero?.trim() || null,
+    complemento: input.complemento?.trim() || null,
+    bairro: input.bairro?.trim() || null,
+    cidade: input.cidade?.trim() || null,
+    uf: input.uf?.trim().toUpperCase() || null,
     ativo: true,
     createdAt: now,
     updatedAt: now,
@@ -164,6 +192,13 @@ export async function createColaborador(
     matricula?: string;
     email?: string;
     telefone?: string;
+    cep?: string;
+    logradouro?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    cidade?: string;
+    uf?: string;
   }
 ): Promise<ColaboradorDoc> {
   assertTenantOperationalAccess(empresa);
@@ -193,6 +228,13 @@ export async function createColaborador(
     matricula: input.matricula?.trim() || null,
     email: input.email?.trim() || null,
     telefone: input.telefone?.trim() || null,
+    cep: input.cep?.trim() || null,
+    logradouro: input.logradouro?.trim() || null,
+    numero: input.numero?.trim() || null,
+    complemento: input.complemento?.trim() || null,
+    bairro: input.bairro?.trim() || null,
+    cidade: input.cidade?.trim() || null,
+    uf: input.uf?.trim().toUpperCase() || null,
     ativo: true,
     createdAt: now,
     updatedAt: now,
@@ -260,6 +302,18 @@ export async function saveAssinaturaDigital(
     return { ...payload, id: sigId, createdAt: null };
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export async function deleteAssinaturaDigital(
+  empresaId: string,
+  assinaturaId: string
+): Promise<void> {
+  const path = `empresas/${empresaId}/assinaturas_digitais/${assinaturaId}`;
+  try {
+    await deleteDoc(doc(db, 'empresas', empresaId, 'assinaturas_digitais', assinaturaId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 
@@ -505,32 +559,46 @@ export async function createTurma(
   assertTenantOperationalAccess(empresa);
   const turmaId = genId('trm');
   const codigoTurma = `T-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const tokenPublico = `PRV-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+  const randomSuffix = `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .slice(0, 10)
+    .toUpperCase()
+    .padEnd(10, 'X');
+  const tokenPublico = `PRV-${randomSuffix}`;
   const now = serverTimestamp();
 
-  const questoes = await listQuestoes(empresa.id, treinamento.id);
+  const questoes = await listQuestoes(empresa.id, treinamento.id).catch(() => []);
+
+  const safeCarga = Math.max(1, Math.min(500, Math.round(Number(treinamento.cargaHorariaHoras) || 8)));
+  const safeValidade = Math.max(1, Math.min(120, Math.round(Number(treinamento.validadeMeses) || 24)));
+  const safeNotaMinima = Math.max(0, Math.min(100, Math.round(Number(treinamento.notaMinimaAprovacao ?? 70))));
+  const safeNrCodigo = (treinamento.nrCodigo || 'NR').trim().slice(0, 20);
+  const safeTitulo = (
+    input.titulo.trim() || `${safeNrCodigo} — ${treinamento.variacaoNome || 'Treinamento'}`
+  ).slice(0, 200);
+  const safeData = (input.dataRealizacaoIso || new Date().toISOString().slice(0, 10)).slice(0, 40);
 
   const turmaPayload = {
     empresaId: empresa.id,
     treinamentoId: treinamento.id,
-    treinamentoResumo: `${treinamento.nrCodigo} — ${treinamento.variacaoNome}`,
-    nrCodigo: treinamento.nrCodigo,
-    cargaHorariaHoras: treinamento.cargaHorariaHoras,
-    validadeMeses: treinamento.validadeMeses,
-    notaMinimaAprovacao: treinamento.notaMinimaAprovacao,
+    treinamentoResumo: `${safeNrCodigo} — ${treinamento.variacaoNome || ''}`.slice(0, 220),
+    nrCodigo: safeNrCodigo,
+    cargaHorariaHoras: safeCarga,
+    validadeMeses: safeValidade,
+    notaMinimaAprovacao: safeNotaMinima,
     contratoObraId: input.contratoObraId || null,
-    contratoObraNome: input.contratoObraNome || null,
-    instrutorNome: input.instrutorNome?.trim() || null,
-    instrutorRegistro: input.instrutorRegistro?.trim() || null,
-    rtNome: input.rtNome?.trim() || null,
-    rtRegistro: input.rtRegistro?.trim() || null,
+    contratoObraNome: input.contratoObraNome ? input.contratoObraNome.slice(0, 180) : null,
+    instrutorNome: input.instrutorNome?.trim().slice(0, 140) || null,
+    instrutorRegistro: input.instrutorRegistro?.trim().slice(0, 80) || null,
+    rtNome: input.rtNome?.trim().slice(0, 140) || null,
+    rtRegistro: input.rtRegistro?.trim().slice(0, 80) || null,
     codigoTurma,
-    titulo: input.titulo.trim(),
-    dataRealizacaoIso: input.dataRealizacaoIso,
-    localRealizacao: input.localRealizacao?.trim() || null,
+    titulo: safeTitulo.length >= 3 ? safeTitulo : `Turma ${safeTitulo}`,
+    dataRealizacaoIso: safeData,
+    localRealizacao: input.localRealizacao?.trim().slice(0, 200) || null,
     tokenPublico,
     modoIdentificacao: input.modoIdentificacao,
-    pinAcesso: input.pinAcesso?.trim() || null,
+    pinAcesso: input.pinAcesso?.trim().slice(0, 16) || null,
     status: 'ABERTA' as StatusTurma,
     createdAt: now,
     updatedAt: now,
@@ -538,23 +606,41 @@ export async function createTurma(
 
   try {
     await setDoc(doc(db, 'empresas', empresa.id, 'turmas_aplicacoes', turmaId), turmaPayload);
+  } catch (error) {
+    handleFirestoreError(
+      error,
+      OperationType.CREATE,
+      `empresas/${empresa.id}/turmas_aplicacoes/${turmaId}`
+    );
+  }
 
-    // Publica gateway seguro em /turmas_publicas/{tokenPublico}
+  try {
+    const safeLogo =
+      empresa.logoUrl && empresa.logoUrl.length <= 420000 ? empresa.logoUrl : null;
+    const displayBrandName = (
+      empresa.certificadoNomeExibicao ||
+      empresa.nomeFantasia ||
+      empresa.razaoSocial ||
+      'Empresa Emissora'
+    )
+      .trim()
+      .slice(0, 200);
+
     await setDoc(doc(db, 'turmas_publicas', tokenPublico), {
       tokenPublico,
       empresaId: empresa.id,
       turmaId,
-      empresaRazaoSocial: empresa.razaoSocial,
-      empresaCorPrimaria: empresa.corPrimaria,
-      empresaLogoUrl: empresa.logoUrl || null,
+      empresaRazaoSocial: displayBrandName.length >= 2 ? displayBrandName : 'Empresa',
+      empresaCorPrimaria: (empresa.corPrimaria || '#0F172A').slice(0, 16),
+      empresaLogoUrl: safeLogo,
       titulo: turmaPayload.titulo,
-      nrCodigo: treinamento.nrCodigo,
-      cargaHorariaHoras: treinamento.cargaHorariaHoras,
-      notaMinimaAprovacao: treinamento.notaMinimaAprovacao,
+      nrCodigo: safeNrCodigo,
+      cargaHorariaHoras: safeCarga,
+      notaMinimaAprovacao: safeNotaMinima,
       modoIdentificacao: input.modoIdentificacao,
       exigePin: input.modoIdentificacao !== 'CPF',
-      pinHash: input.pinAcesso?.trim() || null,
-      questoesPublicas: questoes.map((q) => ({
+      pinHash: turmaPayload.pinAcesso,
+      questoesPublicas: questoes.slice(0, 50).map((q) => ({
         id: q.id,
         enunciado: q.enunciado,
         alternativas: q.alternativas,
@@ -563,11 +649,11 @@ export async function createTurma(
       status: 'ABERTA',
       updatedAt: serverTimestamp(),
     });
-
-    return { ...turmaPayload, id: turmaId, createdAt: null };
   } catch (error) {
-    handleFirestoreError(error, OperationType.CREATE, `empresas/${empresa.id}/turmas_aplicacoes/${turmaId}`);
+    handleFirestoreError(error, OperationType.CREATE, `turmas_publicas/${tokenPublico}`);
   }
+
+  return { ...turmaPayload, id: turmaId, createdAt: null };
 }
 
 export async function updateTurmaAndPublicGateway(params: {
@@ -839,9 +925,19 @@ export async function issueCertificadoImutavel(params: {
     cargaHorariaMin: l.cargaHorariaMin ?? null,
   }));
 
+  const certDisplayName =
+    params.empresa.certificadoNomeExibicao?.trim() ||
+    params.empresa.nomeFantasia?.trim() ||
+    params.empresa.razaoSocial;
+  const exibirDocumento = params.empresa.certificadoExibirDocumento !== false;
+
   const snapshotEmpresa = {
-    razaoSocial: params.empresa.razaoSocial,
+    razaoSocial: certDisplayName,
     cnpj: params.empresa.cnpj,
+    tipoPessoa: params.empresa.tipoPessoa || null,
+    exibirDocumento,
+    telefoneRodape: params.empresa.certificadoTelefoneRodape?.trim() || null,
+    emailRodape: params.empresa.certificadoEmailRodape?.trim() || null,
     endereco: params.empresa.endereco || undefined,
     cidade: params.empresa.cidade || undefined,
     uf: params.empresa.uf || undefined,
@@ -897,8 +993,8 @@ export async function issueCertificadoImutavel(params: {
       treinamentoTitulo: certPayload.treinamentoTitulo,
       colaboradorNome: params.colaborador.nome,
       colaboradorCpfMascarado: maskCpfClient(params.colaborador.cpf),
-      empresaRazaoSocial: params.empresa.razaoSocial,
-      empresaCnpj: params.empresa.cnpj,
+      empresaRazaoSocial: certDisplayName,
+      empresaCnpj: exibirDocumento ? params.empresa.cnpj : null,
       cargaHorariaHoras: params.treinamento.cargaHorariaHoras,
       dataRealizacao: dataRealizacaoIso,
       dataValidade: dataValidadeIso,

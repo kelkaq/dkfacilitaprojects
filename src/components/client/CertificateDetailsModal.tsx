@@ -125,6 +125,16 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
       empresa: {
         razaoSocial: certificado.snapshotEmpresa.razaoSocial,
         cnpj: certificado.snapshotEmpresa.cnpj,
+        tipoPessoa: certificado.snapshotEmpresa.tipoPessoa ?? empresa.tipoPessoa,
+        exibirDocumento:
+          certificado.snapshotEmpresa.exibirDocumento ??
+          empresa.certificadoExibirDocumento !== false,
+        telefoneRodape:
+          certificado.snapshotEmpresa.telefoneRodape ??
+          empresa.certificadoTelefoneRodape ??
+          undefined,
+        emailRodape:
+          certificado.snapshotEmpresa.emailRodape ?? empresa.certificadoEmailRodape ?? undefined,
         endereco: certificado.snapshotEmpresa.endereco,
         cidade: certificado.snapshotEmpresa.cidade,
         uf: certificado.snapshotEmpresa.uf,
@@ -201,6 +211,18 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
           empresa: {
             razaoSocial: certificado.snapshotEmpresa.razaoSocial,
             cnpj: certificado.snapshotEmpresa.cnpj,
+            tipoPessoa: certificado.snapshotEmpresa.tipoPessoa ?? empresa.tipoPessoa,
+            exibirDocumento:
+              certificado.snapshotEmpresa.exibirDocumento ??
+              empresa.certificadoExibirDocumento !== false,
+            telefoneRodape:
+              certificado.snapshotEmpresa.telefoneRodape ??
+              empresa.certificadoTelefoneRodape ??
+              undefined,
+            emailRodape:
+              certificado.snapshotEmpresa.emailRodape ??
+              empresa.certificadoEmailRodape ??
+              undefined,
             endereco: certificado.snapshotEmpresa.endereco,
             cidade: certificado.snapshotEmpresa.cidade,
             uf: certificado.snapshotEmpresa.uf,

@@ -39,6 +39,10 @@ export interface CertificateRenderPayload {
   snapshotEmpresa: {
     razaoSocial: string;
     cnpj: string;
+    tipoPessoa?: 'PF' | 'PJ' | null;
+    exibirDocumento?: boolean | null;
+    telefoneRodape?: string | null;
+    emailRodape?: string | null;
     endereco?: string;
     cidade?: string;
     uf?: string;
@@ -70,6 +74,10 @@ export interface ComprovanteAvaliacaoPayload {
   empresa: {
     razaoSocial: string;
     cnpj: string;
+    tipoPessoa?: 'PF' | 'PJ' | null;
+    exibirDocumento?: boolean | null;
+    telefoneRodape?: string | null;
+    emailRodape?: string | null;
     endereco?: string;
     cidade?: string;
     uf?: string;
@@ -235,8 +243,34 @@ function formatEmpresaAddress(emp: {
 }): string {
   const parts: string[] = [];
   if (emp.endereco) parts.push(emp.endereco);
-  if (emp.cidade) parts.push(`${emp.cidade}${emp.uf ? `/${emp.uf}` : ''}`);
+  if (emp.cidade) {
+    const cityUf = `${emp.cidade}${emp.uf ? `/${emp.uf}` : ''}`;
+    if (!emp.endereco || !emp.endereco.toLowerCase().includes(emp.cidade.toLowerCase())) {
+      parts.push(cityUf);
+    }
+  }
   return parts.join(' — ');
+}
+
+function formatIssuerDocument(emp: {
+  cnpj?: string;
+  tipoPessoa?: 'PF' | 'PJ' | null;
+  exibirDocumento?: boolean | null;
+}): string {
+  if (emp.exibirDocumento === false) return '';
+  const clean = (emp.cnpj || '').trim();
+  if (!clean) return '';
+  const digits = clean.replace(/\D/g, '');
+  const label =
+    emp.tipoPessoa === 'PF' ? 'CPF' : emp.tipoPessoa === 'PJ' ? 'CNPJ' : digits.length <= 11 ? 'CPF' : 'CNPJ';
+  return `${label} ${clean}`;
+}
+
+function formatIssuerContact(emp: {
+  telefoneRodape?: string | null;
+  emailRodape?: string | null;
+}): string {
+  return [emp.telefoneRodape?.trim(), emp.emailRodape?.trim()].filter(Boolean).join(' · ');
 }
 
 function computeIntegrityHash(seed: string): string {
@@ -426,7 +460,11 @@ export async function renderCertificateFrontAndBackHtml(
           ${emp.logoUrl ? `<img src="${escapeHtml(emp.logoUrl)}" alt="Logo da Empresa" />` : ''}
           <div>
             <div class="brand-title">${escapeHtml(emp.razaoSocial)}</div>
-            <div class="brand-sub">CNPJ ${escapeHtml(emp.cnpj)}${fullAddress ? ` · ${escapeHtml(fullAddress)}` : ''}</div>
+            ${
+              [formatIssuerDocument(emp), fullAddress].filter(Boolean).length > 0
+                ? `<div class="brand-sub">${escapeHtml([formatIssuerDocument(emp), fullAddress].filter(Boolean).join(' · '))}</div>`
+                : ''
+            }
           </div>
         </div>
         <div class="cert-code">
@@ -515,8 +553,14 @@ export async function renderCertificateFrontAndBackHtml(
 
       <div class="verso-footer">
         <div>
-          <div><strong>${escapeHtml(emp.razaoSocial)}</strong> · CNPJ ${escapeHtml(emp.cnpj)}</div>
-          ${fullAddress ? `<div>Endereço: ${escapeHtml(fullAddress)}</div>` : ''}
+          <div><strong>${escapeHtml(emp.razaoSocial)}</strong>${formatIssuerDocument(emp) ? ` · ${escapeHtml(formatIssuerDocument(emp))}` : ''}</div>
+          ${
+            [fullAddress ? `Endereço: ${fullAddress}` : '', formatIssuerContact(emp)]
+              .filter(Boolean)
+              .length > 0
+              ? `<div>${escapeHtml([fullAddress ? `Endereço: ${fullAddress}` : '', formatIssuerContact(emp)].filter(Boolean).join(' · '))}</div>`
+              : ''
+          }
           <div>Validação pública permanente: <strong>${escapeHtml(validationUrl)}</strong> · Hash SHA-256: <span style="font-family:monospace">${integrityHash}</span></div>
         </div>
         <div class="qr-box">
@@ -641,7 +685,7 @@ export async function renderComprovanteAvaliacaoHtml(
         ${emp.logoUrl ? `<img src="${escapeHtml(emp.logoUrl)}" alt="Logo" />` : ''}
         <div>
           <div class="title">Comprovante Individual de Avaliação</div>
-          <div class="sub">${escapeHtml(emp.razaoSocial)} · CNPJ ${escapeHtml(emp.cnpj)}</div>
+          <div class="sub">${escapeHtml(emp.razaoSocial)}${formatIssuerDocument(emp) ? ` · ${escapeHtml(formatIssuerDocument(emp))}` : ''}</div>
         </div>
       </div>
       <div class="code-box">
@@ -873,7 +917,7 @@ export async function renderDossieAplicacaoHtml(
         ${emp.logoUrl ? `<img src="${escapeHtml(emp.logoUrl)}" alt="Logo" style="max-height:42px;max-width:120px;object-fit:contain" />` : ''}
         <div>
           <div class="title">Dossiê Completo da Aplicação</div>
-          <div class="sub">${escapeHtml(emp.razaoSocial)} · CNPJ ${escapeHtml(emp.cnpj)}</div>
+          <div class="sub">${escapeHtml(emp.razaoSocial)}${formatIssuerDocument(emp) ? ` · ${escapeHtml(formatIssuerDocument(emp))}` : ''}</div>
         </div>
       </div>
       <div class="mono" style="text-align:right;font-size:11px">
@@ -997,7 +1041,7 @@ export async function renderCartaAnuenciaHtml(
     </div>
 
     <div class="info-box">
-      <div><div class="label">Empresa Emissora</div><div class="val">${escapeHtml(emp.razaoSocial)} (CNPJ ${escapeHtml(emp.cnpj)})</div></div>
+      <div><div class="label">Empresa Emissora</div><div class="val">${escapeHtml(emp.razaoSocial)}${formatIssuerDocument(emp) ? ` (${escapeHtml(formatIssuerDocument(emp))})` : ''}</div></div>
       <div><div class="label">Funcionário Autorizado</div><div class="val">${escapeHtml(col.nome)} · CPF ${escapeHtml(col.cpf)}</div></div>
       <div><div class="label">Função Exercida</div><div class="val">${escapeHtml(col.funcao)}</div></div>
       <div><div class="label">Período / Local de Referência</div><div class="val">${escapeHtml(c.periodoRealizacao)}${c.localRealizacao ? ` · ${escapeHtml(c.localRealizacao)}` : ''}</div></div>
@@ -1127,7 +1171,7 @@ export function renderListaPresencaHtml(payload: ListaPresencaPayload): { html: 
     <div class="header">
       <div>
         <div class="title">${isOficial ? 'Lista Oficial de Presença' : 'Relatório de Aplicação e Status dos Participantes'}</div>
-        <div class="sub">${escapeHtml(emp.razaoSocial)} · CNPJ ${escapeHtml(emp.cnpj)}</div>
+        <div class="sub">${escapeHtml(emp.razaoSocial)}${formatIssuerDocument(emp) ? ` · ${escapeHtml(formatIssuerDocument(emp))}` : ''}</div>
       </div>
       <div class="mono" style="text-align:right;font-size:11px">
         <div><strong>${escapeHtml(t.codigoTurma)}</strong></div>

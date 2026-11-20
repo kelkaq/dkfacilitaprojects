@@ -72,6 +72,7 @@ interface TurmasProvasModuleProps {
     nome?: string;
     colaboradorId?: string;
   }) => void;
+  onGoConfiguracoesResponsaveis?: () => void;
 }
 
 type TurmaTab = 'participantes' | 'link_qr' | 'questoes' | 'evidencias';
@@ -105,6 +106,7 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
   onOpenCertificate,
   onOpenVectorDocument,
   onOpenPublicExam,
+  onGoConfiguracoesResponsaveis,
 }) => {
   const [selectedTurmaId, setSelectedTurmaId] = useState<string | null>(turmas[0]?.id ?? null);
   const [activeTab, setActiveTab] = useState<TurmaTab>('participantes');
@@ -116,8 +118,10 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
   const [newTitulo, setNewTitulo] = useState('');
   const [newDataIso, setNewDataIso] = useState(new Date().toISOString().slice(0, 10));
   const [newLocal, setNewLocal] = useState('');
+  const [newInstrutorSigId, setNewInstrutorSigId] = useState('');
   const [newInstrutor, setNewInstrutor] = useState('');
   const [newInstrutorReg, setNewInstrutorReg] = useState('');
+  const [newRtSigId, setNewRtSigId] = useState('');
   const [newRt, setNewRt] = useState('');
   const [newRtReg, setNewRtReg] = useState('');
   const [newModo, setNewModo] = useState<ModoIdentificacaoProva>('CPF_PIN_SELFIE');
@@ -417,8 +421,13 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
       const res = await renderDocumentVectorHtml('/api/documents/render-lista-presenca', {
         modo,
         empresa: {
-          razaoSocial: empresa.razaoSocial,
+          razaoSocial:
+            empresa.certificadoNomeExibicao || empresa.nomeFantasia || empresa.razaoSocial,
           cnpj: empresa.cnpj,
+          tipoPessoa: empresa.tipoPessoa,
+          exibirDocumento: empresa.certificadoExibirDocumento !== false,
+          telefoneRodape: empresa.certificadoTelefoneRodape || undefined,
+          emailRodape: empresa.certificadoEmailRodape || undefined,
           endereco: empresa.endereco || undefined,
           cidade: empresa.cidade || undefined,
           uf: empresa.uf || undefined,
@@ -504,8 +513,13 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
         codigoDossie,
         validationBaseUrl: window.location.origin,
         empresa: {
-          razaoSocial: empresa.razaoSocial,
+          razaoSocial:
+            empresa.certificadoNomeExibicao || empresa.nomeFantasia || empresa.razaoSocial,
           cnpj: empresa.cnpj,
+          tipoPessoa: empresa.tipoPessoa,
+          exibirDocumento: empresa.certificadoExibirDocumento !== false,
+          telefoneRodape: empresa.certificadoTelefoneRodape || undefined,
+          emailRodape: empresa.certificadoEmailRodape || undefined,
           endereco: empresa.endereco || undefined,
           cidade: empresa.cidade || undefined,
           uf: empresa.uf || undefined,
@@ -561,8 +575,13 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
         codigoEvidencia: evdCode,
         validationBaseUrl: window.location.origin,
         empresa: {
-          razaoSocial: empresa.razaoSocial,
+          razaoSocial:
+            empresa.certificadoNomeExibicao || empresa.nomeFantasia || empresa.razaoSocial,
           cnpj: empresa.cnpj,
+          tipoPessoa: empresa.tipoPessoa,
+          exibirDocumento: empresa.certificadoExibirDocumento !== false,
+          telefoneRodape: empresa.certificadoTelefoneRodape || undefined,
+          emailRodape: empresa.certificadoEmailRodape || undefined,
           endereco: empresa.endereco || undefined,
           cidade: empresa.cidade || undefined,
           uf: empresa.uf || undefined,
@@ -980,47 +999,103 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
-                Instrutor (Nome)
-              </label>
-              <input
-                value={newInstrutor}
-                onChange={(e) => setNewInstrutor(e.target.value)}
-                placeholder="Marcos Silva"
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                  Instrutor / TST
+                </label>
+                {onGoConfiguracoesResponsaveis && (
+                  <button
+                    type="button"
+                    onClick={onGoConfiguracoesResponsaveis}
+                    className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  >
+                    + Cadastrar
+                  </button>
+                )}
+              </div>
+              <select
+                value={newInstrutorSigId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setNewInstrutorSigId(id);
+                  const found = instrutorSigs.find((s) => s.id === id);
+                  setNewInstrutor(found?.nomeSignatario || '');
+                  setNewInstrutorReg(found?.registro || '');
+                }}
                 className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/15 rounded-lg bg-white dark:bg-[#0B1120] text-slate-900 dark:text-slate-100"
-              />
+              >
+                <option value="">
+                  {instrutorSigs.length === 0
+                    ? 'Nenhum Instrutor cadastrado — cadastre em Configurações'
+                    : 'Selecione o Instrutor / TST'}
+                </option>
+                {instrutorSigs.map((sig) => (
+                  <option key={sig.id} value={sig.id}>
+                    {sig.nomeSignatario}
+                    {sig.registro ? ` (${sig.registro})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
-                Registro Instrutor
+                Registro MTE (automático)
               </label>
               <input
+                readOnly
                 value={newInstrutorReg}
-                onChange={(e) => setNewInstrutorReg(e.target.value)}
-                placeholder="MTE 0042150"
-                className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/15 rounded-lg bg-white dark:bg-[#0B1120] text-slate-900 dark:text-slate-100"
+                placeholder="Preenchido ao escolher o instrutor"
+                className="w-full px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg bg-slate-50 dark:bg-white/[0.03] text-slate-600 dark:text-slate-300"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
-                Responsável Técnico
-              </label>
-              <input
-                value={newRt}
-                onChange={(e) => setNewRt(e.target.value)}
-                placeholder="Eng. Ana Beatriz"
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                  Responsável Técnico (RT)
+                </label>
+                {onGoConfiguracoesResponsaveis && (
+                  <button
+                    type="button"
+                    onClick={onGoConfiguracoesResponsaveis}
+                    className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                  >
+                    + Cadastrar
+                  </button>
+                )}
+              </div>
+              <select
+                value={newRtSigId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setNewRtSigId(id);
+                  const found = rtSigs.find((s) => s.id === id);
+                  setNewRt(found?.nomeSignatario || '');
+                  setNewRtReg(found?.registro || '');
+                }}
                 className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/15 rounded-lg bg-white dark:bg-[#0B1120] text-slate-900 dark:text-slate-100"
-              />
+              >
+                <option value="">
+                  {rtSigs.length === 0
+                    ? 'Nenhum RT cadastrado — cadastre em Configurações'
+                    : 'Selecione o Responsável Técnico'}
+                </option>
+                {rtSigs.map((sig) => (
+                  <option key={sig.id} value={sig.id}>
+                    {sig.nomeSignatario}
+                    {sig.registro ? ` (${sig.registro})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
-                Registro CREA / RT
+                Registro CREA / RT (automático)
               </label>
               <input
+                readOnly
                 value={newRtReg}
-                onChange={(e) => setNewRtReg(e.target.value)}
-                placeholder="CREA 20191029"
-                className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/15 rounded-lg bg-white dark:bg-[#0B1120] text-slate-900 dark:text-slate-100"
+                placeholder="Preenchido ao escolher o RT"
+                className="w-full px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg bg-slate-50 dark:bg-white/[0.03] text-slate-600 dark:text-slate-300"
               />
             </div>
           </div>

@@ -36,6 +36,12 @@ import {
 } from '../services/cmsAndCommsService.ts';
 import type { CheckoutSelection } from './LandingPage.tsx';
 import { ThemeToggleButton } from './ThemeProvider.tsx';
+import {
+  EMPTY_ADDRESS,
+  formatStructuredAddressLine,
+  type StructuredAddress,
+} from '../lib/brazilAddress.ts';
+import { ViaCepAddressFields } from './ViaCepAddressFields.tsx';
 
 interface CheckoutFlowProps {
   catalog: GlobalCatalogSnapshot | null;
@@ -45,12 +51,6 @@ interface CheckoutFlowProps {
 }
 
 type CheckoutStepNumber = 1 | 2 | 3 | 4;
-
-const BRAZIL_UFS = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
-  'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
-  'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
-];
 
 function maskCpf(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
@@ -114,8 +114,7 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
   const [nomeAdministrador, setNomeAdministrador] = useState(auth.currentUser?.displayName || '');
   const [email, setEmail] = useState(auth.currentUser?.email || '');
   const [whatsapp, setWhatsapp] = useState('');
-  const [cidade, setCidade] = useState('');
-  const [uf, setUf] = useState(''); // Nunca fixa "RJ"
+  const [addr, setAddr] = useState<StructuredAddress>({ ...EMPTY_ADDRESS });
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
 
@@ -357,8 +356,14 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
         nomeAdministrador: tipoPessoa === 'PF' ? razaoSocial : nomeAdministrador || razaoSocial,
         emailFinanceiro: email || currentUser.email || '',
         whatsapp,
-        cidade,
-        uf,
+        cep: addr.cep,
+        logradouro: addr.logradouro,
+        numero: addr.numero,
+        complemento: addr.complemento,
+        bairro: addr.bairro,
+        endereco: formatStructuredAddressLine(addr),
+        cidade: addr.cidade,
+        uf: addr.uf,
         plano: selectedPlano,
         ciclo,
         modoInicio: 'TRIAL',
@@ -871,10 +876,12 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
                   ETAPA 02 DE 04
                 </p>
                 <h1 className="mt-1 text-xl font-bold text-slate-900 dark:text-white">
-                  Dados do Titular e Administrador
+                  Dados do Titular / Faturamento DK Facilita
                 </h1>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                  Selecione Pessoa Jurídica (CNPJ) ou Autônomo / Pessoa Física (CPF).
+                  Estes dados pertencem à sua assinatura na DK Facilita. Dentro do painel, em
+                  Configurações &amp; Certificados, você poderá personalizar livremente o nome,
+                  logo e exibição de CPF/CNPJ nos certificados.
                 </p>
               </div>
 
@@ -1003,34 +1010,11 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Cidade
-                  </label>
-                  <input
-                    value={cidade}
-                    onChange={(e) => setCidade(e.target.value)}
-                    placeholder="Informe sua cidade"
-                    className={inputCls}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Estado (UF)
-                  </label>
-                  <select
-                    value={uf}
-                    onChange={(e) => setUf(e.target.value)}
-                    className={`${inputCls} font-mono`}
-                  >
-                    <option value="">Selecione a UF</option>
-                    {BRAZIL_UFS.map((sigla) => (
-                      <option key={sigla} value={sigla}>
-                        {sigla}
-                      </option>
-                    ))}
-                  </select>
+                <div className="sm:col-span-2 pt-2 border-t border-slate-200/80 dark:border-white/10">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-2">
+                    Endereço do Titular (preenchimento automático pelo CEP)
+                  </p>
+                  <ViaCepAddressFields value={addr} onChange={setAddr} />
                 </div>
 
                 <div>

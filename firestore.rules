@@ -39,13 +39,13 @@ service cloud.firestore {
     }
 
     function isTenantOwner(empresaId) {
-      return isVerifiedUser() &&
+      return isSignedIn() &&
         exists(/databases/$(database)/documents/empresas/$(empresaId)) &&
         get(/databases/$(database)/documents/empresas/$(empresaId)).data.ownerUid == request.auth.uid;
     }
 
     function isTenantMember(empresaId) {
-      return isVerifiedUser() && (
+      return isSignedIn() && (
         isTenantOwner(empresaId) ||
         exists(/databases/$(database)/documents/empresas/$(empresaId)/membros/$(request.auth.uid))
       );
@@ -61,6 +61,10 @@ service cloud.firestore {
 
     function isOptionalInt(data, field) {
       return !(field in data) || data[field] == null || (data[field] is int);
+    }
+
+    function isOptionalNumber(data, field) {
+      return !(field in data) || data[field] == null || (data[field] is number);
     }
 
     function isOptionalBool(data, field) {
@@ -198,6 +202,9 @@ service cloud.firestore {
         data.keys().hasOnly([
           'ownerUid', 'tipoPessoa', 'cnpj', 'razaoSocial', 'nomeFantasia', 'nomeAdministrador',
           'emailFinanceiro', 'whatsapp', 'cupomAplicado', 'descontoCupomCentavos',
+          'certificadoNomeExibicao', 'certificadoExibirDocumento',
+          'certificadoTelefoneRodape', 'certificadoEmailRodape',
+          'cep', 'logradouro', 'numero', 'complemento', 'bairro',
           'endereco', 'cidade', 'uf', 'logoUrl',
           'corPrimaria', 'corSecundaria', 'prefixoCertificado',
           'modeloCertificadoId', 'modeloProprioUrl', 'dominioProprio',
@@ -216,15 +223,24 @@ service cloud.firestore {
         data.whatsapp is string && data.whatsapp.size() >= 8 && data.whatsapp.size() <= 32 &&
         isOptionalString(data, 'cupomAplicado', 40) &&
         isOptionalInt(data, 'descontoCupomCentavos') &&
-        isOptionalString(data, 'endereco', 300) &&
+        isOptionalString(data, 'certificadoNomeExibicao', 200) &&
+        isOptionalBool(data, 'certificadoExibirDocumento') &&
+        isOptionalString(data, 'certificadoTelefoneRodape', 40) &&
+        isOptionalString(data, 'certificadoEmailRodape', 160) &&
+        isOptionalString(data, 'cep', 12) &&
+        isOptionalString(data, 'logradouro', 200) &&
+        isOptionalString(data, 'numero', 32) &&
+        isOptionalString(data, 'complemento', 120) &&
+        isOptionalString(data, 'bairro', 120) &&
+        isOptionalString(data, 'endereco', 320) &&
         isOptionalString(data, 'cidade', 100) &&
         isOptionalString(data, 'uf', 4) &&
-        isOptionalString(data, 'logoUrl', 200000) &&
+        isOptionalString(data, 'logoUrl', 450000) &&
         data.corPrimaria is string && data.corPrimaria.size() >= 4 && data.corPrimaria.size() <= 16 &&
         isOptionalString(data, 'corSecundaria', 16) &&
         data.prefixoCertificado is string && data.prefixoCertificado.size() >= 2 && data.prefixoCertificado.size() <= 16 &&
         isOptionalString(data, 'modeloCertificadoId', 128) &&
-        isOptionalString(data, 'modeloProprioUrl', 200000) &&
+        isOptionalString(data, 'modeloProprioUrl', 450000) &&
         isOptionalString(data, 'dominioProprio', 128) &&
         isOptionalString(data, 'trialExpiraEmIso', 40) &&
         isOptionalString(data, 'planoId', 128) &&
@@ -288,12 +304,23 @@ service cloud.firestore {
 
     function isValidObra(data) {
       return data.keys().hasAll(['empresaId', 'codigo', 'nome', 'ativo', 'createdAt', 'updatedAt']) &&
-        data.keys().hasOnly(['empresaId', 'codigo', 'nome', 'clienteFinal', 'localizacao', 'ativo', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'empresaId', 'codigo', 'nome', 'clienteFinal', 'localizacao',
+          'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf',
+          'ativo', 'createdAt', 'updatedAt'
+        ]) &&
         data.empresaId is string && data.empresaId.size() >= 1 && data.empresaId.size() <= 128 &&
         data.codigo is string && data.codigo.size() >= 1 && data.codigo.size() <= 64 &&
         data.nome is string && data.nome.size() >= 2 && data.nome.size() <= 180 &&
         isOptionalString(data, 'clienteFinal', 180) &&
-        isOptionalString(data, 'localizacao', 200) &&
+        isOptionalString(data, 'localizacao', 260) &&
+        isOptionalString(data, 'cep', 12) &&
+        isOptionalString(data, 'logradouro', 200) &&
+        isOptionalString(data, 'numero', 32) &&
+        isOptionalString(data, 'complemento', 120) &&
+        isOptionalString(data, 'bairro', 120) &&
+        isOptionalString(data, 'cidade', 100) &&
+        isOptionalString(data, 'uf', 4) &&
         data.ativo is bool &&
         isValidTimestamp(data.createdAt) &&
         isValidTimestamp(data.updatedAt);
@@ -303,8 +330,9 @@ service cloud.firestore {
       return data.keys().hasAll(['empresaId', 'nome', 'cpf', 'funcao', 'ativo', 'createdAt', 'updatedAt']) &&
         data.keys().hasOnly([
           'empresaId', 'contratoObraId', 'contratoObraNome', 'nome', 'cpf',
-          'rg', 'funcao', 'matricula', 'email', 'telefone', 'ativo',
-          'createdAt', 'updatedAt'
+          'rg', 'funcao', 'matricula', 'email', 'telefone',
+          'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf',
+          'ativo', 'createdAt', 'updatedAt'
         ]) &&
         data.empresaId is string && data.empresaId.size() >= 1 && data.empresaId.size() <= 128 &&
         isOptionalString(data, 'contratoObraId', 128) &&
@@ -316,6 +344,13 @@ service cloud.firestore {
         isOptionalString(data, 'matricula', 40) &&
         isOptionalString(data, 'email', 160) &&
         isOptionalString(data, 'telefone', 32) &&
+        isOptionalString(data, 'cep', 12) &&
+        isOptionalString(data, 'logradouro', 200) &&
+        isOptionalString(data, 'numero', 32) &&
+        isOptionalString(data, 'complemento', 120) &&
+        isOptionalString(data, 'bairro', 120) &&
+        isOptionalString(data, 'cidade', 100) &&
+        isOptionalString(data, 'uf', 4) &&
         data.ativo is bool &&
         isValidTimestamp(data.createdAt) &&
         isValidTimestamp(data.updatedAt);
@@ -394,9 +429,9 @@ service cloud.firestore {
         data.treinamentoId is string && data.treinamentoId.size() >= 1 && data.treinamentoId.size() <= 128 &&
         isOptionalString(data, 'treinamentoResumo', 220) &&
         isOptionalString(data, 'nrCodigo', 20) &&
-        isOptionalInt(data, 'cargaHorariaHoras') &&
-        isOptionalInt(data, 'validadeMeses') &&
-        isOptionalInt(data, 'notaMinimaAprovacao') &&
+        isOptionalNumber(data, 'cargaHorariaHoras') &&
+        isOptionalNumber(data, 'validadeMeses') &&
+        isOptionalNumber(data, 'notaMinimaAprovacao') &&
         isOptionalString(data, 'contratoObraId', 128) &&
         isOptionalString(data, 'contratoObraNome', 180) &&
         isOptionalString(data, 'instrutorNome', 140) &&
@@ -404,10 +439,10 @@ service cloud.firestore {
         isOptionalString(data, 'rtNome', 140) &&
         isOptionalString(data, 'rtRegistro', 80) &&
         data.codigoTurma is string && data.codigoTurma.size() >= 2 && data.codigoTurma.size() <= 64 &&
-        data.titulo is string && data.titulo.size() >= 3 && data.titulo.size() <= 200 &&
+        data.titulo is string && data.titulo.size() >= 2 && data.titulo.size() <= 200 &&
         data.dataRealizacaoIso is string && data.dataRealizacaoIso.size() <= 40 &&
         isOptionalString(data, 'localRealizacao', 200) &&
-        data.tokenPublico is string && data.tokenPublico.size() >= 8 && data.tokenPublico.size() <= 64 &&
+        data.tokenPublico is string && data.tokenPublico.size() >= 6 && data.tokenPublico.size() <= 64 &&
         data.modoIdentificacao in ['CPF', 'CPF_PIN', 'CPF_PIN_SELFIE'] &&
         isOptionalString(data, 'pinAcesso', 16) &&
         data.status in ['RASCUNHO', 'ABERTA', 'ENCERRADA', 'CANCELADA'] &&
@@ -546,16 +581,16 @@ service cloud.firestore {
           'cargaHorariaHoras', 'notaMinimaAprovacao', 'modoIdentificacao',
           'exigePin', 'pinHash', 'questoesPublicas', 'status', 'updatedAt'
         ]) &&
-        data.tokenPublico is string && data.tokenPublico.size() >= 8 && data.tokenPublico.size() <= 64 &&
+        data.tokenPublico is string && data.tokenPublico.size() >= 6 && data.tokenPublico.size() <= 64 &&
         data.empresaId is string && data.empresaId.size() >= 1 && data.empresaId.size() <= 128 &&
         data.turmaId is string && data.turmaId.size() >= 1 && data.turmaId.size() <= 128 &&
         data.empresaRazaoSocial is string && data.empresaRazaoSocial.size() >= 2 && data.empresaRazaoSocial.size() <= 200 &&
         isOptionalString(data, 'empresaCorPrimaria', 16) &&
-        isOptionalString(data, 'empresaLogoUrl', 200000) &&
-        data.titulo is string && data.titulo.size() >= 3 && data.titulo.size() <= 200 &&
+        isOptionalString(data, 'empresaLogoUrl', 450000) &&
+        data.titulo is string && data.titulo.size() >= 2 && data.titulo.size() <= 200 &&
         data.nrCodigo is string && data.nrCodigo.size() >= 2 && data.nrCodigo.size() <= 20 &&
-        data.cargaHorariaHoras is int && data.cargaHorariaHoras >= 1 &&
-        data.notaMinimaAprovacao is int && data.notaMinimaAprovacao >= 0 && data.notaMinimaAprovacao <= 100 &&
+        data.cargaHorariaHoras is number && data.cargaHorariaHoras >= 1 &&
+        data.notaMinimaAprovacao is number && data.notaMinimaAprovacao >= 0 && data.notaMinimaAprovacao <= 100 &&
         data.modoIdentificacao in ['CPF', 'CPF_PIN', 'CPF_PIN_SELFIE'] &&
         isOptionalBool(data, 'exigePin') &&
         isOptionalString(data, 'pinHash', 128) &&
@@ -653,7 +688,7 @@ service cloud.firestore {
     match /notificacoes_admin/{notificacaoId} {
       allow get: if isSuperAdmin() && isValidId(notificacaoId);
       allow list: if isSuperAdmin();
-      allow create: if isVerifiedUser() && isValidId(notificacaoId) && isValidNotificacaoAdmin(incoming()) && incoming().lida == false && incoming().createdAt == request.time;
+      allow create: if isSignedIn() && isValidId(notificacaoId) && isValidNotificacaoAdmin(incoming()) && incoming().lida == false && incoming().createdAt == request.time;
       allow update: if isSuperAdmin() && isValidId(notificacaoId) && isValidNotificacaoAdmin(incoming()) && incoming().createdAt == existing().createdAt;
       allow delete: if isSuperAdmin() && isValidId(notificacaoId);
     }
@@ -692,7 +727,7 @@ service cloud.firestore {
           incoming().valorDesconto is int && incoming().valorDesconto >= 1
         ) ||
         (
-          isVerifiedUser() &&
+          isSignedIn() &&
           incoming().diff(existing()).affectedKeys().hasOnly(['usosAtuais', 'updatedAt']) &&
           incoming().usosAtuais == existing().usosAtuais + 1
         )
@@ -702,8 +737,8 @@ service cloud.firestore {
 
     // Central de Comunicados (Dono -> Empresas Clientes)
     match /comunicados/{comunicadoId} {
-      allow get: if isValidId(comunicadoId) && (isSuperAdmin() || (isVerifiedUser() && resource.data.status in ['ATIVO', 'AGENDADO']));
-      allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.status in ['ATIVO', 'AGENDADO']);
+      allow get: if isValidId(comunicadoId) && (isSuperAdmin() || (isSignedIn() && resource.data.status in ['ATIVO', 'AGENDADO']));
+      allow list: if isSuperAdmin() || (isSignedIn() && resource.data.status in ['ATIVO', 'AGENDADO']);
       allow create, update: if isSuperAdmin() && isValidId(comunicadoId) &&
         incoming().keys().hasAll(['titulo', 'mensagem', 'tipo', 'exibirPopup', 'publicoAlvo', 'repeticao', 'status', 'updatedAt']) &&
         incoming().titulo is string && incoming().titulo.size() >= 2 && incoming().titulo.size() <= 160 &&
@@ -723,9 +758,9 @@ service cloud.firestore {
 
     match /empresas/{empresaId} {
       allow get: if isValidId(empresaId) && (isSuperAdmin() || isTenantMember(empresaId));
-      allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.ownerUid == request.auth.uid);
+      allow list: if isSuperAdmin() || (isSignedIn() && resource.data.ownerUid == request.auth.uid);
 
-      allow create: if isVerifiedUser() &&
+      allow create: if isSignedIn() &&
         isValidId(empresaId) &&
         isValidEmpresa(incoming()) &&
         incoming().ownerUid == request.auth.uid &&
@@ -742,7 +777,11 @@ service cloud.firestore {
           (
             isTenantOwner(empresaId) &&
             incoming().diff(existing()).affectedKeys().hasOnly([
-              'nomeFantasia', 'whatsapp', 'endereco', 'cidade', 'uf',
+              'nomeFantasia', 'whatsapp',
+              'certificadoNomeExibicao', 'certificadoExibirDocumento',
+              'certificadoTelefoneRodape', 'certificadoEmailRodape',
+              'cep', 'logradouro', 'numero', 'complemento', 'bairro',
+              'endereco', 'cidade', 'uf',
               'logoUrl', 'corPrimaria', 'corSecundaria', 'prefixoCertificado',
               'modeloCertificadoId', 'onboardingConcluido', 'planoId',
               'planoSlug', 'ciclo', 'valorMensalCentavos', 'adicionaisAtivos',
@@ -756,9 +795,9 @@ service cloud.firestore {
       // Membros RBAC
       match /membros/{memberUid} {
         allow get: if isValidId(empresaId) && isValidId(memberUid) && (
-          isSuperAdmin() || isTenantMember(empresaId) || (isVerifiedUser() && memberUid == request.auth.uid)
+          isSuperAdmin() || isTenantMember(empresaId) || (isSignedIn() && memberUid == request.auth.uid)
         );
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(memberUid) &&
           isValidMembro(incoming()) &&
           incoming().empresaId == empresaId &&
@@ -776,7 +815,7 @@ service cloud.firestore {
       // Faturas Asaas
       match /faturas/{faturaId} {
         allow get: if isValidId(empresaId) && isValidId(faturaId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(faturaId) &&
           isValidFatura(incoming()) &&
           incoming().empresaId == empresaId &&
@@ -795,7 +834,7 @@ service cloud.firestore {
       // Contratos / Obras
       match /contratos_obras/{obraId} {
         allow get: if isValidId(empresaId) && isValidId(obraId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(obraId) &&
           isValidObra(incoming()) && incoming().empresaId == empresaId &&
           incoming().createdAt == request.time && incoming().updatedAt == request.time &&
@@ -803,14 +842,14 @@ service cloud.firestore {
         allow update: if isValidId(empresaId) && isValidId(obraId) &&
           isValidObra(incoming()) && incoming().empresaId == existing().empresaId &&
           incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time &&
-          (isSuperAdmin() || (isTenantMember(empresaId) && incoming().diff(existing()).affectedKeys().hasOnly(['codigo', 'nome', 'clienteFinal', 'localizacao', 'ativo', 'updatedAt'])));
+          (isSuperAdmin() || (isTenantMember(empresaId) && incoming().diff(existing()).affectedKeys().hasOnly(['codigo', 'nome', 'clienteFinal', 'localizacao', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf', 'ativo', 'updatedAt'])));
         allow delete: if isValidId(empresaId) && isValidId(obraId) && (isSuperAdmin() || isTenantMember(empresaId));
       }
 
       // Colaboradores
       match /colaboradores/{colaboradorId} {
         allow get: if isValidId(empresaId) && isValidId(colaboradorId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(colaboradorId) &&
           isValidColaborador(incoming()) && incoming().empresaId == empresaId &&
           incoming().createdAt == request.time && incoming().updatedAt == request.time &&
@@ -818,14 +857,14 @@ service cloud.firestore {
         allow update: if isValidId(empresaId) && isValidId(colaboradorId) &&
           isValidColaborador(incoming()) && incoming().empresaId == existing().empresaId &&
           incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time &&
-          (isSuperAdmin() || (isTenantMember(empresaId) && incoming().diff(existing()).affectedKeys().hasOnly(['contratoObraId', 'contratoObraNome', 'nome', 'cpf', 'rg', 'funcao', 'matricula', 'email', 'telefone', 'ativo', 'updatedAt'])));
+          (isSuperAdmin() || (isTenantMember(empresaId) && incoming().diff(existing()).affectedKeys().hasOnly(['contratoObraId', 'contratoObraNome', 'nome', 'cpf', 'rg', 'funcao', 'matricula', 'email', 'telefone', 'cep', 'logradouro', 'numero', 'complemento', 'bairro', 'cidade', 'uf', 'ativo', 'updatedAt'])));
         allow delete: if isValidId(empresaId) && isValidId(colaboradorId) && (isSuperAdmin() || isTenantMember(empresaId));
       }
 
       // Assinaturas Digitais
       match /assinaturas_digitais/{assinaturaId} {
         allow get: if isValidId(empresaId) && isValidId(assinaturaId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(assinaturaId) &&
           isValidAssinaturaDigital(incoming()) && incoming().empresaId == empresaId &&
           incoming().createdAt == request.time &&
@@ -836,7 +875,7 @@ service cloud.firestore {
       // Treinamentos da Empresa (Conteúdo Linha por Linha)
       match /treinamentos_empresa/{treinamentoId} {
         allow get: if isValidId(empresaId) && isValidId(treinamentoId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(treinamentoId) &&
           isValidTreinamentoEmpresa(incoming()) && incoming().empresaId == empresaId &&
           incoming().createdAt == request.time && incoming().updatedAt == request.time &&
@@ -851,7 +890,7 @@ service cloud.firestore {
       // Banco de Questões
       match /banco_questoes/{questaoId} {
         allow get: if isValidId(empresaId) && isValidId(questaoId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(questaoId) &&
           isValidQuestao(incoming()) && incoming().empresaId == empresaId &&
           incoming().createdAt == request.time &&
@@ -866,7 +905,7 @@ service cloud.firestore {
       // Turmas e Aplicações
       match /turmas_aplicacoes/{turmaId} {
         allow get: if isValidId(empresaId) && isValidId(turmaId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(turmaId) &&
           isValidTurma(incoming()) && incoming().empresaId == empresaId &&
           incoming().createdAt == request.time && incoming().updatedAt == request.time &&
@@ -874,14 +913,14 @@ service cloud.firestore {
         allow update: if isValidId(empresaId) && isValidId(turmaId) &&
           isValidTurma(incoming()) && incoming().empresaId == existing().empresaId &&
           incoming().createdAt == existing().createdAt && incoming().updatedAt == request.time &&
-          (isSuperAdmin() || (isTenantMember(empresaId) && incoming().diff(existing()).affectedKeys().hasOnly(['titulo', 'dataRealizacaoIso', 'localRealizacao', 'modoIdentificacao', 'pinAcesso', 'status', 'instrutorNome', 'instrutorRegistro', 'rtNome', 'rtRegistro', 'updatedAt'])));
+          (isSuperAdmin() || (isTenantMember(empresaId) && incoming().diff(existing()).affectedKeys().hasOnly(['titulo', 'dataRealizacaoIso', 'localRealizacao', 'modoIdentificacao', 'pinAcesso', 'status', 'notaMinimaAprovacao', 'instrutorNome', 'instrutorRegistro', 'rtNome', 'rtRegistro', 'updatedAt'])));
         allow delete: if isValidId(empresaId) && isValidId(turmaId) && (isSuperAdmin() || isTenantMember(empresaId));
       }
 
       // Tentativas de Prova (aceita submissão pública autenticada por tokenPublico ativo ou membro da empresa)
       match /provas_tentativas/{tentativaId} {
         allow get: if isValidId(empresaId) && isValidId(tentativaId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(tentativaId) &&
           isValidProvaTentativa(incoming()) &&
           incoming().empresaId == empresaId &&
@@ -902,7 +941,7 @@ service cloud.firestore {
       // Certificados Emitidos (Snapshot Imutável)
       match /certificados/{certificadoId} {
         allow get: if isValidId(empresaId) && isValidId(certificadoId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(certificadoId) &&
           isValidCertificadoTenant(incoming()) &&
           incoming().empresaId == empresaId &&
@@ -920,7 +959,7 @@ service cloud.firestore {
       // Cartas de Anuência
       match /cartas_anuencia/{cartaId} {
         allow get: if isValidId(empresaId) && isValidId(cartaId) && (isSuperAdmin() || isTenantMember(empresaId));
-        allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
+        allow list: if isSuperAdmin() || (isSignedIn() && resource.data.empresaId == empresaId && isTenantMember(empresaId));
         allow create: if isValidId(empresaId) && isValidId(cartaId) &&
           isValidCartaAnuencia(incoming()) && incoming().empresaId == empresaId &&
           incoming().emitidaEm == request.time &&

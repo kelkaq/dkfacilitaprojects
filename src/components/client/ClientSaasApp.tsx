@@ -16,9 +16,9 @@ import {
   Menu,
   Plus,
   RefreshCw,
+  Settings,
   Sparkles,
   Users,
-  Wand2,
   Wrench,
   X,
 } from 'lucide-react';
@@ -70,12 +70,17 @@ import { TurmasProvasModule } from './TurmasProvasModule.tsx';
 import { ColaboradoresDossieModule } from './ColaboradoresDossieModule.tsx';
 import { CertificadosVencimentosModule } from './CertificadosVencimentosModule.tsx';
 import { MeuPlanoModule } from './MeuPlanoModule.tsx';
+import {
+  ConfiguracoesCertificadosModule,
+  type ConfiguracoesSubTab,
+} from './ConfiguracoesCertificadosModule.tsx';
 import { CertificateViewerModal } from './CertificateViewerModal.tsx';
 import { CertificateDetailsModal } from './CertificateDetailsModal.tsx';
 import {
   DocumentPrintModal,
   type VectorDocumentRequest,
 } from './DocumentPrintModal.tsx';
+import { formatDocumentWithLabel } from '../../lib/brazilAddress.ts';
 
 export type ClientTab =
   | 'dashboard'
@@ -84,6 +89,7 @@ export type ClientTab =
   | 'colaboradores'
   | 'certificados'
   | 'vencimentos'
+  | 'configuracoes'
   | 'plano';
 
 interface ClientSaasAppProps {
@@ -150,6 +156,9 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
   const [detailsCert, setDetailsCert] = useState<CertificadoDoc | null>(null);
   const [vectorDoc, setVectorDoc] = useState<VectorDocumentRequest | null>(null);
   const [recyclingCertPrefill, setRecyclingCertPrefill] = useState<CertificadoDoc | null>(null);
+  const [configSubTabTarget, setConfigSubTabTarget] = useState<ConfiguracoesSubTab | undefined>(
+    undefined
+  );
 
   const empresa = useMemo(() => {
     if (!empresas.length) return null;
@@ -296,6 +305,7 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
     { id: 'colaboradores', label: 'Colaboradores & Dossiê', icon: Users },
     { id: 'certificados', label: 'Certificados', icon: FileBadge },
     { id: 'vencimentos', label: 'Vencimentos', icon: CalendarClock },
+    { id: 'configuracoes', label: 'Configurações & Certificados', icon: Settings },
     { id: 'plano', label: 'Meu Plano', icon: CreditCard },
   ];
 
@@ -368,7 +378,7 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
           )}
           <div className="min-w-0">
             <p className="text-sm font-semibold text-white truncate">
-              {empresa.nomeFantasia || empresa.razaoSocial}
+              {empresa.certificadoNomeExibicao || empresa.nomeFantasia || empresa.razaoSocial}
             </p>
             <p className="text-[11px] text-slate-400 truncate">Certifica Software - DK</p>
           </div>
@@ -382,7 +392,7 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
           >
             {empresas.map((emp) => (
               <option key={emp.id} value={emp.id}>
-                {emp.razaoSocial} ({emp.status})
+                {emp.certificadoNomeExibicao || emp.nomeFantasia || emp.razaoSocial} ({emp.status})
               </option>
             ))}
           </select>
@@ -421,12 +431,12 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
           type="button"
           onClick={() => {
             setMobileMenuOpen(false);
-            onOpenOnboarding(empresa);
+            setActiveTab('configuracoes');
           }}
           className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/[0.06] transition-colors cursor-pointer"
         >
-          <Wand2 className="w-3.5 h-3.5 shrink-0" />
-          <span>Identidade & 1º Acesso</span>
+          <Settings className="w-3.5 h-3.5 shrink-0" />
+          <span>Identidade &amp; Modelos</span>
         </button>
 
         <button
@@ -533,11 +543,12 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
                 {activeTab === 'colaboradores' && 'Colaboradores, Obras & Dossiê'}
                 {activeTab === 'certificados' && 'Certificados Emitidos'}
                 {activeTab === 'vencimentos' && 'Central de Vencimentos'}
+                {activeTab === 'configuracoes' && 'Configurações & Certificados'}
                 {activeTab === 'plano' && 'Meu Plano e Serviços Adicionais'}
               </h1>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                {empresa.razaoSocial} · {empresa.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}{' '}
-                {empresa.cnpj}
+                {empresa.certificadoNomeExibicao || empresa.nomeFantasia || empresa.razaoSocial} ·{' '}
+                {formatDocumentWithLabel(empresa.cnpj, empresa.tipoPessoa)}
               </p>
             </div>
           </div>
@@ -716,6 +727,10 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
                   onOpenCertificate={handleOpenCertificate}
                   onOpenVectorDocument={setVectorDoc}
                   onOpenPublicExam={onOpenPublicExam}
+                  onGoConfiguracoesResponsaveis={() => {
+                    setConfigSubTabTarget('responsaveis');
+                    setActiveTab('configuracoes');
+                  }}
                 />
               )}
 
@@ -749,6 +764,21 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
                   onOpenCertificate={handleOpenCertificate}
                   onOpenCertificateDetails={setDetailsCert}
                   onScheduleRecycling={handleScheduleRecycling}
+                />
+              )}
+
+              {activeTab === 'configuracoes' && (
+                <ConfiguracoesCertificadosModule
+                  empresa={empresa}
+                  limits={limits}
+                  catalog={catalog}
+                  assinaturas={assinaturas}
+                  obras={obras}
+                  initialSubTab={configSubTabTarget}
+                  onSubTabConsumed={() => setConfigSubTabTarget(undefined)}
+                  onEmpresaUpdated={onEmpresaUpdated}
+                  onRefresh={() => loadTenantData(empresa.id)}
+                  onGoPlano={() => setActiveTab('plano')}
                 />
               )}
 

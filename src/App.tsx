@@ -11,7 +11,7 @@ import {
   type GlobalCatalogSnapshot,
 } from './services/catalogService.ts';
 import { sendAnalyticsHeartbeat } from './services/analyticsService.ts';
-import { listMyEmpresas } from './services/tenantAuthService.ts';
+import { getEmpresaById, listMyEmpresas } from './services/tenantAuthService.ts';
 import type { EmpresaDoc } from './types/domain.ts';
 import { ThemeProvider } from './components/ThemeProvider.tsx';
 import { LandingPage, type CheckoutSelection } from './components/LandingPage.tsx';
@@ -211,35 +211,34 @@ function AppRouter() {
     }
   }, []);
 
-  const refreshUserEmpresas = useCallback(
-    async (superAdminFlag: boolean): Promise<EmpresaDoc[]> => {
-      if (!auth.currentUser) {
-        setUserEmpresas([]);
-        return [];
+  const refreshUserEmpresas = useCallback(async (): Promise<EmpresaDoc[]> => {
+    if (!auth.currentUser) {
+      setUserEmpresas([]);
+      return [];
+    }
+    try {
+      // Painel do cliente carrega estritamente as empresas vinculadas ao usuário logado
+      const list = await listMyEmpresas(false);
+      setUserEmpresas(list);
+      if (list.length > 0) {
+        setSelectedEmpresaId((prev) =>
+          prev && list.some((item) => item.id === prev) ? prev : list[0].id
+        );
+      } else {
+        setSelectedEmpresaId(null);
       }
-      try {
-        const list = await listMyEmpresas(superAdminFlag);
-        setUserEmpresas(list);
-        if (list.length > 0) {
-          setSelectedEmpresaId((prev) => prev ?? list[0].id);
-        }
-        return list;
-      } catch {
-        return [];
-      }
-    },
-    []
-  );
+      return list;
+    } catch {
+      return [];
+    }
+  }, []);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthReady(true);
       if (currentUser) {
-        const adminFlag =
-          Boolean(currentUser.emailVerified) &&
-          currentUser.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
-        void refreshUserEmpresas(adminFlag);
+        void refreshUserEmpresas();
       } else {
         setUserEmpresas([]);
         setSelectedEmpresaId(null);
@@ -304,7 +303,7 @@ function AppRouter() {
     const adminFlag =
       Boolean(cred.user.emailVerified) &&
       cred.user.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
-    const list = await refreshUserEmpresas(adminFlag);
+    const list = await refreshUserEmpresas();
 
     if (postLoginTarget === 'ADMIN_CONSOLE' && adminFlag) {
       navigate('ADMIN_CONSOLE');
@@ -468,9 +467,15 @@ function AppRouter() {
         onCatalogChanged={loadCatalog}
         onOpenClientPanel={(empresaId) => {
           if (empresaId) {
-            setSelectedEmpresaId(empresaId);
+            void getEmpresaById(empresaId).then((emp) => {
+              if (emp) {
+                setUserEmpresas((prev) =>
+                  prev.some((item) => item.id === emp.id) ? prev : [emp, ...prev]
+                );
+                setSelectedEmpresaId(emp.id);
+              }
+            });
           }
-          void refreshUserEmpresas(true);
           navigate('CLIENT_APP');
         }}
         onBackToSite={() => navigate('SITE')}
