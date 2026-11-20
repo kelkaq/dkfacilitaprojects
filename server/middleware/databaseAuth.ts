@@ -4,11 +4,22 @@ import { verifyJwtToken } from '../lib/security.ts';
 
 export async function requireDatabaseAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
+  const cookieToken = req.headers.cookie?.split(';').map((part) => part.trim())
+    .find((part) => part.startsWith('csdk_session='))?.slice('csdk_session='.length);
+  const isBearer = header?.startsWith('Bearer ') ?? false;
+  if (!isBearer && !cookieToken) {
     res.status(401).json({ error: 'Sessão ausente.' });
     return;
   }
-  const token = verifyJwtToken(header.slice(7));
+  if (!isBearer && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    let allowedOrigin = '';
+    try { allowedOrigin = new URL(process.env.APP_URL ?? '').origin; } catch { /* indisponível */ }
+    if (!allowedOrigin || req.header('origin') !== allowedOrigin) {
+      res.status(403).json({ error: 'Origem da operação não autorizada.' });
+      return;
+    }
+  }
+  const token = verifyJwtToken(isBearer ? header!.slice(7) : cookieToken!);
   if (!token) {
     res.status(401).json({ error: 'Sessão inválida.' });
     return;

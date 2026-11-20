@@ -22,6 +22,7 @@ import { ClientSaasApp } from './components/client/ClientSaasApp.tsx';
 import { PublicExamPortal } from './components/client/PublicExamPortal.tsx';
 import { PublicDossierView } from './components/client/PublicDossierView.tsx';
 import { SuperAdminApp } from './components/admin/SuperAdminApp.tsx';
+import { AccountPortal } from './components/AccountPortal.tsx';
 
 type AppView =
   | 'SITE'
@@ -533,9 +534,12 @@ function AppRouter() {
 }
 
 export default function App() {
+  const accountPaths = { '/acesso': 'login', '/resetar-senha': 'reset',
+    '/aceitar-convite': 'invite', '/minha-conta': 'team' } as const;
+  const portalView = accountPaths[window.location.pathname as keyof typeof accountPaths];
   return (
     <ThemeProvider>
-      <AppRouter />
+      {portalView ? <AccountPortal view={portalView} /> : <AppRouter />}
     </ThemeProvider>
   );
 }

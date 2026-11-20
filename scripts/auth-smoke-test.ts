@@ -7,6 +7,8 @@ import { hashPassword } from '../server/lib/security.ts';
 
 if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL obrigatória.');
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) throw new Error('JWT_SECRET de teste obrigatório.');
+process.env.APP_URL = 'https://example.invalid';
+process.env.CSDK_COOKIE_AUTH = '1';
 
 const db = getPrisma();
 const suffix = crypto.randomBytes(6).toString('hex');
@@ -79,6 +81,20 @@ try {
   });
   assert.equal(login.status, 200);
   const { token } = await login.json() as { token: string };
+  const cookieLogin = await fetch(`${base}/api/auth/login`, { method: 'POST',
+    headers: { 'content-type': 'application/json', origin: 'https://example.invalid' },
+    body: JSON.stringify({ email, password }),
+  });
+  assert.equal(cookieLogin.status, 200);
+  const cookie = cookieLogin.headers.get('set-cookie')?.split(';')[0] ?? '';
+  assert.ok(cookie.startsWith('csdk_session='));
+  assert.equal((await fetch(`${base}/api/auth/me`, { headers: { cookie } })).status, 200);
+  assert.equal((await fetch(`${base}/api/auth/logout`, { method: 'POST', headers: { cookie } })).status, 403);
+  const cookieLogout = await fetch(`${base}/api/auth/logout`, { method: 'POST',
+    headers: { cookie, origin: 'https://example.invalid' },
+  });
+  assert.equal(cookieLogout.status, 204);
+  assert.match(cookieLogout.headers.get('set-cookie') ?? '', /csdk_session=;/);
   const me = () => fetch(`${base}/api/auth/me`, { headers: { authorization: `Bearer ${token}` } });
   assert.equal((await me()).status, 200);
   const noSubscription = await fetch(`${base}/api/tenant/access`, { headers: { authorization: `Bearer ${token}` } });

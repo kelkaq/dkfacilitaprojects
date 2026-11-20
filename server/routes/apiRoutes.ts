@@ -96,6 +96,13 @@ apiRouter.post('/api/auth/login', async (req: Request, res: Response) => {
       empresaId: user.empresaId,
       versaoSessao: user.versaoSessao,
     });
+    let allowedOrigin = '';
+    try { allowedOrigin = new URL(process.env.APP_URL ?? '').origin; } catch { /* cookie desativado */ }
+    if (process.env.CSDK_COOKIE_AUTH === '1' && allowedOrigin && req.header('origin') === allowedOrigin) {
+      res.cookie('csdk_session', token, { httpOnly: true, secure: true, sameSite: 'strict', path: '/', maxAge: 604800000 });
+      res.json({ authenticated: true, expiresInSeconds: 604800 });
+      return;
+    }
     res.json({ token, tokenType: 'Bearer', expiresInSeconds: 604800 });
   } catch {
     res.status(503).json({ error: 'Login indisponível.' });
@@ -110,6 +117,11 @@ apiRouter.get('/api/auth/me', requireDatabaseAuth, (_req: Request, res: Response
 apiRouter.post('/api/auth/logout-all', requireDatabaseAuth, async (_req: Request, res: Response) => {
   const user = res.locals.authUser;
   await getPrisma().usuario.update({ where: { id: user.id }, data: { versaoSessao: { increment: 1 } } });
+  res.clearCookie('csdk_session', { httpOnly: true, secure: true, sameSite: 'strict', path: '/' });
+  res.status(204).end();
+});
+apiRouter.post('/api/auth/logout', requireDatabaseAuth, (_req: Request, res: Response) => {
+  res.clearCookie('csdk_session', { httpOnly: true, secure: true, sameSite: 'strict', path: '/' });
   res.status(204).end();
 });
 apiRouter.post('/api/auth/session-token', (_req: Request, res: Response) => {
