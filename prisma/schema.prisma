@@ -342,6 +342,9 @@ model Pedido {
   tipoDocumento         TipoDocumento   @map("tipo_documento")
   documento             String
   emailComprador        String          @map("email_comprador")
+  razaoSocial           String          @map("razao_social")
+  nomeAdministrador     String          @map("nome_administrador")
+  whatsapp              String
   ciclo                 CicloCobranca
   modoInicio            ModoInicio      @default(IMEDIATO) @map("modo_inicio")
   status                StatusPedido    @default(CARRINHO)
@@ -351,6 +354,7 @@ model Pedido {
   idempotencyKey        String          @unique @map("idempotency_key")
   externalReference     String          @unique @map("external_reference")
   mercadoPagoId         String?         @unique @map("mercado_pago_id")
+  checkoutLockUntil     DateTime?       @map("checkout_lock_until")
   expiraEm              DateTime?       @map("expira_em")
   createdAt             DateTime        @default(now()) @map("created_at")
   updatedAt             DateTime        @updatedAt @map("updated_at")
@@ -410,6 +414,7 @@ model Fatura {
   status           StatusFatura    @default(PENDENTE)
   metodoPagamento  MetodoPagamento @default(PIX) @map("metodo_pagamento")
   asaasPaymentId   String?         @unique @map("asaas_payment_id")
+  mercadoPagoAuthorizedPaymentId String? @unique @map("mercado_pago_authorized_payment_id")
   pixQrCodePayload String?         @map("pix_qr_code_payload")
   pixQrCodeBase64  String?         @map("pix_qr_code_base64")
   invoiceUrl       String?         @map("invoice_url")

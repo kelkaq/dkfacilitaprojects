@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import type { AmbientePagamento, CicloCobranca, ModoInicio, TipoDocumento } from '@prisma/client';
 import { getPrisma } from '../lib/prisma.ts';
 import { validateHolderDocument } from '../lib/brazilDocument.ts';
+import { MercadoPagoSubscriptions } from '../services/mercadoPagoSubscriptions.ts';
 
 export const orderRouter = Router();
 
@@ -18,6 +19,18 @@ function expectedPrice(precoMensalCentavos: number, descontoSemestral: number, d
   if (!Number.isInteger(precoMensalCentavos) || precoMensalCentavos <= 0 ||
       !Number.isInteger(discount) || discount < 0 || discount > 100) return 0;
   return Math.round(precoMensalCentavos * CYCLES[ciclo] * (100 - discount) / 100);
+}
+
+function mercadoPagoClient(ambiente: AmbientePagamento): MercadoPagoSubscriptions | null {
+  const token = ambiente === 'TEST' ? process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN : process.env.MERCADO_PAGO_ACCESS_TOKEN;
+  return token ? new MercadoPagoSubscriptions(token) : null;
+}
+
+function appOrigin(): string | null {
+  try {
+    const url = new URL(process.env.APP_URL ?? '');
+    return url.protocol === 'https:' ? url.origin : null;
+  } catch { return null; }
 }
 
 orderRouter.get('/api/public/offers', async (_req: Request, res: Response) => {
@@ -52,7 +65,8 @@ orderRouter.get('/api/public/offers', async (_req: Request, res: Response) => {
 
 orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
   const key = req.header('x-idempotency-key')?.trim() ?? '';
-  const { tipoDocumento, documento, emailComprador, planoSlug, ciclo, modoInicio } = req.body ?? {};
+  const { tipoDocumento, documento, emailComprador, planoSlug, ciclo, modoInicio,
+    razaoSocial, nomeAdministrador, whatsapp } = req.body ?? {};
   const ambiente = paymentEnvironment();
   if (!ambiente) {
     res.status(503).json({ error: 'Pagamento temporariamente indisponível.' });
@@ -67,6 +81,7 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
     return;
   }
   if (typeof documento !== 'string' || typeof emailComprador !== 'string' ||
+      typeof razaoSocial !== 'string' || typeof nomeAdministrador !== 'string' || typeof whatsapp !== 'string' ||
       typeof planoSlug !== 'string' || typeof ciclo !== 'string' || !(ciclo in CYCLES) ||
       (modoInicio !== 'TRIAL' && modoInicio !== 'IMEDIATO')) {
     res.status(400).json({ error: 'Dados do pedido incompletos.' });
@@ -75,6 +90,13 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
   const email = emailComprador.trim().toLowerCase();
   if (email.length > 160 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     res.status(400).json({ error: 'E-mail inválido.' });
+    return;
+  }
+  const holderName = razaoSocial.trim().slice(0, 180);
+  const adminName = nomeAdministrador.trim().slice(0, 120);
+  const phone = whatsapp.replace(/\D/g, '').slice(0, 15);
+  if (holderName.length < 3 || adminName.length < 2 || phone.length < 10) {
+    res.status(400).json({ error: 'Informe nome do titular, responsável e WhatsApp válidos.' });
     return;
   }
   let cleanDocument: string;
@@ -95,7 +117,8 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
     if (existing) {
       if (existing.documento !== cleanDocument || existing.emailComprador !== email ||
           existing.ciclo !== ciclo || existing.planoId !== plano.id || existing.modoInicio !== modoInicio ||
-          existing.oferta?.ambiente !== ambiente) {
+          existing.oferta?.ambiente !== ambiente || existing.razaoSocial !== holderName ||
+          existing.nomeAdministrador !== adminName || existing.whatsapp !== phone) {
         res.status(409).json({ error: 'Chave já usada em outro pedido.' });
         return;
       }
@@ -110,6 +133,10 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
     if (modoInicio === 'TRIAL' && (await db.usoTrial.findUnique({ where: { documento: cleanDocument } }) ||
         await db.empresa.findUnique({ where: { documento: cleanDocument } }))) {
       res.status(409).json({ error: 'O período de teste já foi utilizado por este titular.' });
+      return;
+    }
+    if (await db.usuario.findUnique({ where: { email } })) {
+      res.status(409).json({ error: 'Este e-mail já possui acesso. Entre na sua conta para contratar ou altere o e-mail do administrador.' });
       return;
     }
     const offers = await db.planoOferta.findMany({
@@ -127,6 +154,9 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
         tipoDocumento: tipoDocumento as TipoDocumento,
         documento: cleanDocument,
         emailComprador: email,
+        razaoSocial: holderName,
+        nomeAdministrador: adminName,
+        whatsapp: phone,
         ciclo: ciclo as CicloCobranca,
         modoInicio: modoInicio as ModoInicio,
         status: 'CARRINHO',
@@ -152,5 +182,93 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
       // A indisponibilidade do banco é tratada abaixo.
     }
     res.status(503).json({ error: 'Não foi possível criar o pedido.' });
+  }
+});
+
+orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Response) => {
+  const id = String(req.params.id ?? '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) { res.status(400).json({ error: 'Pedido inválido.' }); return; }
+  const ambiente = paymentEnvironment();
+  const client = ambiente ? mercadoPagoClient(ambiente) : null;
+  const origin = appOrigin();
+  if (!ambiente || !client || !origin) {
+    res.status(503).json({ error: 'Checkout temporariamente indisponível.' }); return;
+  }
+  const db = getPrisma();
+  try {
+    let order = await db.pedido.findUnique({ where: { id }, include: { oferta: true, plano: true } });
+    if (!order || order.expiraEm && order.expiraEm <= new Date()) {
+      res.status(404).json({ error: 'Pedido não encontrado ou expirado.' }); return;
+    }
+    if (order.status === 'TRIAL_ATIVO' || order.status === 'ASSINATURA_ATIVA') {
+      res.status(409).json({ error: 'Esta compra já foi concluída.' }); return;
+    }
+    if (!order.oferta || order.oferta.ambiente !== ambiente || !order.oferta.ativa ||
+        order.oferta.totalCentavos !== order.totalCentavos ||
+        order.oferta.trialDias !== (order.modoInicio === 'TRIAL' ? 7 : 0)) {
+      res.status(409).json({ error: 'A oferta desse pedido mudou; revise o carrinho antes de pagar.' }); return;
+    }
+    if (order.mercadoPagoId) {
+      const existing = await client.getSubscription(order.mercadoPagoId);
+      if (existing.init_point && /^https:\/\/(www\.)?mercadopago\.com(\.br|\.ar)?\//.test(existing.init_point)) {
+        res.json({ id: order.id, status: order.status, checkoutUrl: existing.init_point }); return;
+      }
+      res.status(202).json({ id: order.id, status: order.status, processing: true }); return;
+    }
+
+    const now = new Date();
+    const claimed = await db.pedido.updateMany({
+      where: { id, mercadoPagoId: null, status: { in: ['CARRINHO', 'AGUARDANDO_CARTAO'] },
+        OR: [{ checkoutLockUntil: null }, { checkoutLockUntil: { lt: now } }] },
+      data: { status: 'AGUARDANDO_CARTAO', checkoutLockUntil: new Date(now.getTime() + 45_000) },
+    });
+    if (claimed.count !== 1) {
+      order = await db.pedido.findUnique({ where: { id }, include: { oferta: true, plano: true } });
+      if (order?.mercadoPagoId) {
+        const existing = await client.getSubscription(order.mercadoPagoId);
+        if (existing.init_point && /^https:\/\/(www\.)?mercadopago\.com(\.br|\.ar)?\//.test(existing.init_point)) {
+          res.json({ id, status: order.status, checkoutUrl: existing.init_point }); return;
+        }
+      }
+      res.status(202).json({ id, status: order?.status ?? 'AGUARDANDO_CARTAO', processing: true }); return;
+    }
+
+    // Recupera por referência única caso uma resposta de rede anterior tenha se perdido.
+    const recovered = await client.findByOrder({ payerEmail: order.emailComprador, externalReference: order.externalReference });
+    if (recovered.length > 1) {
+      res.status(409).json({ error: 'Encontramos mais de uma tentativa no provedor; o suporte precisa revisar este pedido.' }); return;
+    }
+    const subscription = recovered[0] ?? await client.createHostedSubscription({
+      reason: `Certifica Software - DK · ${order.plano.nome}`,
+      payerEmail: order.emailComprador,
+      externalReference: order.externalReference,
+      cycleMonths: CYCLES[order.ciclo] as 1 | 6 | 12,
+      amountCentavos: order.totalCentavos,
+      trialDays: order.modoInicio === 'TRIAL' ? 7 : 0,
+      backUrl: `${origin}/pagamento-retorno`,
+    });
+    if (!subscription.id || subscription.external_reference !== order.externalReference ||
+        (subscription.auto_recurring?.transaction_amount != null &&
+          Math.round(subscription.auto_recurring.transaction_amount * 100) !== order.totalCentavos)) {
+      res.status(502).json({ error: 'O provedor retornou dados diferentes do pedido; a conta não foi ativada.' }); return;
+    }
+    const updated = await db.pedido.updateMany({ where: { id, mercadoPagoId: null }, data: {
+      mercadoPagoId: subscription.id,
+      checkoutLockUntil: null,
+      status: 'AGUARDANDO_CARTAO',
+    } });
+    if (updated.count !== 1) {
+      const current = await db.pedido.findUnique({ where: { id } });
+      if (current?.mercadoPagoId !== subscription.id) {
+        res.status(409).json({ error: 'Pedido já vinculado a outra assinatura.' }); return;
+      }
+    }
+    if (subscription.init_point && /^https:\/\/(www\.)?mercadopago\.com(\.br|\.ar)?\//.test(subscription.init_point)) {
+      res.status(200).json({ id, status: 'AGUARDANDO_CARTAO', checkoutUrl: subscription.init_point }); return;
+    }
+    res.status(202).json({ id, status: 'AGUARDANDO_CARTAO', processing: true });
+  } catch (error) {
+    console.error('Falha ao preparar checkout Mercado Pago:', error instanceof Error ? error.message : 'erro desconhecido');
+    res.status(503).json({ error: 'Não foi possível abrir o pagamento agora. Tente novamente em instantes.' });
   }
 });

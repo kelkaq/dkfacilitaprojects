@@ -9,6 +9,35 @@ process.env.CSDK_PAYMENT_ENVIRONMENT = 'TEST';
 const db = getPrisma();
 const suffix = crypto.randomBytes(6).toString('hex');
 const slug = `smoke-${suffix}`;
+const oldMpToken = process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN;
+const oldAppUrl = process.env.APP_URL;
+process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN = 'TEST-placeholder';
+process.env.APP_URL = 'https://example.invalid';
+const nativeFetch = globalThis.fetch;
+let providerCreates = 0;
+const providerBody: { [key: string]: unknown }[] = [];
+globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+  const target = String(url);
+  if (!target.startsWith('https://api.mercadopago.com/')) return nativeFetch(url, init);
+  if (target.startsWith('https://api.mercadopago.com/preapproval/search?')) {
+    return new Response(JSON.stringify({ paging: { total: 0 }, results: [] }), { status: 200 });
+  }
+  if (target === 'https://api.mercadopago.com/preapproval' && init?.method === 'POST') {
+    providerCreates++;
+    const body = JSON.parse(String(init.body)) as { external_reference: string; auto_recurring: object };
+    providerBody.push(body as unknown as { [key: string]: unknown });
+    return new Response(JSON.stringify({ id: 'test_subscription_123', status: 'pending',
+      external_reference: body.external_reference, init_point: 'https://www.mercadopago.com/checkout/v1/redirect?pref_id=mock',
+      auto_recurring: body.auto_recurring }), { status: 201 });
+  }
+  if (target === 'https://api.mercadopago.com/preapproval/test_subscription_123') {
+    const create = providerBody[0];
+    return new Response(JSON.stringify({ id: 'test_subscription_123', status: 'pending',
+      external_reference: create.external_reference, init_point: 'https://www.mercadopago.com/checkout/v1/redirect?pref_id=mock',
+      auto_recurring: create.auto_recurring }), { status: 200 });
+  }
+  return new Response('{}', { status: 404 });
+}) as typeof fetch;
 const app = express();
 app.use(express.json());
 app.use(apiRouter);
@@ -31,7 +60,9 @@ try {
     totalCentavos: 54000, mercadoPagoPlanId: `smoke-${suffix}`, ativa: true,
   } });
   const key = crypto.randomUUID();
-  const body = { tipoDocumento: 'PF', documento: '529.982.247-25', emailComprador: `smoke-${suffix}@example.invalid`, planoSlug: slug, ciclo: 'SEMESTRAL', modoInicio: 'TRIAL' };
+  const body = { tipoDocumento: 'PF', documento: '529.982.247-25', emailComprador: `smoke-${suffix}@example.invalid`,
+    razaoSocial: 'Pessoa de teste', nomeAdministrador: 'Administrador de teste', whatsapp: '11999999999',
+    planoSlug: slug, ciclo: 'SEMESTRAL', modoInicio: 'TRIAL' };
   const post = (payload: unknown, idempotencyKey: string) => fetch(url, {
     method: 'POST', headers: { 'content-type': 'application/json', 'x-idempotency-key': idempotencyKey }, body: JSON.stringify(payload),
   });
@@ -43,6 +74,19 @@ try {
   assert.equal(stored.modoInicio, 'TRIAL');
   assert.equal(created.totalCentavos, 54000);
   assert.equal(created.status, 'CARRINHO');
+  const checkoutUrl = `${url}/${created.id}/checkout`;
+  const startCheckout = () => fetch(checkoutUrl, { method: 'POST' });
+  const start = await startCheckout();
+  assert.equal(start.status, 200);
+  const startBody = await start.json() as { checkoutUrl: string; status: string };
+  assert.equal(startBody.status, 'AGUARDANDO_CARTAO');
+  assert.ok(startBody.checkoutUrl.startsWith('https://www.mercadopago.com/'));
+  const sentRecurring = providerBody[0].auto_recurring as { free_trial: { frequency: number; frequency_type: string }; transaction_amount: number };
+  assert.deepEqual(sentRecurring.free_trial, { frequency: 7, frequency_type: 'days' });
+  assert.equal(sentRecurring.transaction_amount, 540);
+  const repeatedCheckout = await startCheckout();
+  assert.equal(repeatedCheckout.status, 200);
+  assert.equal(providerCreates, 1);
   const repeated = await post(body, key);
   assert.equal(repeated.status, 200);
   assert.equal((await repeated.json() as { id: string }).id, created.id);
@@ -62,8 +106,11 @@ try {
   assert.equal((await post(body, crypto.randomUUID())).status, 409);
   await db.planoOferta.update({ where: { id: offer.id }, data: { totalCentavos: 54000 } });
   assert.equal(await db.usoTrial.count({ where: { documento: '52998224725' } }), 0);
-  process.stdout.write('Pedido passou: oferta TEST, preço, CPF, idempotência, conflito e trial não ativado.\n');
+  process.stdout.write('Pedido passou: preço, CPF, idempotência, checkout MP com trial e assinatura duplicada evitada.\n');
 } finally {
+  globalThis.fetch = nativeFetch;
+  if (oldMpToken === undefined) delete process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN; else process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN = oldMpToken;
+  if (oldAppUrl === undefined) delete process.env.APP_URL; else process.env.APP_URL = oldAppUrl;
   if (planId) {
     await db.pedido.deleteMany({ where: { planoId: planId } });
     await db.planoOferta.deleteMany({ where: { planoId: planId } });
