@@ -23,6 +23,11 @@ enum CicloCobranca {
   ANUAL
 }
 
+enum TipoDocumento {
+  PF
+  PJ
+}
+
 enum StatusEmpresa {
   TRIAL
   ATIVA
@@ -217,7 +222,8 @@ model ModeloCertificadoGlobal {
 
 model Empresa {
   id                     String        @id @default(uuid())
-  cnpj                   String        @unique
+  tipoDocumento          TipoDocumento @map("tipo_documento")
+  documento              String        @unique
   razaoSocial            String        @map("razao_social")
   nomeFantasia           String?       @map("nome_fantasia")
   emailFinanceiro        String        @map("email_financeiro")
@@ -245,6 +251,7 @@ model Empresa {
   assinaturas         Assinatura[]
   faturas             Fatura[]
   usuarios            Usuario[]
+  convites            ConviteUsuario[]
   contratosObras      ContratoObra[]
   colaboradores       Colaborador[]
   assinaturasDigitais AssinaturaDigital[]
@@ -336,6 +343,7 @@ model Usuario {
   registroProfissional String?      @map("registro_profissional") // Ex.: CREA, MTE/TST
   cargo               String?
   ativo               Boolean       @default(true)
+  versaoSessao        Int           @default(0) @map("versao_sessao")
   ultimoAcessoEm      DateTime?     @map("ultimo_acesso_em")
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @updatedAt @map("updated_at")
@@ -344,9 +352,58 @@ model Usuario {
   assinaturasDigitais AssinaturaDigital[]
   turmasInstrutor     TurmaAplicacao[]    @relation("TurmaInstrutor")
   turmasRt            TurmaAplicacao[]    @relation("TurmaRT")
+  convitesCriados     ConviteUsuario[]    @relation("ConviteCriador")
+  recuperacoes        RecuperacaoSenha[]
+  auditorias          AuditoriaAcesso[]
 
   @@index([empresaId])
   @@map("usuarios")
+}
+
+model ConviteUsuario {
+  id             String        @id @default(uuid())
+  empresaId      String        @map("empresa_id")
+  email          String
+  perfil         PerfilUsuario
+  tokenHash      String        @unique @map("token_hash")
+  criadoPorId    String        @map("criado_por_id")
+  expiraEm       DateTime      @map("expira_em")
+  aceitoEm       DateTime?     @map("aceito_em")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  empresa        Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  criadoPor      Usuario       @relation("ConviteCriador", fields: [criadoPorId], references: [id])
+
+  @@index([empresaId, email])
+  @@map("convites_usuario")
+}
+
+model RecuperacaoSenha {
+  id             String        @id @default(uuid())
+  usuarioId      String        @map("usuario_id")
+  tokenHash      String        @unique @map("token_hash")
+  expiraEm       DateTime      @map("expira_em")
+  usadoEm        DateTime?     @map("usado_em")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  usuario        Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("recuperacoes_senha")
+}
+
+model AuditoriaAcesso {
+  id             String        @id @default(uuid())
+  usuarioId      String?       @map("usuario_id")
+  empresaId      String?       @map("empresa_id")
+  acao           String
+  detalhes       Json?
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  usuario        Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId, createdAt])
+  @@map("auditoria_acesso")
 }
 
 model ContratoObra {
