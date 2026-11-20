@@ -29,9 +29,12 @@ import {
 import {
   generateSecureCode,
   hashPassword,
+  signJwtToken,
   verifyPassword,
 } from '../lib/security.ts';
 import { evaluateTenantAccess, type TenantPlanState } from '../middleware/tenantGuard.ts';
+import { getPrisma } from '../lib/prisma.ts';
+import { requireDatabaseAuth } from '../middleware/databaseAuth.ts';
 
 export const apiRouter = Router();
 
@@ -54,6 +57,42 @@ apiRouter.get('/api/health', (_req: Request, res: Response) => {
 // ----------------------------------------------------------------------------
 // 2. AUTENTICAÇÃO CRIPTOGRÁFICA (HASH SCRYPT + JWT MULTIEMPRESA)
 // ----------------------------------------------------------------------------
+apiRouter.post('/api/auth/login', async (req: Request, res: Response) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+  const password = req.body?.password;
+  if (!email || typeof password !== 'string' || password.length > 256) {
+    res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+    return;
+  }
+  try {
+    const user = await getPrisma().usuario.findUnique({ where: { email } });
+    if (!user || !user.ativo || !verifyPassword(password, user.senhaHash)) {
+      res.status(401).json({ error: 'Credenciais inválidas.' });
+      return;
+    }
+    const token = signJwtToken({
+      userId: user.id,
+      email: user.email,
+      perfil: user.perfil,
+      empresaId: user.empresaId,
+      versaoSessao: user.versaoSessao,
+    });
+    res.json({ token, tokenType: 'Bearer', expiresInSeconds: 604800 });
+  } catch {
+    res.status(503).json({ error: 'Login indisponível.' });
+  }
+});
+
+apiRouter.get('/api/auth/me', requireDatabaseAuth, (_req: Request, res: Response) => {
+  const user = res.locals.authUser;
+  res.json({ id: user.id, nome: user.nome, email: user.email, perfil: user.perfil, empresaId: user.empresaId });
+});
+
+apiRouter.post('/api/auth/logout-all', requireDatabaseAuth, async (_req: Request, res: Response) => {
+  const user = res.locals.authUser;
+  await getPrisma().usuario.update({ where: { id: user.id }, data: { versaoSessao: { increment: 1 } } });
+  res.status(204).end();
+});
 apiRouter.post('/api/auth/session-token', (_req: Request, res: Response) => {
   res.status(410).json({ error: 'Emissão de sessão desativada até a autenticação ser verificada no servidor.' });
 });

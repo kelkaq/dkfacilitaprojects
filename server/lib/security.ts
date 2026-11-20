@@ -1,13 +1,18 @@
 import crypto from 'node:crypto';
 
-const DEFAULT_JWT_SECRET =
-  process.env.JWT_SECRET || 'dk-facilita-dev-jwt-secret-alterar-em-producao';
+function jwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret && secret.length >= 32) return secret;
+  if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET forte é obrigatório em produção.');
+  return 'dk-facilita-dev-jwt-secret-alterar-em-producao';
+}
 
 export interface AuthTokenPayload {
   userId: string;
   email: string;
   perfil: 'SUPER_ADMIN' | 'ADMIN_EMPRESA' | 'RT' | 'INSTRUTOR_TST';
   empresaId: string | null;
+  versaoSessao: number;
   exp: number;
 }
 
@@ -51,7 +56,7 @@ export function signJwtToken(
   };
   const body = base64UrlEncode(JSON.stringify(fullPayload));
   const signature = crypto
-    .createHmac('sha256', DEFAULT_JWT_SECRET)
+    .createHmac('sha256', jwtSecret())
     .update(`${header}.${body}`)
     .digest();
   return `${header}.${body}.${base64UrlEncode(signature)}`;
@@ -64,7 +69,7 @@ export function verifyJwtToken(token: string): AuthTokenPayload | null {
     const [header, body, sig] = parts;
     const expectedSig = base64UrlEncode(
       crypto
-        .createHmac('sha256', DEFAULT_JWT_SECRET)
+        .createHmac('sha256', jwtSecret())
         .update(`${header}.${body}`)
         .digest()
     );
