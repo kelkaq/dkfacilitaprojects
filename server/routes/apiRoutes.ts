@@ -36,9 +36,11 @@ import { evaluateTenantAccess, type TenantPlanState } from '../middleware/tenant
 import { getPrisma } from '../lib/prisma.ts';
 import { requireDatabaseAuth, requireSuperAdmin, requireTenantScope } from '../middleware/databaseAuth.ts';
 import { orderRouter } from './orderRoutes.ts';
+import { mercadoPagoWebhookRouter } from './mercadoPagoWebhookRoutes.ts';
 
 export const apiRouter = Router();
 apiRouter.use(orderRouter);
+apiRouter.use(mercadoPagoWebhookRouter);
 
 // ----------------------------------------------------------------------------
 // 1. HEALTH CHECK & RUNTIME CAPABILITIES
