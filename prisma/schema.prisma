@@ -28,6 +28,11 @@ enum TipoDocumento {
   PJ
 }
 
+enum ModoInicio {
+  TRIAL
+  IMEDIATO
+}
+
 enum StatusEmpresa {
   TRIAL
   ATIVA
@@ -338,6 +343,7 @@ model Pedido {
   documento             String
   emailComprador        String          @map("email_comprador")
   ciclo                 CicloCobranca
+  modoInicio            ModoInicio      @default(IMEDIATO) @map("modo_inicio")
   status                StatusPedido    @default(CARRINHO)
   precoSnapshot         Json            @map("preco_snapshot")
   totalCentavos         Int             @map("total_centavos")

@@ -1,0 +1,2 @@
+CREATE TYPE "ModoInicio" AS ENUM ('TRIAL', 'IMEDIATO');
+ALTER TABLE "pedidos" ADD COLUMN "modo_inicio" "ModoInicio" NOT NULL DEFAULT 'IMEDIATO';
