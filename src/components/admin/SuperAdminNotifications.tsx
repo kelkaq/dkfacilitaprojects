@@ -66,10 +66,10 @@ export const SuperAdminNotifications: React.FC<SuperAdminNotificationsProps> = (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
             Central de Notificações do Dono
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Alertas automáticos de novos trials, vendas confirmadas, upgrades, adicionais e
             inadimplência.
           </p>
@@ -79,7 +79,7 @@ export const SuperAdminNotifications: React.FC<SuperAdminNotificationsProps> = (
           type="button"
           disabled={busy || unreadIds.length === 0}
           onClick={() => void handleMarkAll()}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 cursor-pointer disabled:opacity-50"
         >
           <CheckCheck className="w-3.5 h-3.5" />
           Marcar todas como lidas ({unreadIds.length})
@@ -87,15 +87,15 @@ export const SuperAdminNotifications: React.FC<SuperAdminNotificationsProps> = (
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 dk-glass-card rounded-xl p-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => setTipoFilter('ALL')}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${
               tipoFilter === 'ALL'
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-[#1D4ED8] text-white'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
             }`}
           >
             Todos os Eventos
@@ -107,8 +107,8 @@ export const SuperAdminNotifications: React.FC<SuperAdminNotificationsProps> = (
               onClick={() => setTipoFilter(tipo)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${
                 tipoFilter === tipo
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-[#1D4ED8] text-white'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
               }`}
             >
               {TIPO_LABELS[tipo]}
@@ -116,31 +116,35 @@ export const SuperAdminNotifications: React.FC<SuperAdminNotificationsProps> = (
           ))}
         </div>
 
-        <label className="inline-flex items-center gap-2 text-xs text-slate-700 cursor-pointer pr-2">
+        <label className="inline-flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer pr-2">
           <input
             type="checkbox"
             checked={onlyUnread}
             onChange={(e) => setOnlyUnread(e.target.checked)}
-            className="rounded border-slate-300"
+            className="rounded border-slate-300 dark:border-white/20"
           />
           Somente não lidas
         </label>
       </div>
 
       {/* Feed */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="dk-glass-card rounded-xl overflow-hidden">
         {filtered.length === 0 ? (
           <div className="p-10 text-center space-y-2">
             <Bell className="w-6 h-6 text-slate-400 mx-auto" />
-            <p className="text-sm font-medium text-slate-800">Nenhuma notificação nesta visualização</p>
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+              Nenhuma notificação nesta visualização
+            </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-white/5">
             {filtered.map((notif) => (
               <div
                 key={notif.id}
                 className={`px-5 py-4 flex items-start justify-between gap-4 transition-colors ${
-                  notif.lida ? 'bg-white' : 'bg-blue-50/40'
+                  notif.lida
+                    ? 'bg-transparent'
+                    : 'bg-blue-50/50 dark:bg-blue-500/10'
                 }`}
               >
                 <div className="min-w-0 space-y-1">
@@ -148,36 +152,42 @@ export const SuperAdminNotifications: React.FC<SuperAdminNotificationsProps> = (
                     <span
                       className={`font-mono font-semibold ${
                         notif.tipo === 'PAGAMENTO_ATRASADO'
-                          ? 'text-red-700'
+                          ? 'text-red-700 dark:text-red-400'
                           : notif.tipo === 'NOVA_VENDA' || notif.tipo === 'UPGRADE'
-                            ? 'text-emerald-700'
-                            : 'text-[#1D4ED8]'
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-[#1D4ED8] dark:text-blue-400'
                       }`}
                     >
                       {TIPO_LABELS[notif.tipo]}
                     </span>
                     {notif.empresaNome && (
                       <>
-                        <span className="text-slate-300">·</span>
-                        <span className="font-medium text-slate-700">{notif.empresaNome}</span>
+                        <span className="text-slate-300 dark:text-slate-700">·</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {notif.empresaNome}
+                        </span>
                       </>
                     )}
-                    <span className="text-slate-300">·</span>
+                    <span className="text-slate-300 dark:text-slate-700">·</span>
                     <span className="font-mono text-slate-400">
                       {notif.createdAt
                         ? notif.createdAt.toDate().toLocaleString('pt-BR')
                         : 'Agora'}
                     </span>
                   </div>
-                  <p className="text-sm font-semibold text-slate-900">{notif.titulo}</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">{notif.mensagem}</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                    {notif.titulo}
+                  </p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {notif.mensagem}
+                  </p>
                 </div>
 
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void handleToggle(notif)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 shrink-0 cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 shrink-0 cursor-pointer disabled:opacity-50"
                 >
                   {notif.lida ? (
                     <>
@@ -186,7 +196,7 @@ export const SuperAdminNotifications: React.FC<SuperAdminNotificationsProps> = (
                     </>
                   ) : (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-700" />
+                      <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                       Marcar lida
                     </>
                   )}

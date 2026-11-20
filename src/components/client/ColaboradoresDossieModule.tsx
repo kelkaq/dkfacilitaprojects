@@ -373,7 +373,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
     <div className="space-y-5">
       {/* Navegação Interna */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-1 p-1 bg-slate-200/70 rounded-lg">
+        <div className="inline-flex items-center gap-1 p-1 bg-slate-200/70 dark:bg-white/[0.08] rounded-lg">
           {(
             [
               { id: 'colaboradores', label: `Colaboradores & Dossiê (${colaboradores.length})`, icon: Users },
@@ -389,8 +389,8 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                 onClick={() => setSubView(tab.id)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors cursor-pointer ${
                   subView === tab.id
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-[#0B1120]/90 text-slate-900 dark:text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white dark:text-white'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -416,11 +416,11 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
         <div
           className={`rounded-xl px-4 py-3 text-xs border flex items-center gap-2 ${
             feedback.type === 'ok'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-red-50 border-red-200 text-red-900'
+              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+              : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-900 dark:text-red-200'
           }`}
         >
-          {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-700 shrink-0" />}
+          {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />}
           <span>{feedback.text}</span>
         </div>
       )}
@@ -431,14 +431,14 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
           {showNewColab && (
             <form
               onSubmit={handleCreateColaborador}
-              className="bg-white border border-slate-200 rounded-xl p-5 space-y-3"
+              className="bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-3"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-900">Cadastrar Colaborador</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Cadastrar Colaborador</h3>
                 <button
                   type="button"
                   onClick={() => setShowNewColab(false)}
-                  className="text-xs text-slate-500 cursor-pointer"
+                  className="text-xs text-slate-500 dark:text-slate-400 cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -449,26 +449,26 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                   value={cNome}
                   onChange={(e) => setCNome(e.target.value)}
                   placeholder="Nome completo"
-                  className="lg:col-span-2 px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                  className="lg:col-span-2 px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                 />
                 <input
                   required
                   value={cCpf}
                   onChange={(e) => setCCpf(e.target.value)}
                   placeholder="CPF (000.000.000-00)"
-                  className="px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                  className="px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                 />
                 <input
                   required
                   value={cFuncao}
                   onChange={(e) => setCFuncao(e.target.value)}
                   placeholder="Função (Ex.: Caldeireiro)"
-                  className="px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                  className="px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                 />
                 <select
                   value={cObraId}
                   onChange={(e) => setCObraId(e.target.value)}
-                  className="px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                  className="px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#0B1120]/90"
                 >
                   <option value="">Sem obra vinculada</option>
                   {obras.map((o) => (
@@ -483,7 +483,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                   value={cTelefone}
                   onChange={(e) => setCTelefone(e.target.value)}
                   placeholder="WhatsApp / Telefone (opcional)"
-                  className="w-64 px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                  className="w-64 px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                 />
                 <button
                   type="submit"
@@ -498,19 +498,19 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* Lista de Colaboradores */}
-            <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl overflow-hidden">
-              <div className="p-3 border-b border-slate-200 relative">
+            <div className="lg:col-span-4 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+              <div className="p-3 border-b border-slate-200 dark:border-white/10 relative">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-5 top-1/2 -translate-y-1/2" />
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Buscar colaborador..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg"
                 />
               </div>
-              <div className="divide-y divide-slate-100 max-h-[620px] overflow-y-auto">
+              <div className="divide-y divide-slate-100 dark:divide-white/5 max-h-[620px] overflow-y-auto">
                 {filteredColaboradores.length === 0 ? (
-                  <p className="p-6 text-center text-xs text-slate-500">
+                  <p className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
                     Nenhum colaborador cadastrado ainda.
                   </p>
                 ) : (
@@ -526,7 +526,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                           setGeneratedDossie(null);
                         }}
                         className={`w-full text-left px-4 py-3 transition-colors cursor-pointer ${
-                          selected ? 'bg-slate-900 text-white' : 'hover:bg-slate-50'
+                          selected ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04]'
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -541,7 +541,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                         </div>
                         <p
                           className={`text-[11px] mt-0.5 truncate ${
-                            selected ? 'text-slate-300' : 'text-slate-500'
+                            selected ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'
                           }`}
                         >
                           {c.funcao} · {c.cpf}
@@ -554,22 +554,22 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
             </div>
 
             {/* Dossiê Unificado do Colaborador */}
-            <div className="lg:col-span-8 bg-white border border-slate-200 rounded-xl p-6 space-y-6">
+            <div className="lg:col-span-8 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-6 space-y-6">
               {!activeColab ? (
-                <div className="py-12 text-center text-xs text-slate-500">
+                <div className="py-12 text-center text-xs text-slate-500 dark:text-slate-400">
                   Selecione ou cadastre um colaborador para visualizar seu Dossiê Unificado.
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-slate-200">
+                  <div className="flex flex-wrap items-start justify-between gap-4 pb-4 border-b border-slate-200 dark:border-white/10">
                     <div>
                       <p className="text-[11px] font-mono text-slate-400">
                         DOSSIÊ UNIFICADO · {activeColab.cpf}
                       </p>
-                      <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
                         {activeColab.nome}
                       </h3>
-                      <p className="text-xs text-slate-600 mt-0.5">
+                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                         {activeColab.funcao} · {activeColab.contratoObraNome || 'Sem obra vinculada'}
                       </p>
                     </div>
@@ -578,7 +578,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                       <button
                         type="button"
                         onClick={handleDownloadDossie}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04] cursor-pointer"
                       >
                         <Download className="w-3.5 h-3.5" />
                         Baixar Dossiê
@@ -595,7 +595,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                       <button
                         type="button"
                         onClick={() => void handleDeleteColaborador(activeColab.id)}
-                        className="p-2 rounded-lg border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 cursor-pointer"
+                        className="p-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-600 hover:border-red-200 dark:border-red-500/30 cursor-pointer"
                         title="Remover colaborador"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -605,12 +605,12 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
 
                   {/* Link temporário gerado */}
                   {generatedDossie && generatedDossie.colaboradorId === activeColab.id && (
-                    <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="bg-blue-50 dark:bg-blue-500/10/70 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-900">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-white">
                           Link Temporário de Auditoria Ativo (72h)
                         </p>
-                        <p className="text-[11px] font-mono text-slate-600 truncate mt-0.5">
+                        <p className="text-[11px] font-mono text-slate-600 dark:text-slate-300 truncate mt-0.5">
                           {`${window.location.origin}/?dossie=${generatedDossie.token}`}
                         </p>
                       </div>
@@ -624,10 +624,10 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                             setCopiedLink(true);
                             window.setTimeout(() => setCopiedLink(false), 1800);
                           }}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 cursor-pointer"
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
                         >
                           {copiedLink ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-700" />
+                            <Check className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                           ) : (
                             <Copy className="w-3.5 h-3.5" />
                           )}
@@ -647,29 +647,29 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
 
                   {/* Certificados do Colaborador */}
                   <div className="space-y-2.5">
-                    <h4 className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
-                      <FileBadge className="w-4 h-4 text-[#1D4ED8]" />
+                    <h4 className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <FileBadge className="w-4 h-4 text-[#1D4ED8] dark:text-blue-400" />
                       Certificados Emitidos ({colabCerts.length})
                     </h4>
                     {colabCerts.length === 0 ? (
-                      <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg p-3">
                         Nenhum certificado emitido para este colaborador ainda.
                       </p>
                     ) : (
-                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                      <div className="divide-y divide-slate-100 dark:divide-white/5 border border-slate-200 dark:border-white/10 rounded-lg">
                         {colabCerts.map((cert) => (
                           <div
                             key={cert.id}
                             className="px-4 py-3 flex items-center justify-between gap-3 text-xs"
                           >
                             <div className="min-w-0">
-                              <p className="font-semibold text-slate-900">
-                                <span className="font-mono text-[#1D4ED8] mr-1.5">
+                              <p className="font-semibold text-slate-900 dark:text-white">
+                                <span className="font-mono text-[#1D4ED8] dark:text-blue-400 mr-1.5">
                                   {cert.nrCodigo}
                                 </span>
                                 {cert.treinamentoTitulo}
                               </p>
-                              <p className="text-[11px] font-mono text-slate-500 mt-0.5">
+                              <p className="text-[11px] font-mono text-slate-500 dark:text-slate-400 mt-0.5">
                                 {cert.numeroCertificado} · Validade {cert.dataValidadeIso} · QR{' '}
                                 {cert.codigoValidacaoQr}
                               </p>
@@ -677,7 +677,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                             <button
                               type="button"
                               onClick={() => onOpenCertificate(cert)}
-                              className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 shrink-0 cursor-pointer"
+                              className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04] shrink-0 cursor-pointer"
                             >
                               Frente e Verso
                             </button>
@@ -690,15 +690,15 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                   {/* Cartas de Anuência */}
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
-                        <FileText className="w-4 h-4 text-slate-700" />
+                      <h4 className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-slate-700 dark:text-slate-200" />
                         Cartas de Anuência ({colabCartas.length})
                       </h4>
                       {limits.incluiCartaAnuencia ? (
                         <button
                           type="button"
                           onClick={() => setShowCartaForm((v) => !v)}
-                          className="text-xs font-medium text-[#1D4ED8] hover:underline cursor-pointer"
+                          className="text-xs font-medium text-[#1D4ED8] dark:text-blue-400 hover:underline cursor-pointer"
                         >
                           + Emitir Carta de Anuência
                         </button>
@@ -717,7 +717,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                     {showCartaForm && limits.incluiCartaAnuencia && (
                       <form
                         onSubmit={handleCreateCarta}
-                        className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3"
+                        className="bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-3"
                       >
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                           <input
@@ -725,14 +725,14 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                             value={cartaTitulo}
                             onChange={(e) => setCartaTitulo(e.target.value)}
                             placeholder="Título da Carta"
-                            className="sm:col-span-2 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                            className="sm:col-span-2 px-3 py-2 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                           />
                           <input
                             required
                             value={cartaNr}
                             onChange={(e) => setCartaNr(e.target.value)}
                             placeholder="NR Referência"
-                            className="px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                            className="px-3 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                           />
                         </div>
                         <textarea
@@ -740,7 +740,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                           rows={2}
                           value={cartaTexto}
                           onChange={(e) => setCartaTexto(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                          className="w-full px-3 py-2 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                         />
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
@@ -748,14 +748,14 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                               value={cartaResp}
                               onChange={(e) => setCartaResp(e.target.value)}
                               placeholder="Responsável Técnico"
-                              className="px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
+                              className="px-3 py-1.5 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                             />
                             <input
                               type="date"
                               required
                               value={cartaValidade}
                               onChange={(e) => setCartaValidade(e.target.value)}
-                              className="px-3 py-1.5 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                              className="px-3 py-1.5 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                             />
                           </div>
                           <button
@@ -770,22 +770,22 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                     )}
 
                     {colabCartas.length === 0 ? (
-                      <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg p-3">
                         {limits.incluiCartaAnuencia
                           ? 'Nenhuma Carta de Anuência emitida para este colaborador.'
                           : 'Recurso disponível nos planos Profissional/Enterprise ou via adicional "Cartas de Anuência & Dossiê".'}
                       </p>
                     ) : (
-                      <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                      <div className="divide-y divide-slate-100 dark:divide-white/5 border border-slate-200 dark:border-white/10 rounded-lg">
                         {colabCartas.map((ca) => (
                           <div key={ca.id} className="px-4 py-3 text-xs">
                             <div className="flex items-center justify-between">
-                              <span className="font-semibold text-slate-900">{ca.titulo}</span>
-                              <span className="font-mono text-[11px] text-slate-500">
+                              <span className="font-semibold text-slate-900 dark:text-white">{ca.titulo}</span>
+                              <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
                                 {ca.nrReferencia} · Val. {ca.validadeIso}
                               </span>
                             </div>
-                            <p className="text-slate-600 mt-1">{ca.textoLegal}</p>
+                            <p className="text-slate-600 dark:text-slate-300 mt-1">{ca.textoLegal}</p>
                           </div>
                         ))}
                       </div>
@@ -794,11 +794,11 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
 
                   {/* Provas & Evidências (Selfie + Assinatura) */}
                   <div className="space-y-2.5">
-                    <h4 className="text-xs font-semibold text-slate-900">
+                    <h4 className="text-xs font-semibold text-slate-900 dark:text-white">
                       Evidências de Provas & Selfies ({colabTentativas.length})
                     </h4>
                     {colabTentativas.length === 0 ? (
-                      <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg p-3">
                         Nenhuma tentativa de prova online registrada para este colaborador.
                       </p>
                     ) : (
@@ -806,12 +806,12 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                         {colabTentativas.map((t) => (
                           <div
                             key={t.id}
-                            className="border border-slate-200 rounded-lg p-3 space-y-2 text-xs"
+                            className="border border-slate-200 dark:border-white/10 rounded-lg p-3 space-y-2 text-xs"
                           >
                             <div className="flex justify-between">
                               <span
                                 className={`font-semibold ${
-                                  t.status === 'APROVADO' ? 'text-emerald-700' : 'text-red-700'
+                                  t.status === 'APROVADO' ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'
                                 }`}
                               >
                                 {t.status} · {t.notaPercentual}%
@@ -825,14 +825,14 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                                 <img
                                   src={t.selfieDataUrl}
                                   alt="Selfie"
-                                  className="w-12 h-12 rounded-md object-cover border border-slate-200"
+                                  className="w-12 h-12 rounded-md object-cover border border-slate-200 dark:border-white/10"
                                 />
                               )}
                               {t.assinaturaDataUrl && (
                                 <img
                                   src={t.assinaturaDataUrl}
                                   alt="Assinatura"
-                                  className="h-12 flex-1 object-contain bg-slate-50 rounded-md border border-slate-200 p-1"
+                                  className="h-12 flex-1 object-contain bg-slate-50 dark:bg-white/[0.04] rounded-md border border-slate-200 dark:border-white/10 p-1"
                                 />
                               )}
                             </div>
@@ -853,9 +853,9 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           <form
             onSubmit={handleCreateObra}
-            className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5 space-y-3"
+            className="lg:col-span-5 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-3"
           >
-            <h3 className="text-sm font-semibold text-slate-900">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
               Novo Contrato / Obra ({obras.length}/{limits.limiteObras})
             </h3>
             <input
@@ -863,26 +863,26 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
               value={oCodigo}
               onChange={(e) => setOCodigo(e.target.value)}
               placeholder="Código (Ex.: CTR-2026-01)"
-              className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+              className="w-full px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
             />
             <input
               required
               value={oNome}
               onChange={(e) => setONome(e.target.value)}
               placeholder="Nome do Contrato ou Unidade"
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
             />
             <input
               value={oCliente}
               onChange={(e) => setOCliente(e.target.value)}
               placeholder="Contratante / Cliente final (opcional)"
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
             />
             <input
               value={oLocal}
               onChange={(e) => setOLocal(e.target.value)}
               placeholder="Cidade / Polo industrial (opcional)"
-              className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg"
+              className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
             />
             <button
               type="submit"
@@ -893,27 +893,27 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
             </button>
           </form>
 
-          <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-200 text-xs font-semibold text-slate-900">
+          <div className="lg:col-span-7 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-900 dark:text-white">
               Contratos / Obras Cadastrados
             </div>
             {obras.length === 0 ? (
-              <p className="p-6 text-xs text-slate-500 text-center">
+              <p className="p-6 text-xs text-slate-500 dark:text-slate-400 text-center">
                 Nenhuma obra cadastrada ainda.
               </p>
             ) : (
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-slate-100 dark:divide-white/5">
                 {obras.map((o) => (
                   <div
                     key={o.id}
                     className="px-5 py-3.5 flex items-center justify-between gap-3 text-xs"
                   >
                     <div>
-                      <p className="font-semibold text-slate-900">
-                        <span className="font-mono text-[#1D4ED8] mr-1.5">{o.codigo}</span>
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        <span className="font-mono text-[#1D4ED8] dark:text-blue-400 mr-1.5">{o.codigo}</span>
                         {o.nome}
                       </p>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         {o.clienteFinal || 'Cliente não informado'}{' '}
                         {o.localizacao ? `· ${o.localizacao}` : ''}
                       </p>
@@ -938,13 +938,13 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           <form
             onSubmit={handleSaveAssinatura}
-            className="lg:col-span-6 bg-white border border-slate-200 rounded-xl p-5 space-y-4"
+            className="lg:col-span-6 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-4"
           >
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                 Cadastrar Assinatura Digital (Instrutor / RT)
               </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Utilizada automaticamente na frente dos certificados emitidos pela empresa.
               </p>
             </div>
@@ -952,7 +952,7 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
               <select
                 value={sigTipo}
                 onChange={(e) => setSigTipo(e.target.value as 'INSTRUTOR' | 'RT' | 'EMPRESA')}
-                className="px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                className="px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#0B1120]/90"
               >
                 <option value="INSTRUTOR">Instrutor / TST</option>
                 <option value="RT">Responsável Técnico</option>
@@ -963,13 +963,13 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
                 value={sigNome}
                 onChange={(e) => setSigNome(e.target.value)}
                 placeholder="Nome do signatário"
-                className="px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                className="px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
               />
               <input
                 value={sigRegistro}
                 onChange={(e) => setSigRegistro(e.target.value)}
                 placeholder="CREA / MTE"
-                className="px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                className="px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
               />
             </div>
 
@@ -989,30 +989,30 @@ export const ColaboradoresDossieModule: React.FC<ColaboradoresDossieModuleProps>
             </button>
           </form>
 
-          <div className="lg:col-span-6 bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900">
+          <div className="lg:col-span-6 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
               Assinaturas Ativas ({assinaturas.length})
             </h3>
             {assinaturas.length === 0 ? (
-              <p className="text-xs text-slate-500">Nenhuma assinatura cadastrada ainda.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Nenhuma assinatura cadastrada ainda.</p>
             ) : (
               <div className="space-y-3">
                 {assinaturas.map((sig) => (
                   <div
                     key={sig.id}
-                    className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-4"
+                    className="border border-slate-200 dark:border-white/10 rounded-lg p-3 flex items-center justify-between gap-4"
                   >
                     <div>
-                      <p className="text-[11px] font-mono font-semibold text-[#1D4ED8]">
+                      <p className="text-[11px] font-mono font-semibold text-[#1D4ED8] dark:text-blue-400">
                         {sig.tipo}
                       </p>
-                      <p className="text-xs font-semibold text-slate-900">{sig.nomeSignatario}</p>
-                      <p className="text-[11px] text-slate-500">{sig.registro || 'Sem registro'}</p>
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white">{sig.nomeSignatario}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{sig.registro || 'Sem registro'}</p>
                     </div>
                     <img
                       src={sig.imagemDataUrl}
                       alt={sig.nomeSignatario}
-                      className="h-12 max-w-[160px] object-contain bg-slate-50 border border-slate-200 rounded p-1"
+                      className="h-12 max-w-[160px] object-contain bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded p-1"
                     />
                   </div>
                 ))}

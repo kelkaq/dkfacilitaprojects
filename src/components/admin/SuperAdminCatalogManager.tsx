@@ -221,16 +221,16 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
             Gestão Global — Planos, NRs e Modelos Gratuitos
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Alterações feitas aqui refletem automaticamente no site dkfacilita.com, no checkout e
             nas novas contas.
           </p>
         </div>
 
-        <div className="inline-flex p-1 bg-slate-200/70 rounded-lg">
+        <div className="inline-flex p-1 bg-slate-200/70 dark:bg-white/[0.08] rounded-lg">
           {(
             [
               { id: 'planos', label: `Planos & Adicionais (${catalog.planos.length}/${catalog.adicionais.length})`, icon: Package },
@@ -245,7 +245,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                 type="button"
                 onClick={() => setTab(item.id)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium cursor-pointer ${
-                  tab === item.id ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+                  tab === item.id ? 'bg-white dark:bg-[#0B1120]/90 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-300'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -260,11 +260,11 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
         <div
           className={`rounded-xl px-4 py-3 text-xs border flex items-center gap-2 ${
             feedback.type === 'ok'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-red-50 border-red-200 text-red-900'
+              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+              : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-900 dark:text-red-200'
           }`}
         >
-          {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-700 shrink-0" />}
+          {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />}
           <span>{feedback.text}</span>
         </div>
       )}
@@ -273,9 +273,9 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
       {tab === 'planos' && (
         <div className="space-y-6">
           {/* Planos */}
-          <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">Planos Comerciais</h3>
+          <section className="bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Planos Comerciais</h3>
               <button
                 type="button"
                 onClick={() =>
@@ -310,7 +310,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
             {editingPlano && (
               <form
                 onSubmit={handleSavePlano}
-                className="p-5 bg-slate-50 border-b border-slate-200 space-y-3"
+                className="p-5 bg-slate-50 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10 space-y-3"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <input
@@ -318,14 +318,14 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     value={editingPlano.nome}
                     onChange={(e) => setEditingPlano({ ...editingPlano, nome: e.target.value })}
                     placeholder="Nome do Plano"
-                    className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                    className="px-3 py-2 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     required
                     value={editingPlano.slug}
                     onChange={(e) => setEditingPlano({ ...editingPlano, slug: e.target.value })}
                     placeholder="Slug (ex.: profissional)"
-                    className="px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                    className="px-3 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     required
@@ -334,7 +334,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                       setEditingPlano({ ...editingPlano, subtitulo: e.target.value })
                     }
                     placeholder="Subtítulo curto"
-                    className="lg:col-span-2 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                    className="lg:col-span-2 px-3 py-2 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     required
@@ -343,10 +343,10 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                       setEditingPlano({ ...editingPlano, descricao: e.target.value })
                     }
                     placeholder="Descrição comercial"
-                    className="lg:col-span-4 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                    className="lg:col-span-4 px-3 py-2 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <div>
-                    <label className="block text-[10px] text-slate-500 mb-1">
+                    <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1">
                       Preço Mensal (R$ em centavos)
                     </label>
                     <input
@@ -359,11 +359,11 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                           precoMensalCentavos: Number(e.target.value),
                         })
                       }
-                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                      className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-slate-500 mb-1">
+                    <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1">
                       Desc. Semestral / Anual (%)
                     </label>
                     <div className="flex gap-2">
@@ -376,7 +376,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                             descontoSemestral: Number(e.target.value),
                           })
                         }
-                        className="w-1/2 px-2 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                        className="w-1/2 px-2 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                       />
                       <input
                         type="number"
@@ -387,12 +387,12 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                             descontoAnual: Number(e.target.value),
                           })
                         }
-                        className="w-1/2 px-2 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                        className="w-1/2 px-2 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] text-slate-500 mb-1">
+                    <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1">
                       Limites (Colab / Usuários / Obras)
                     </label>
                     <div className="flex gap-1.5">
@@ -405,7 +405,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                             limiteColaboradores: Number(e.target.value),
                           })
                         }
-                        className="w-1/3 px-2 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                        className="w-1/3 px-2 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                       />
                       <input
                         type="number"
@@ -416,7 +416,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                             limiteUsuarios: Number(e.target.value),
                           })
                         }
-                        className="w-1/3 px-2 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                        className="w-1/3 px-2 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                       />
                       <input
                         type="number"
@@ -427,25 +427,25 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                             limiteObras: Number(e.target.value),
                           })
                         }
-                        className="w-1/3 px-2 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                        className="w-1/3 px-2 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] text-slate-500 mb-1">Ordem</label>
+                    <label className="block text-[10px] text-slate-500 dark:text-slate-400 mb-1">Ordem</label>
                     <input
                       type="number"
                       value={editingPlano.ordem}
                       onChange={(e) =>
                         setEditingPlano({ ...editingPlano, ordem: Number(e.target.value) })
                       }
-                      className="w-full px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                      className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                     />
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  <div className="flex flex-wrap gap-4 text-xs text-slate-700">
+                  <div className="flex flex-wrap gap-4 text-xs text-slate-700 dark:text-slate-200">
                     {(
                       [
                         { key: 'incluiCartaAnuencia', label: 'Cartas Anuência' },
@@ -471,7 +471,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     <button
                       type="button"
                       onClick={() => setEditingPlano(null)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120]/90 text-xs"
                     >
                       Cancelar
                     </button>
@@ -490,7 +490,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                  <tr className="bg-slate-50 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400">
                     <th className="py-2.5 px-5">Plano</th>
                     <th className="py-2.5 px-4">Mensal</th>
                     <th className="py-2.5 px-4">Limites (Colab / Usr / Obras)</th>
@@ -498,24 +498,24 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     <th className="py-2.5 px-5 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   {catalog.planos.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50/70">
+                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04]/70 dark:bg-white/[0.03]">
                       <td className="py-3 px-5">
-                        <p className="font-semibold text-slate-900">{p.nome}</p>
-                        <p className="text-[11px] text-slate-500">{p.subtitulo}</p>
+                        <p className="font-semibold text-slate-900 dark:text-white">{p.nome}</p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">{p.subtitulo}</p>
                       </td>
-                      <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                      <td className="py-3 px-4 font-mono font-semibold text-slate-900 dark:text-white">
                         {formatarMoedaBRL(p.precoMensalCentavos)}
                         <span className="block text-[10px] text-slate-400 font-normal">
                           -{p.descontoSemestral}% sem · -{p.descontoAnual}% anual
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-mono text-slate-700">
+                      <td className="py-3 px-4 font-mono text-slate-700 dark:text-slate-200">
                         {p.limiteColaboradores} / {p.limiteUsuarios} / {p.limiteObras}
                       </td>
                       <td className="py-3 px-4">
-                        <span className={p.ativo ? 'text-emerald-700 font-semibold' : 'text-slate-400'}>
+                        <span className={p.ativo ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : 'text-slate-400'}>
                           {p.ativo ? 'Ativo' : 'Inativo'}
                         </span>
                       </td>
@@ -523,7 +523,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                         <button
                           type="button"
                           onClick={() => setEditingPlano({ ...p })}
-                          className="p-1.5 text-slate-500 hover:text-slate-900 cursor-pointer"
+                          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white cursor-pointer"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -543,9 +543,9 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
           </section>
 
           {/* Adicionais */}
-          <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-900">Serviços Adicionais (Add-ons)</h3>
+          <section className="bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Serviços Adicionais (Add-ons)</h3>
               <button
                 type="button"
                 onClick={() =>
@@ -572,7 +572,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
             {editingAddon && (
               <form
                 onSubmit={handleSaveAddon}
-                className="p-5 bg-slate-50 border-b border-slate-200 space-y-3"
+                className="p-5 bg-slate-50 dark:bg-white/[0.04] border-b border-slate-200 dark:border-white/10 space-y-3"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <input
@@ -580,14 +580,14 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     value={editingAddon.nome}
                     onChange={(e) => setEditingAddon({ ...editingAddon, nome: e.target.value })}
                     placeholder="Nome do Adicional"
-                    className="lg:col-span-2 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                    className="lg:col-span-2 px-3 py-2 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     required
                     value={editingAddon.slug}
                     onChange={(e) => setEditingAddon({ ...editingAddon, slug: e.target.value })}
                     placeholder="Slug"
-                    className="px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                    className="px-3 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <select
                     value={editingAddon.tipoCobranca}
@@ -597,7 +597,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                         tipoCobranca: e.target.value as 'RECORRENTE' | 'UNICO',
                       })
                     }
-                    className="px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                    className="px-3 py-2 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   >
                     <option value="RECORRENTE">Mensal Recorrente</option>
                     <option value="UNICO">Pagamento Único</option>
@@ -609,7 +609,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                       setEditingAddon({ ...editingAddon, descricao: e.target.value })
                     }
                     placeholder="Descrição comercial"
-                    className="lg:col-span-2 px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                    className="lg:col-span-2 px-3 py-2 text-xs bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     type="number"
@@ -622,7 +622,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                       })
                     }
                     placeholder="Preço em centavos"
-                    className="px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                    className="px-3 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     type="number"
@@ -634,11 +634,11 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                       })
                     }
                     placeholder="Incremento (ex.: 100)"
-                    className="px-3 py-2 text-xs font-mono bg-white border border-slate-200 rounded-lg"
+                    className="px-3 py-2 text-xs font-mono bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                 </div>
                 <div className="flex items-center justify-between">
-                  <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                  <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={editingAddon.ativo}
@@ -652,7 +652,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     <button
                       type="button"
                       onClick={() => setEditingAddon(null)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120]/90 text-xs"
                     >
                       Cancelar
                     </button>
@@ -668,18 +668,18 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
               </form>
             )}
 
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-white/5">
               {catalog.adicionais.map((a) => (
                 <div
                   key={a.id}
-                  className="px-5 py-3 flex items-center justify-between gap-3 text-xs hover:bg-slate-50/70"
+                  className="px-5 py-3 flex items-center justify-between gap-3 text-xs hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04]/70 dark:bg-white/[0.03]"
                 >
                   <div className="min-w-0">
-                    <p className="font-semibold text-slate-900">{a.nome}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{a.descricao}</p>
+                    <p className="font-semibold text-slate-900 dark:text-white">{a.nome}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{a.descricao}</p>
                   </div>
                   <div className="flex items-center gap-4 shrink-0">
-                    <span className="font-mono font-semibold text-slate-900">
+                    <span className="font-mono font-semibold text-slate-900 dark:text-white">
                       {formatarMoedaBRL(a.precoMensalCentavos)}
                       <span className="text-slate-400 font-normal">
                         {a.tipoCobranca === 'RECORRENTE' ? '/mês' : ' único'}
@@ -688,7 +688,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     <button
                       type="button"
                       onClick={() => setEditingAddon({ ...a })}
-                      className="p-1.5 text-slate-500 hover:text-slate-900 cursor-pointer"
+                      className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>
@@ -710,9 +710,9 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
       {/* ABA 2: CATÁLOGO GLOBAL DE NRs (NORMA PAI + VARIAÇÕES + LINHAS) */}
       {tab === 'nrs' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-          <div className="lg:col-span-4 bg-white border border-slate-200 rounded-xl overflow-hidden">
-            <div className="p-3 border-b border-slate-200 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-900">Normas Pai Globais</span>
+          <div className="lg:col-span-4 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+            <div className="p-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-900 dark:text-white">Normas Pai Globais</span>
               <button
                 type="button"
                 onClick={() =>
@@ -751,14 +751,14 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                 Nova NR
               </button>
             </div>
-            <div className="divide-y divide-slate-100 max-h-[560px] overflow-y-auto">
+            <div className="divide-y divide-slate-100 dark:divide-white/5 max-h-[560px] overflow-y-auto">
               {catalog.nrs.map((nr) => (
                 <button
                   key={nr.id}
                   type="button"
                   onClick={() => startEditNr(nr)}
                   className={`w-full text-left px-4 py-3 cursor-pointer ${
-                    selectedNr?.id === nr.id ? 'bg-slate-900 text-white' : 'hover:bg-slate-50'
+                    selectedNr?.id === nr.id ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04]'
                   }`}
                 >
                   <div className="flex items-center justify-between text-xs">
@@ -771,15 +771,15 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
             </div>
           </div>
 
-          <div className="lg:col-span-8 bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+          <div className="lg:col-span-8 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-4">
             {!editingNr && selectedNr ? (
               <div className="space-y-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-mono text-xs text-[#1D4ED8] font-bold">
+                    <p className="font-mono text-xs text-[#1D4ED8] dark:text-blue-400 font-bold">
                       {selectedNr.codigo} · {selectedNr.baseLegal}
                     </p>
-                    <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
                       {selectedNr.titulo}
                     </h3>
                   </div>
@@ -792,11 +792,11 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     Editar Norma e Linhas
                   </button>
                 </div>
-                <p className="text-xs text-slate-600">{selectedNr.descricao}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300">{selectedNr.descricao}</p>
                 <div className="space-y-3">
                   {selectedNr.variacoes.map((v) => (
-                    <div key={v.slug} className="border border-slate-200 rounded-lg p-3.5">
-                      <p className="text-xs font-semibold text-slate-900">
+                    <div key={v.slug} className="border border-slate-200 dark:border-white/10 rounded-lg p-3.5">
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white">
                         {v.nome} · {v.cargaHorariaHoras}h · Validade {v.validadeMeses}m (
                         {v.linhas.length} linhas)
                       </p>
@@ -807,7 +807,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
             ) : editingNr ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                     Editor Global: {editingNr.codigo}
                   </h3>
                   <div className="flex items-center gap-2">
@@ -816,7 +816,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                         type="button"
                         disabled={busy}
                         onClick={() => void handleDeleteNr(editingNr.id)}
-                        className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 cursor-pointer"
+                        className="p-1.5 rounded-lg border border-red-200 dark:border-red-500/30 text-red-600 hover:bg-red-50 dark:bg-red-500/10 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -824,7 +824,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     <button
                       type="button"
                       onClick={() => setEditingNr(null)}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs"
                     >
                       Cancelar
                     </button>
@@ -845,19 +845,19 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     value={editingNr.codigo}
                     onChange={(e) => setEditingNr({ ...editingNr, codigo: e.target.value })}
                     placeholder="Código (NR-35)"
-                    className="px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                    className="px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     value={editingNr.titulo}
                     onChange={(e) => setEditingNr({ ...editingNr, titulo: e.target.value })}
                     placeholder="Título"
-                    className="sm:col-span-2 px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                    className="sm:col-span-2 px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     value={editingNr.baseLegal}
                     onChange={(e) => setEditingNr({ ...editingNr, baseLegal: e.target.value })}
                     placeholder="Base Legal"
-                    className="sm:col-span-2 px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                    className="sm:col-span-2 px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     type="number"
@@ -869,19 +869,19 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                       })
                     }
                     placeholder="Validade (meses)"
-                    className="px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                    className="px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                 </div>
 
                 {/* Variações */}
-                <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-lg">
+                <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.06] rounded-lg">
                   {editingNr.variacoes.map((v, idx) => (
                     <button
                       key={idx}
                       type="button"
                       onClick={() => setActiveVarIdx(idx)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-md cursor-pointer ${
-                        activeVarIdx === idx ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+                        activeVarIdx === idx ? 'bg-white dark:bg-[#0B1120]/90 text-slate-900 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       {v.nome}
@@ -909,21 +909,21 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                       });
                       setActiveVarIdx(nextIdx);
                     }}
-                    className="px-2.5 py-1.5 text-xs font-medium text-[#1D4ED8] hover:underline cursor-pointer"
+                    className="px-2.5 py-1.5 text-xs font-medium text-[#1D4ED8] dark:text-blue-400 hover:underline cursor-pointer"
                   >
                     + Variação
                   </button>
                 </div>
 
                 {editingNr.variacoes[activeVarIdx] && (
-                  <div className="space-y-3 border border-slate-200 rounded-xl p-4">
+                  <div className="space-y-3 border border-slate-200 dark:border-white/10 rounded-xl p-4">
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <input
                         value={editingNr.variacoes[activeVarIdx].nome}
                         onChange={(e) =>
                           updateCurrentVar((v) => ({ ...v, nome: e.target.value }))
                         }
-                        className="col-span-2 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg"
+                        className="col-span-2 px-2.5 py-1.5 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                       />
                       <input
                         type="number"
@@ -934,7 +934,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                             cargaHorariaHoras: Number(e.target.value),
                           }))
                         }
-                        className="px-2.5 py-1.5 text-xs font-mono border border-slate-200 rounded-lg"
+                        className="px-2.5 py-1.5 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                         title="Horas"
                       />
                       <input
@@ -946,7 +946,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                             validadeMeses: Number(e.target.value),
                           }))
                         }
-                        className="px-2.5 py-1.5 text-xs font-mono border border-slate-200 rounded-lg"
+                        className="px-2.5 py-1.5 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                         title="Validade (meses)"
                       />
                     </div>
@@ -968,7 +968,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                                 ),
                               }))
                             }
-                            className="flex-1 px-2.5 py-1.5 text-xs border border-slate-200 rounded-md"
+                            className="flex-1 px-2.5 py-1.5 text-xs border border-slate-200 dark:border-white/10 rounded-md"
                           />
                           <button
                             type="button"
@@ -980,7 +980,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                                 return { ...v, linhas: arr };
                               })
                             }
-                            className="p-1 text-slate-400 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white disabled:opacity-30 cursor-pointer"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
                           </button>
@@ -994,7 +994,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                                 return { ...v, linhas: arr };
                               })
                             }
-                            className="p-1 text-slate-400 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                            className="p-1 text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white disabled:opacity-30 cursor-pointer"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
                           </button>
@@ -1019,14 +1019,14 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                         value={novaLinha}
                         onChange={(e) => setNovaLinha(e.target.value)}
                         placeholder="Nova linha do conteúdo programático..."
-                        className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg"
+                        className="flex-1 px-3 py-1.5 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                       />
                       <input
                         type="number"
                         value={novaLinhaMin}
                         onChange={(e) => setNovaLinhaMin(e.target.value)}
                         placeholder="Min"
-                        className="w-16 px-2 py-1.5 text-xs font-mono border border-slate-200 rounded-lg"
+                        className="w-16 px-2 py-1.5 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                       />
                       <button
                         type="button"
@@ -1046,7 +1046,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                           setNovaLinha('');
                           setNovaLinhaMin('');
                         }}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium hover:bg-slate-50 cursor-pointer"
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04] cursor-pointer"
                       >
                         + Linha
                       </button>
@@ -1095,7 +1095,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
           {editingModelo && (
             <form
               onSubmit={handleSaveModelo}
-              className="bg-white border border-slate-200 rounded-xl p-5 space-y-3"
+              className="bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-3"
             >
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <input
@@ -1103,14 +1103,14 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                   value={editingModelo.nome}
                   onChange={(e) => setEditingModelo({ ...editingModelo, nome: e.target.value })}
                   placeholder="Nome do Modelo"
-                  className="px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                  className="px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                 />
                 <input
                   required
                   value={editingModelo.slug}
                   onChange={(e) => setEditingModelo({ ...editingModelo, slug: e.target.value })}
                   placeholder="Slug"
-                  className="px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                  className="px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                 />
                 <select
                   value={editingModelo.layoutConfig.moldura}
@@ -1127,7 +1127,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                       },
                     })
                   }
-                  className="px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                  className="px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#0B1120]/90"
                 >
                   <option value="dupla-classica">Moldura Dupla Clássica</option>
                   <option value="corporativa-barra">Barra Corporativa Lateral</option>
@@ -1141,11 +1141,11 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                     setEditingModelo({ ...editingModelo, descricao: e.target.value })
                   }
                   placeholder="Descrição visual do modelo"
-                  className="sm:col-span-3 px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                  className="sm:col-span-3 px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                 />
               </div>
               <div className="flex items-center justify-between">
-                <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 cursor-pointer">
+                <label className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={editingModelo.ativo}
@@ -1159,7 +1159,7 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
                   <button
                     type="button"
                     onClick={() => setEditingModelo(null)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs"
                   >
                     Cancelar
                   </button>
@@ -1179,18 +1179,18 @@ export const SuperAdminCatalogManager: React.FC<SuperAdminCatalogManagerProps> =
             {catalog.modelos.map((modelo) => (
               <div
                 key={modelo.id}
-                className="bg-white border border-slate-200 rounded-xl p-5 space-y-4"
+                className="bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-4"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900">{modelo.nome}</h3>
-                    <p className="text-xs text-slate-500 mt-0.5">{modelo.descricao}</p>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{modelo.nome}</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{modelo.descricao}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={() => setEditingModelo({ ...modelo })}
-                      className="p-1.5 text-slate-500 hover:text-slate-900 cursor-pointer"
+                      className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                     </button>

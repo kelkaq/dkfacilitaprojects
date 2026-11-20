@@ -582,6 +582,10 @@ export async function updateTurmaAndPublicGateway(params: {
     pinAcesso?: string | null;
     status?: StatusTurma;
     notaMinimaAprovacao?: number;
+    instrutorNome?: string | null;
+    instrutorRegistro?: string | null;
+    rtNome?: string | null;
+    rtRegistro?: string | null;
   };
 }): Promise<TurmaDoc> {
   assertTenantOperationalAccess(params.empresa);
@@ -597,6 +601,22 @@ export async function updateTurmaAndPublicGateway(params: {
     params.patch.localRealizacao !== undefined
       ? params.patch.localRealizacao?.trim() || null
       : params.turma.localRealizacao ?? null;
+  const instrutorNome =
+    params.patch.instrutorNome !== undefined
+      ? params.patch.instrutorNome?.trim() || null
+      : params.turma.instrutorNome ?? null;
+  const instrutorRegistro =
+    params.patch.instrutorRegistro !== undefined
+      ? params.patch.instrutorRegistro?.trim() || null
+      : params.turma.instrutorRegistro ?? null;
+  const rtNome =
+    params.patch.rtNome !== undefined
+      ? params.patch.rtNome?.trim() || null
+      : params.turma.rtNome ?? null;
+  const rtRegistro =
+    params.patch.rtRegistro !== undefined
+      ? params.patch.rtRegistro?.trim() || null
+      : params.turma.rtRegistro ?? null;
   const notaMinima =
     params.patch.notaMinimaAprovacao ??
     params.treinamento.notaMinimaAprovacao ??
@@ -613,6 +633,10 @@ export async function updateTurmaAndPublicGateway(params: {
       modoIdentificacao: modo,
       pinAcesso: pin,
       status,
+      instrutorNome,
+      instrutorRegistro,
+      rtNome,
+      rtRegistro,
       updatedAt: serverTimestamp(),
     });
 
@@ -889,11 +913,15 @@ export async function issueCertificadoImutavel(params: {
   }
 }
 
-export async function renderCertificadoFrenteVerso(certificado: CertificadoDoc): Promise<{
+export async function renderCertificadoFrenteVerso(
+  certificado: CertificadoDoc,
+  options?: { ocultarAssinaturaColaborador?: boolean; modeloProprioUrl?: string | null }
+): Promise<{
   html: string;
   colunasVerso: 1 | 2;
   validationUrl: string;
   qrCodeSvg: string;
+  integrityHash?: string;
 }> {
   const response = await fetch('/api/certificates/render', {
     method: 'POST',
@@ -907,6 +935,8 @@ export async function renderCertificadoFrenteVerso(certificado: CertificadoDoc):
       dataRealizacaoIso: certificado.dataRealizacaoIso,
       dataValidadeIso: certificado.dataValidadeIso,
       validationBaseUrl: window.location.origin,
+      ocultarAssinaturaColaborador: Boolean(options?.ocultarAssinaturaColaborador),
+      modeloProprioUrl: options?.modeloProprioUrl || null,
       snapshotEmpresa: certificado.snapshotEmpresa,
       snapshotColaborador: certificado.snapshotColaborador,
       snapshotConteudoLinhas: certificado.snapshotConteudoLinhas,
@@ -918,6 +948,43 @@ export async function renderCertificadoFrenteVerso(certificado: CertificadoDoc):
     throw new Error(err.error || 'Erro ao renderizar frente e verso do certificado.');
   }
   return await response.json();
+}
+
+export async function renderDocumentVectorHtml(
+  endpoint:
+    | '/api/documents/render-comprovante'
+    | '/api/documents/render-dossie-aplicacao'
+    | '/api/documents/render-carta-anuencia'
+    | '/api/documents/render-lista-presenca'
+    | '/api/documents/render-pacote-auditoria',
+  payload: unknown
+): Promise<{ html: string; qrCodeSvg?: string }> {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Erro ao gerar documento vetorial para impressão.');
+  }
+  return await response.json();
+}
+
+export function buildEvidenceCode(tentativaId: string): string {
+  return `EVD-${tentativaId.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
+}
+
+export function buildDossierProvaCode(turmaCodigo: string): string {
+  return `PROVA-${turmaCodigo.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}`;
+}
+
+export function buildCartaCode(cartaId: string): string {
+  return `CAN-${cartaId.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
+}
+
+export function maskCpfDisplay(cpf: string): string {
+  return maskCpfClient(cpf);
 }
 
 export async function validatePublicCertificadoQr(

@@ -13,6 +13,7 @@ import {
 import { sendAnalyticsHeartbeat } from './services/analyticsService.ts';
 import { listMyEmpresas } from './services/tenantAuthService.ts';
 import type { EmpresaDoc } from './types/domain.ts';
+import { ThemeProvider } from './components/ThemeProvider.tsx';
 import { LandingPage, type CheckoutSelection } from './components/LandingPage.tsx';
 import { CheckoutFlow } from './components/CheckoutFlow.tsx';
 import { OnboardingWizard } from './components/OnboardingWizard.tsx';
@@ -124,7 +125,7 @@ function pathForView(view: AppView): string {
   }
 }
 
-export default function App() {
+function AppRouter() {
   const initialRoute = useMemo(() => resolveRouteFromBrowser(), []);
   const [view, setView] = useState<AppView>(initialRoute.view);
   const [postLoginTarget, setPostLoginTarget] = useState<'CLIENT_APP' | 'ADMIN_CONSOLE'>(
@@ -231,7 +232,7 @@ export default function App() {
     void loadCatalog();
   }, [loadCatalog]);
 
-  // Guarda de rotas autenticadas / Super Admin após resolução do auth
+  // Guarda de rotas autenticadas / acesso administrativo exclusivamente via /admin
   useEffect(() => {
     if (!authReady) return;
     if (view === 'ADMIN_CONSOLE') {
@@ -437,12 +438,12 @@ export default function App() {
     );
   }
 
-  // 6. PAINEL SUPER ADMIN DO DONO (admin.dkfacilita.com | /admin)
+  // 6. PAINEL EXCLUSIVO DO DONO (admin.dkfacilita.com | /admin — sem botões públicos)
   if (view === 'ADMIN_CONSOLE' && user && isSuperAdmin) {
     return (
       <SuperAdminApp
         userEmail={user.email || ''}
-        userName={user.displayName || user.email || 'Super Admin'}
+        userName={user.displayName || user.email || 'Administrador'}
         onSyncSeedGlobal={handleRunSeed}
         onCatalogChanged={loadCatalog}
         onOpenClientPanel={(empresaId) => {
@@ -464,7 +465,6 @@ export default function App() {
       <ClientSaasApp
         userEmail={user.email || ''}
         userName={user.displayName || user.email || 'Usuário'}
-        isSuperAdmin={isSuperAdmin}
         catalog={catalog}
         empresas={userEmpresas}
         selectedEmpresaId={selectedEmpresaId}
@@ -486,7 +486,6 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         onBackToSite={() => navigate('SITE')}
-        onOpenAdminConsole={isSuperAdmin ? () => navigate('ADMIN_CONSOLE') : undefined}
         onLogout={handleLogout}
       />
     );
@@ -498,15 +497,20 @@ export default function App() {
       catalog={catalog}
       loadingCatalog={loadingCatalog}
       isAuthenticated={Boolean(user)}
-      isSuperAdmin={isSuperAdmin}
       onStartCheckout={handleStartCheckout}
       onGoLogin={() => {
         setPostLoginTarget('CLIENT_APP');
         navigate('LOGIN');
       }}
       onGoPanel={handleGoPanelFromLanding}
-      onGoAdmin={isSuperAdmin ? () => navigate('ADMIN_CONSOLE') : undefined}
-      onTriggerSeed={isSuperAdmin ? () => void handleRunSeed() : undefined}
     />
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppRouter />
+    </ThemeProvider>
   );
 }

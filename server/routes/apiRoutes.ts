@@ -9,8 +9,20 @@ import {
   type AsaasWebhookEventPayload,
 } from '../services/asaasService.ts';
 import {
+  compilePptxCertificateToPdf,
+  inspectAndSavePptxTemplate,
+  PPTX_SUPPORTED_TAGS,
+  renderCartaAnuenciaHtml,
   renderCertificateFrontAndBackHtml,
+  renderComprovanteAvaliacaoHtml,
+  renderDossieAplicacaoHtml,
+  renderListaPresencaHtml,
+  renderPacoteAuditoriaHtml,
+  type CartaAnuenciaRenderPayload,
   type CertificateRenderPayload,
+  type ComprovanteAvaliacaoPayload,
+  type DossieAplicacaoPayload,
+  type ListaPresencaPayload,
 } from '../services/certificateEngine.ts';
 import {
   generateSecureCode,
@@ -188,7 +200,7 @@ apiRouter.post('/api/billing/asaas/verify-and-process', (req: Request, res: Resp
 });
 
 // ----------------------------------------------------------------------------
-// 6. MOTOR DE CERTIFICADOS (FRENTE + VERSO 1 OU 2 COLUNAS + QR CODE)
+// 6. MOTOR VETORIAL DE DOCUMENTOS (CERTIFICADO, EVD, PROVA, CAN, LISTAS, PACOTE)
 // ----------------------------------------------------------------------------
 apiRouter.post('/api/certificates/render', async (req: Request, res: Response) => {
   try {
@@ -222,8 +234,173 @@ apiRouter.post('/api/certificates/render', async (req: Request, res: Response) =
   }
 });
 
+apiRouter.post('/api/documents/render-comprovante', async (req: Request, res: Response) => {
+  try {
+    const payload = req.body as ComprovanteAvaliacaoPayload;
+    if (!payload?.codigoEvidencia || !payload?.participante?.nome) {
+      res.status(400).json({ error: 'Dados incompletos para o Comprovante de Avaliação.' });
+      return;
+    }
+    const baseUrl =
+      payload.validationBaseUrl ||
+      process.env.APP_URL ||
+      `${req.protocol}://${req.get('host')}`;
+    const result = await renderComprovanteAvaliacaoHtml({
+      ...payload,
+      validationBaseUrl: baseUrl,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro ao gerar comprovante de avaliação.',
+    });
+  }
+});
+
+apiRouter.post('/api/documents/render-dossie-aplicacao', async (req: Request, res: Response) => {
+  try {
+    const payload = req.body as DossieAplicacaoPayload;
+    if (!payload?.codigoDossie || !payload?.turma?.codigoTurma) {
+      res.status(400).json({ error: 'Dados incompletos para o Dossiê da Aplicação.' });
+      return;
+    }
+    const baseUrl =
+      payload.validationBaseUrl ||
+      process.env.APP_URL ||
+      `${req.protocol}://${req.get('host')}`;
+    const result = await renderDossieAplicacaoHtml({
+      ...payload,
+      validationBaseUrl: baseUrl,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro ao gerar dossiê da aplicação.',
+    });
+  }
+});
+
+apiRouter.post('/api/documents/render-carta-anuencia', async (req: Request, res: Response) => {
+  try {
+    const payload = req.body as CartaAnuenciaRenderPayload;
+    if (!payload?.codigoCarta || !payload?.colaborador?.nome) {
+      res.status(400).json({ error: 'Dados incompletos para a Carta de Anuência.' });
+      return;
+    }
+    const baseUrl =
+      payload.validationBaseUrl ||
+      process.env.APP_URL ||
+      `${req.protocol}://${req.get('host')}`;
+    const result = await renderCartaAnuenciaHtml({
+      ...payload,
+      validationBaseUrl: baseUrl,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro ao gerar Carta de Anuência.',
+    });
+  }
+});
+
+apiRouter.post('/api/documents/render-lista-presenca', (req: Request, res: Response) => {
+  try {
+    const payload = req.body as ListaPresencaPayload;
+    if (!payload?.turma?.codigoTurma) {
+      res.status(400).json({ error: 'Dados incompletos para a lista da aplicação.' });
+      return;
+    }
+    const result = renderListaPresencaHtml(payload);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro ao gerar lista da aplicação.',
+    });
+  }
+});
+
+apiRouter.post('/api/documents/render-pacote-auditoria', async (req: Request, res: Response) => {
+  try {
+    const body = req.body as {
+      certificado: CertificateRenderPayload;
+      comprovante?: ComprovanteAvaliacaoPayload | null;
+      cartaAnuencia: CartaAnuenciaRenderPayload;
+    };
+    if (!body?.certificado || !body?.cartaAnuencia) {
+      res.status(400).json({ error: 'Certificado e Carta de Anuência são obrigatórios.' });
+      return;
+    }
+    const baseUrl =
+      body.certificado.validationBaseUrl ||
+      process.env.APP_URL ||
+      `${req.protocol}://${req.get('host')}`;
+    const result = await renderPacoteAuditoriaHtml({
+      certificado: { ...body.certificado, validationBaseUrl: baseUrl },
+      comprovante: body.comprovante
+        ? { ...body.comprovante, validationBaseUrl: baseUrl }
+        : null,
+      cartaAnuencia: { ...body.cartaAnuencia, validationBaseUrl: baseUrl },
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Erro ao gerar Pacote de Auditoria.',
+    });
+  }
+});
+
 // ----------------------------------------------------------------------------
-// 7. GERADOR DE QR CODE SVG REAL (PROVA PÚBLICA / VALIDAÇÃO / DOSSIÊ)
+// 7. MODELO PRÓPRIO VIA POWERPOINT (.PPTX) POR empresa_id
+// ----------------------------------------------------------------------------
+apiRouter.get('/api/certificates/pptx-template/tags', (_req: Request, res: Response) => {
+  res.json({ tags: PPTX_SUPPORTED_TAGS });
+});
+
+apiRouter.post('/api/certificates/pptx-template/upload', async (req: Request, res: Response) => {
+  try {
+    const { empresaId, fileName, base64Content } = req.body ?? {};
+    if (!empresaId || !fileName || !base64Content) {
+      res.status(400).json({ error: 'empresaId, fileName e base64Content são obrigatórios.' });
+      return;
+    }
+    const result = await inspectAndSavePptxTemplate({
+      empresaId: String(empresaId),
+      fileName: String(fileName),
+      base64Content: String(base64Content),
+    });
+    res.json({
+      ok: true,
+      ...result,
+      templateReferenceUrl: `pptx://${result.empresaId}/${encodeURIComponent(result.fileName)}`,
+    });
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : 'Falha ao processar arquivo .pptx.',
+    });
+  }
+});
+
+apiRouter.post('/api/certificates/pptx-template/render', async (req: Request, res: Response) => {
+  try {
+    const { empresaId, payload } = req.body ?? {};
+    if (!empresaId || !payload) {
+      res.status(400).json({ error: 'empresaId e payload do certificado são obrigatórios.' });
+      return;
+    }
+    const result = await compilePptxCertificateToPdf({
+      empresaId: String(empresaId),
+      payload: payload as CertificateRenderPayload,
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Falha ao compilar modelo .pptx.',
+    });
+  }
+});
+
+// ----------------------------------------------------------------------------
+// 8. GERADOR DE QR CODE SVG REAL (PROVA PÚBLICA / VALIDAÇÃO / DOSSIÊ)
 // ----------------------------------------------------------------------------
 apiRouter.get('/api/qrcode', async (req: Request, res: Response) => {
   const text = typeof req.query.text === 'string' ? req.query.text.trim() : '';

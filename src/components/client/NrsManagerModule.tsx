@@ -326,10 +326,10 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
       {/* Barra superior de ações */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
             NRs & Conteúdo Programático Linha por Linha
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Organize por Norma Pai, gerencie variações e visualize o verso do certificado em tempo
             real.
           </p>
@@ -342,7 +342,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
               setShowImportPanel((v) => !v);
               setShowNewModal(false);
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0B1120]/90 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04] cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             Importar NR do Catálogo Global
@@ -367,26 +367,26 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
         <div
           className={`rounded-xl px-4 py-3 text-xs border flex items-center gap-2 ${
             feedback.type === 'ok'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-red-50 border-red-200 text-red-900'
+              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+              : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-900 dark:text-red-200'
           }`}
         >
-          {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-700 shrink-0" />}
+          {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />}
           <span>{feedback.text}</span>
         </div>
       )}
 
       {/* Drawer de Importação do Catálogo Global */}
       {showImportPanel && (
-        <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+        <div className="bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
               Catálogo Global DK Facilita ({catalog?.nrs.length ?? 0} NRs disponíveis)
             </h3>
             <button
               type="button"
               onClick={() => setShowImportPanel(false)}
-              className="text-xs text-slate-500 hover:text-slate-900 cursor-pointer"
+              className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white cursor-pointer"
             >
               Fechar
             </button>
@@ -395,11 +395,11 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
             {(catalog?.nrs ?? []).map((nr) => (
               <div
                 key={nr.id}
-                className="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2"
+                className="border border-slate-200 dark:border-white/10 rounded-lg p-3 flex items-center justify-between gap-2"
               >
                 <div className="min-w-0">
-                  <p className="font-mono text-xs font-bold text-slate-900">{nr.codigo}</p>
-                  <p className="text-xs text-slate-600 truncate">{nr.titulo}</p>
+                  <p className="font-mono text-xs font-bold text-slate-900 dark:text-white">{nr.codigo}</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 truncate">{nr.titulo}</p>
                   <p className="text-[11px] text-slate-400">
                     {nr.variacoes.length} variações padrão
                   </p>
@@ -422,33 +422,33 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
       {showNewModal && (
         <form
           onSubmit={handleCreateCustomVariacao}
-          className="bg-white border border-slate-200 rounded-xl p-5 space-y-4"
+          className="bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-4"
         >
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
               Cadastrar Nova NR ou Variação de Treinamento
             </h3>
             <button
               type="button"
               onClick={() => setShowNewModal(false)}
-              className="text-xs text-slate-500 hover:text-slate-900 cursor-pointer"
+              className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white cursor-pointer"
             >
               Cancelar
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">Norma Pai</label>
+              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">Norma Pai</label>
               <input
                 required
                 value={newNrCodigo}
                 onChange={(e) => setNewNrCodigo(e.target.value)}
                 placeholder="Ex.: NR-35"
-                className="w-full px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                className="w-full px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
               />
             </div>
             <div className="lg:col-span-2">
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">
+              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
                 Título da Norma
               </label>
               <input
@@ -456,11 +456,11 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                 value={newNrTitulo}
                 onChange={(e) => setNewNrTitulo(e.target.value)}
                 placeholder="Ex.: Trabalho em Altura"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
               />
             </div>
             <div className="lg:col-span-2">
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">
+              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
                 Nome da Variação
               </label>
               <input
@@ -468,17 +468,17 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                 value={newVarNome}
                 onChange={(e) => setNewVarNome(e.target.value)}
                 placeholder="Ex.: Reciclagem 4h / Observador 8h"
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">Modalidade</label>
+              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">Modalidade</label>
               <select
                 value={newModalidade}
                 onChange={(e) =>
                   setNewModalidade(e.target.value as 'INICIAL' | 'RECICLAGEM' | 'COMPLEMENTAR')
                 }
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#0B1120]/90"
               >
                 <option value="INICIAL">Inicial</option>
                 <option value="RECICLAGEM">Reciclagem</option>
@@ -489,7 +489,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="flex items-center gap-3">
               <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
                   Carga (h)
                 </label>
                 <input
@@ -497,11 +497,11 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                   min={1}
                   value={newCarga}
                   onChange={(e) => setNewCarga(Number(e.target.value))}
-                  className="w-24 px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                  className="w-24 px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
                   Validade (meses)
                 </label>
                 <input
@@ -509,7 +509,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                   min={1}
                   value={newValidade}
                   onChange={(e) => setNewValidade(Number(e.target.value))}
-                  className="w-28 px-3 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                  className="w-28 px-3 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                 />
               </div>
             </div>
@@ -527,19 +527,19 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
       {/* Layout Principal: Lista de Normas Pai + Editor + Prévia ao Vivo do Verso */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
         {/* Coluna 1: Normas Pai */}
-        <div className="xl:col-span-3 bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="p-3 border-b border-slate-200 relative">
+        <div className="xl:col-span-3 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
+          <div className="p-3 border-b border-slate-200 dark:border-white/10 relative">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-5 top-1/2 -translate-y-1/2" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filtrar NR..."
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg"
             />
           </div>
-          <div className="divide-y divide-slate-100 max-h-[600px] overflow-y-auto">
+          <div className="divide-y divide-slate-100 dark:divide-white/5 max-h-[600px] overflow-y-auto">
             {filteredNormas.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-500">
+              <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
                 Nenhuma NR cadastrada. Clique em "Importar NR do Catálogo Global".
               </div>
             ) : (
@@ -554,7 +554,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                       setSelectedVariacaoId(norma.variacoes[0]?.id ?? null);
                     }}
                     className={`w-full text-left px-4 py-3 transition-colors cursor-pointer ${
-                      selected ? 'bg-slate-900 text-white' : 'hover:bg-slate-50'
+                      selected ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04]'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -569,7 +569,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                     </div>
                     <p
                       className={`text-xs mt-0.5 line-clamp-1 ${
-                        selected ? 'text-slate-200' : 'text-slate-600'
+                        selected ? 'text-slate-200' : 'text-slate-600 dark:text-slate-300'
                       }`}
                     >
                       {norma.titulo}
@@ -582,9 +582,9 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
         </div>
 
         {/* Coluna 2: Variações + Editor Linha por Linha */}
-        <div className="xl:col-span-5 bg-white border border-slate-200 rounded-xl p-5 space-y-5">
+        <div className="xl:col-span-5 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-5">
           {!activeNorma || !activeVariacao ? (
-            <div className="py-12 text-center text-xs text-slate-500">
+            <div className="py-12 text-center text-xs text-slate-500 dark:text-slate-400">
               Selecione uma Norma Pai à esquerda para editar suas variações e conteúdo programático.
             </div>
           ) : (
@@ -593,23 +593,23 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <span className="font-mono text-xs font-bold text-[#1D4ED8]">
+                    <span className="font-mono text-xs font-bold text-[#1D4ED8] dark:text-blue-400">
                       {activeNorma.codigo}
                     </span>
-                    <h3 className="text-sm font-semibold text-slate-900">{activeNorma.titulo}</h3>
+                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{activeNorma.titulo}</h3>
                   </div>
                   <button
                     type="button"
                     disabled={saving}
                     onClick={() => void handleDeleteCurrent()}
                     title="Excluir variação selecionada"
-                    className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 cursor-pointer"
+                    className="p-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-slate-400 hover:text-red-600 hover:border-red-200 dark:border-red-500/30 cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
 
-                <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 rounded-lg">
+                <div className="flex flex-wrap gap-1.5 p-1 bg-slate-100 dark:bg-white/[0.06] rounded-lg">
                   {activeNorma.variacoes.map((v) => (
                     <button
                       key={v.id}
@@ -617,8 +617,8 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                       onClick={() => setSelectedVariacaoId(v.id)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
                         activeVariacao.id === v.id
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
+                          ? 'bg-white dark:bg-[#0B1120]/90 text-slate-900 dark:text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white dark:text-white'
                       }`}
                     >
                       {v.variacaoNome} ({v.cargaHorariaHoras}h)
@@ -630,17 +630,17 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
               {/* Metadados da Variação */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
                 <div className="col-span-2">
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                     Nome da Variação
                   </label>
                   <input
                     value={variacaoNome}
                     onChange={(e) => setVariacaoNome(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg"
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                     Carga (h)
                   </label>
                   <input
@@ -648,11 +648,11 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                     min={1}
                     value={cargaHorariaHoras}
                     onChange={(e) => setCargaHorariaHoras(Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-200 rounded-lg"
+                    className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-500 mb-1">
+                  <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
                     Validade (m)
                   </label>
                   <input
@@ -660,7 +660,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                     min={1}
                     value={validadeMeses}
                     onChange={(e) => setValidadeMeses(Number(e.target.value))}
-                    className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-200 rounded-lg"
+                    className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                 </div>
               </div>
@@ -668,10 +668,10 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
               {/* Editor LINHA POR LINHA */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-semibold text-slate-900">
+                  <h4 className="text-xs font-semibold text-slate-900 dark:text-white">
                     Conteúdo Programático Linha por Linha ({linhas.length} tópicos)
                   </h4>
-                  <span className="text-[11px] font-mono text-slate-500">
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
                     Nota mín. {notaMinimaAprovacao}%
                   </span>
                 </div>
@@ -680,7 +680,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                   {linhas.map((linha, idx) => (
                     <div
                       key={idx}
-                      className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg p-1.5"
+                      className="flex items-center gap-1.5 bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg p-1.5"
                     >
                       <span className="font-mono text-[11px] text-slate-400 w-6 text-center shrink-0">
                         {String(idx + 1).padStart(2, '0')}
@@ -688,7 +688,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                       <input
                         value={linha.descricao}
                         onChange={(e) => handleUpdateLineText(idx, e.target.value)}
-                        className="flex-1 min-w-0 bg-white px-2.5 py-1.5 text-xs border border-slate-200 rounded-md"
+                        className="flex-1 min-w-0 bg-white dark:bg-[#0B1120]/90 px-2.5 py-1.5 text-xs border border-slate-200 dark:border-white/10 rounded-md"
                       />
                       <input
                         type="number"
@@ -696,7 +696,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                         placeholder="min"
                         value={linha.cargaHorariaMin ?? ''}
                         onChange={(e) => handleUpdateLineMin(idx, e.target.value)}
-                        className="w-16 bg-white px-2 py-1.5 text-xs font-mono text-right border border-slate-200 rounded-md shrink-0"
+                        className="w-16 bg-white dark:bg-[#0B1120]/90 px-2 py-1.5 text-xs font-mono text-right border border-slate-200 dark:border-white/10 rounded-md shrink-0"
                         title="Carga horária opcional em minutos"
                       />
                       <div className="flex items-center shrink-0">
@@ -704,7 +704,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                           type="button"
                           onClick={() => handleMoveLine(idx, -1)}
                           disabled={idx === 0}
-                          className="p-1 text-slate-400 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                          className="p-1 text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white disabled:opacity-30 cursor-pointer"
                           title="Mover para cima"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
@@ -713,7 +713,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                           type="button"
                           onClick={() => handleMoveLine(idx, 1)}
                           disabled={idx === linhas.length - 1}
-                          className="p-1 text-slate-400 hover:text-slate-900 disabled:opacity-30 cursor-pointer"
+                          className="p-1 text-slate-400 hover:text-slate-900 dark:hover:text-white dark:text-white disabled:opacity-30 cursor-pointer"
                           title="Mover para baixo"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
@@ -743,7 +743,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                       }
                     }}
                     placeholder="Adicionar nova linha do conteúdo programático..."
-                    className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg"
+                    className="flex-1 px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <input
                     type="number"
@@ -751,12 +751,12 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
                     value={novaLinhaMin}
                     onChange={(e) => setNovaLinhaMin(e.target.value)}
                     placeholder="Min"
-                    className="w-16 px-2 py-2 text-xs font-mono border border-slate-200 rounded-lg"
+                    className="w-16 px-2 py-2 text-xs font-mono border border-slate-200 dark:border-white/10 rounded-lg"
                   />
                   <button
                     type="button"
                     onClick={handleAddLine}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer shrink-0"
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.05] dark:bg-white/[0.04] cursor-pointer shrink-0"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Linha
@@ -780,17 +780,17 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
         </div>
 
         {/* Coluna 3: Prévia ao Vivo do Verso do Certificado */}
-        <div className="xl:col-span-4 bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+        <div className="xl:col-span-4 bg-white dark:bg-[#0B1120]/90 border border-slate-200 dark:border-white/10 rounded-xl p-5 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <h3 className="text-xs font-semibold text-slate-900">
+              <h3 className="text-xs font-semibold text-slate-900 dark:text-white">
                 Prévia ao Vivo — Verso do Certificado
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Ajuste automático: até 12 linhas = 1 coluna · acima de 12 = 2 colunas
               </p>
             </div>
-            <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-[#1D4ED8]">
+            <span className="inline-flex items-center gap-1 text-[11px] font-mono font-semibold text-[#1D4ED8] dark:text-blue-400">
               <Columns2 className="w-3.5 h-3.5" />
               {colunasVerso} {colunasVerso === 1 ? 'col' : 'cols'}
             </span>
@@ -798,7 +798,7 @@ export const NrsManagerModule: React.FC<NrsManagerModuleProps> = ({
 
           {/* Simulação fiel A4 Paisagem do Verso */}
           <div
-            className="border border-slate-300 rounded-lg bg-white p-4 shadow-xs min-h-[360px] flex flex-col justify-between"
+            className="dk-paper-surface text-slate-900 border border-slate-300 rounded-lg bg-white p-4 shadow-xs min-h-[360px] flex flex-col justify-between"
             style={{ borderTop: `4px solid ${empresa.corPrimaria || '#0F172A'}` }}
           >
             <div>

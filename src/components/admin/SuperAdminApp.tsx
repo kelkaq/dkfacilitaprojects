@@ -25,6 +25,7 @@ import {
   listNotificacoesAdmin,
 } from '../../services/analyticsService.ts';
 import { adminFetchAllCatalog } from '../../services/superAdminService.ts';
+import { ThemeToggleButton } from '../ThemeProvider.tsx';
 import { SuperAdminDashboard } from './SuperAdminDashboard.tsx';
 import { SuperAdminCompanies } from './SuperAdminCompanies.tsx';
 import { SuperAdminNotifications } from './SuperAdminNotifications.tsx';
@@ -135,10 +136,10 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
   ];
 
   const sidebarContent = (
-    <div className="h-full flex flex-col bg-[#0B1120] text-slate-200 select-none">
-      <div className="px-5 py-5 border-b border-slate-800">
+    <div className="h-full flex flex-col bg-[#0B1120] dark:bg-[#060913] text-slate-200 border-r border-slate-800/90 dark:border-white/10 select-none">
+      <div className="px-5 py-5 border-b border-slate-800/80 dark:border-white/10">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#1D4ED8] text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1D4ED8] to-[#3B82F6] text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-600/30">
             <ShieldCheck className="w-4 h-4" />
           </div>
           <div className="min-w-0">
@@ -160,10 +161,10 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
                 setActiveTab(item.id);
                 setMobileMenuOpen(false);
               }}
-              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-colors cursor-pointer ${
+              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
                 active
-                  ? 'bg-[#1D4ED8] text-white'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  ? 'bg-gradient-to-r from-[#1D4ED8] to-[#2563EB] text-white shadow-md shadow-blue-600/25'
+                  : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
               }`}
             >
               <span className="inline-flex items-center gap-3 truncate">
@@ -180,11 +181,11 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
         })}
       </nav>
 
-      <div className="px-3 py-3 border-t border-slate-800 space-y-1">
+      <div className="px-3 py-3 border-t border-slate-800/80 dark:border-white/10 space-y-1">
         <button
           type="button"
           onClick={() => onOpenClientPanel()}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800/70 cursor-pointer"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/[0.06] cursor-pointer"
         >
           <Users className="w-3.5 h-3.5 shrink-0" />
           <span>Painel do Cliente (/app)</span>
@@ -193,13 +194,13 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
         <button
           type="button"
           onClick={onBackToSite}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-slate-800/70 cursor-pointer"
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs text-slate-400 hover:text-white hover:bg-white/[0.06] cursor-pointer"
         >
           <Globe className="w-3.5 h-3.5 shrink-0" />
           <span>Site dkfacilita.com</span>
         </button>
 
-        <div className="pt-2 mt-2 border-t border-slate-800/80 px-3 flex items-center justify-between gap-2">
+        <div className="pt-2 mt-2 border-t border-slate-800/80 dark:border-white/10 px-3 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[11px] font-medium text-slate-200 truncate">{userName}</p>
             <p className="text-[10px] text-slate-500 truncate">{userEmail}</p>
@@ -208,7 +209,7 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
             type="button"
             onClick={() => void onLogout()}
             title="Sair"
-            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
           </button>
@@ -218,7 +219,7 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex">
+    <div className="min-h-screen dk-ambient-canvas flex">
       <aside className="hidden lg:block w-[252px] shrink-0 sticky top-0 h-screen">
         {sidebarContent}
       </aside>
@@ -226,48 +227,55 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden flex">
           <div className="w-[260px] h-full shadow-2xl">{sidebarContent}</div>
-          <div className="flex-1 bg-slate-950/60" onClick={() => setMobileMenuOpen(false)} />
+          <div
+            className="flex-1 bg-slate-950/65 backdrop-blur-xs"
+            onClick={() => setMobileMenuOpen(false)}
+          />
         </div>
       )}
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="bg-white border-b border-slate-200 px-5 sm:px-6 h-16 flex items-center justify-between gap-4 sticky top-0 z-20">
+        <header className="bg-white/85 dark:bg-[#060913]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/10 px-5 sm:px-6 h-16 flex items-center justify-between gap-4 sticky top-0 z-20">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 rounded-lg border border-slate-200 text-slate-700 cursor-pointer"
+              className="lg:hidden p-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 cursor-pointer"
             >
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
             <div className="min-w-0">
-              <h1 className="text-base font-semibold text-slate-900 tracking-tight truncate">
+              <h1 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight truncate">
                 {activeTab === 'dashboard' && 'Visão Geral — Dono do Software'}
-                {activeTab === 'empresas' && 'Empresas Clientes & Feature Flags'}
+                {activeTab === 'empresas' && 'Empresas Clientes, Feature Flags & .pptx'}
                 {activeTab === 'notificacoes' && 'Central de Notificações'}
                 {activeTab === 'catalogo' && 'Catálogo Global DK Facilita'}
               </h1>
-              <p className="text-[11px] text-slate-500 truncate">
-                Controle executivo multiempresa · Certifica Software - DK
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate inline-flex items-center gap-2">
+                <span className="dk-live-dot" />
+                <span>
+                  {analytics.usuariosOnlineAgora} online agora · Certifica Software - DK
+                </span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <ThemeToggleButton compact />
             <button
               type="button"
               disabled={loading}
               onClick={() => void loadAll()}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Atualizar
+              <span className="hidden sm:inline">Atualizar</span>
             </button>
             <button
               type="button"
               disabled={seeding}
               onClick={() => void handleSeed()}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 cursor-pointer disabled:opacity-50"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-medium hover:bg-[#1E40AF] cursor-pointer disabled:opacity-50 shadow-sm shadow-blue-600/20"
             >
               <Database className="w-3.5 h-3.5" />
               {seeding ? 'Sincronizando...' : 'Sincronizar Seed'}

@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import {
   Check,
   Clock,
+  Copy,
   ExternalLink,
+  FileSpreadsheet,
   Lock,
   Save,
   Search,
@@ -32,7 +34,7 @@ const FEATURE_FLAG_DEFINITIONS = [
     key: 'modelo_proprio',
     addonSlug: 'modelo-proprio-certificado',
     label: 'Modelo Próprio de Certificado',
-    desc: 'Habilita a arte exclusiva frente/verso desta empresa na emissão.',
+    desc: 'Habilita a arte/PowerPoint exclusivo (.pptx ou arte) desta empresa na emissão.',
   },
   {
     key: 'carta_anuencia_dossie',
@@ -60,6 +62,29 @@ const FEATURE_FLAG_DEFINITIONS = [
   },
 ] as const;
 
+const PPTX_SUPPORTED_TAGS = [
+  '{{NOME_COLABORADOR}}',
+  '{{CPF}}',
+  '{{FUNCAO}}',
+  '{{NORMA_NR}}',
+  '{{CARGA_HORARIA}}',
+  '{{DATA_REALIZACAO}}',
+  '{{DATA_VALIDADE}}',
+  '{{CONTEUDO_COLUNA_1}}',
+  '{{CONTEUDO_COLUNA_2}}',
+  '{{QRCODE}}',
+  '{{ASSINATURA_ALUNO}}',
+  '{{ASSINATURA_INSTRUTOR}}',
+  '{{ASSINATURA_RT}}',
+] as const;
+
+interface PptxUploadInfo {
+  fileName: string;
+  slideCount: number;
+  detectedTags: string[];
+  sizeBytes: number;
+}
+
 export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
   empresas,
   catalog,
@@ -78,6 +103,10 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
   const [editFlags, setEditFlags] = useState<Record<string, boolean>>({});
   const [editAddons, setEditAddons] = useState<string[]>([]);
   const [editModeloProprioUrl, setEditModeloProprioUrl] = useState<string | null>(null);
+
+  const [uploadingPptx, setUploadingPptx] = useState(false);
+  const [pptxInfo, setPptxInfo] = useState<PptxUploadInfo | null>(null);
+  const [copiedTag, setCopiedTag] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -123,6 +152,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
     setEditFlags(flags);
     setEditAddons(addons);
     setEditModeloProprioUrl(emp.modeloProprioUrl || null);
+    setPptxInfo(null);
     setFeedback(null);
   };
 
@@ -147,13 +177,100 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
     }
   };
 
-  const handleUploadModeloProprio = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCopyTag = async (tag: string) => {
+    await navigator.clipboard?.writeText(tag);
+    setCopiedTag(tag);
+    window.setTimeout(() => setCopiedTag(null), 1400);
+  };
+
+  const handleUploadPptxTemplate = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !managingEmpresa) return;
+    if (!file.name.toLowerCase().endsWith('.pptx')) {
+      setFeedback({
+        type: 'err',
+        text: 'Selecione um arquivo PowerPoint válido com extensão .pptx.',
+      });
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setFeedback({
+        type: 'err',
+        text: 'O arquivo .pptx excede o limite de 15 MB.',
+      });
+      return;
+    }
+
+    setUploadingPptx(true);
+    setFeedback(null);
+    try {
+      const base64Content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = typeof reader.result === 'string' ? reader.result : '';
+          const idx = result.indexOf(',');
+          resolve(idx >= 0 ? result.slice(idx + 1) : result);
+        };
+        reader.onerror = () => reject(new Error('Falha ao ler arquivo .pptx.'));
+        reader.readAsDataURL(file);
+      });
+
+      const resp = await fetch('/api/certificates/pptx-template/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          empresaId: managingEmpresa.id,
+          fileName: file.name,
+          base64Content,
+        }),
+      });
+      const json = (await resp.json()) as {
+        ok?: boolean;
+        error?: string;
+        templateRef?: string;
+        fileName?: string;
+        slideCount?: number;
+        detectedTags?: string[];
+        sizeBytes?: number;
+      };
+
+      if (!resp.ok || !json.ok || !json.templateRef) {
+        throw new Error(json.error || 'Erro ao validar arquivo .pptx no servidor.');
+      }
+
+      setEditModeloProprioUrl(json.templateRef);
+      setPptxInfo({
+        fileName: json.fileName || file.name,
+        slideCount: json.slideCount ?? 0,
+        detectedTags: json.detectedTags ?? [],
+        sizeBytes: json.sizeBytes ?? file.size,
+      });
+      setEditFlags((prev) => ({ ...prev, modelo_proprio: true }));
+      setEditAddons((prev) =>
+        Array.from(new Set([...prev, 'modelo-proprio-certificado']))
+      );
+      setFeedback({
+        type: 'ok',
+        text: `Modelo PowerPoint (.pptx) validado (${json.slideCount ?? 0} slide(s), ${(json.detectedTags ?? []).length} tag(s) dinâmica(s) detectada(s)). Clique em "Salvar Alterações da Empresa" para ativar.`,
+      });
+    } catch (err) {
+      setFeedback({
+        type: 'err',
+        text: err instanceof Error ? err.message : 'Erro ao enviar modelo .pptx.',
+      });
+    } finally {
+      setUploadingPptx(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleUploadModeloProprioImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 140 * 1024) {
       setFeedback({
         type: 'err',
-        text: 'Envie uma imagem de arte/fundo do certificado de até 140 KB (PNG, JPG ou SVG).',
+        text: 'Para arte em imagem, envie PNG, JPG ou SVG de até 140 KB (ou use o upload .pptx acima).',
       });
       return;
     }
@@ -162,6 +279,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setEditModeloProprioUrl(reader.result);
+        setPptxInfo(null);
         setEditFlags((prev) => ({ ...prev, modelo_proprio: true }));
         setEditAddons((prev) =>
           Array.from(new Set([...prev, 'modelo-proprio-certificado']))
@@ -215,22 +333,27 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
     }
   };
 
+  const isPptxTemplateRef = Boolean(editModeloProprioUrl?.startsWith('pptx://'));
+  const pptxRefFilename = isPptxTemplateRef
+    ? editModeloProprioUrl!.split('/').slice(3).join('/') || 'modelo.pptx'
+    : null;
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
             Gestão de Empresas Clientes ({empresas.length})
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Altere planos, estenda trials, bloqueie/desbloqueie acesso, controle feature flags e
-            submeta modelos próprios por empresa_id.
+            submeta modelos próprios em PowerPoint (.pptx) por empresa_id.
           </p>
         </div>
       </div>
 
       {/* Filtros e Busca */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div className="dk-glass-card rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {(
             [
@@ -255,10 +378,10 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
               key={f.id}
               type="button"
               onClick={() => setStatusFilter(f.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
                 statusFilter === f.id
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
+                  ? 'bg-[#1D4ED8] text-white'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
               }`}
             >
               {f.label}
@@ -272,60 +395,65 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar empresa, CNPJ ou e-mail..."
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
+            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-slate-900 dark:text-white placeholder:text-slate-400"
           />
         </div>
       </div>
 
       {/* Tabela de Empresas */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="dk-glass-card rounded-xl overflow-hidden">
         {filtered.length === 0 ? (
-          <p className="p-8 text-center text-xs text-slate-500">
+          <p className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
             Nenhuma empresa encontrada com o filtro selecionado.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                <tr className="bg-slate-50 dark:bg-white/[0.03] border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400">
                   <th className="py-3 px-5">Empresa / CNPJ</th>
                   <th className="py-3 px-4">Plano / Ciclo</th>
                   <th className="py-3 px-4">MRR</th>
                   <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Adicionais / Flags</th>
+                  <th className="py-3 px-4">Adicionais / Modelo</th>
                   <th className="py-3 px-5 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {filtered.map((emp) => (
-                  <tr key={emp.id} className="hover:bg-slate-50/70">
+                  <tr key={emp.id} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02]">
                     <td className="py-3 px-5">
-                      <p className="font-semibold text-slate-900">{emp.razaoSocial}</p>
-                      <p className="font-mono text-[11px] text-slate-500">
+                      <p className="font-semibold text-slate-900 dark:text-white">
+                        {emp.razaoSocial}
+                      </p>
+                      <p className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
                         {emp.cnpj} · {emp.emailFinanceiro}
                       </p>
                     </td>
                     <td className="py-3 px-4">
-                      <p className="font-medium text-slate-900 uppercase">
+                      <p className="font-medium text-slate-900 dark:text-slate-100 uppercase">
                         {emp.planoSlug || 'trial'}
                       </p>
-                      <p className="text-[11px] text-slate-500">{emp.ciclo || 'TRIAL'}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {emp.ciclo || 'TRIAL'}
+                      </p>
                     </td>
-                    <td className="py-3 px-4 font-mono font-semibold text-slate-900">
+                    <td className="py-3 px-4 font-mono font-semibold text-slate-900 dark:text-white">
                       {emp.status === 'ATIVA'
                         ? formatarMoedaBRL(emp.valorMensalCentavos ?? 0)
                         : 'R$ 0,00'}
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`font-semibold ${
+                        className={`inline-flex items-center gap-1.5 font-semibold ${
                           emp.status === 'ATIVA'
-                            ? 'text-emerald-700'
+                            ? 'text-emerald-700 dark:text-emerald-400'
                             : emp.status === 'TRIAL'
-                              ? 'text-[#1D4ED8]'
-                              : 'text-red-700'
+                              ? 'text-[#1D4ED8] dark:text-blue-400'
+                              : 'text-red-700 dark:text-red-400'
                         }`}
                       >
+                        {emp.status === 'ATIVA' && <span className="dk-live-dot" />}
                         {emp.status}
                       </span>
                       {emp.status === 'TRIAL' && emp.trialExpiraEmIso && (
@@ -334,13 +462,15 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                         </p>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-slate-600">
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
                       <span className="font-mono">
                         {(emp.adicionaisAtivos ?? []).length} add-on(s)
                       </span>
                       {emp.modeloProprioUrl && (
-                        <p className="text-[11px] text-emerald-700 font-medium">
-                          Modelo Próprio enviado
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                          {emp.modeloProprioUrl.startsWith('pptx://')
+                            ? 'Modelo PowerPoint (.pptx) ativo'
+                            : 'Arte exclusiva ativa'}
                         </p>
                       )}
                     </td>
@@ -348,7 +478,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                       <button
                         type="button"
                         onClick={() => onImpersonateClient(emp.id)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer"
                       >
                         <ExternalLink className="w-3 h-3" />
                         Painel
@@ -356,7 +486,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                       <button
                         type="button"
                         onClick={() => openManager(emp)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 cursor-pointer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#1D4ED8] text-white text-xs font-medium hover:bg-[#1E40AF] cursor-pointer"
                       >
                         <Settings2 className="w-3.5 h-3.5" />
                         Gerenciar
@@ -372,19 +502,19 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
 
       {/* Painel Lateral (Drawer) de Gerenciamento da Empresa */}
       {managingEmpresa && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-[1px] flex justify-end">
-          <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between gap-3">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex justify-end">
+          <div className="w-full max-w-xl bg-white dark:bg-[#0B1120] border-l border-slate-200 dark:border-white/10 h-full shadow-2xl flex flex-col overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[11px] font-mono text-slate-400">{managingEmpresa.id}</p>
-                <h3 className="text-base font-bold text-slate-900 truncate">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
                   {managingEmpresa.razaoSocial}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setManagingEmpresa(null)}
-                className="p-2 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 cursor-pointer"
+                className="p-2 rounded-lg border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -395,29 +525,31 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                 <div
                   className={`rounded-xl px-4 py-3 text-xs border flex items-center gap-2 ${
                     feedback.type === 'ok'
-                      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                      : 'bg-red-50 border-red-200 text-red-900'
+                      ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-900 dark:text-red-200'
                   }`}
                 >
-                  {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-700 shrink-0" />}
+                  {feedback.type === 'ok' && (
+                    <Check className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                  )}
                   <span>{feedback.text}</span>
                 </div>
               )}
 
               {/* Plano, Ciclo e Status */}
               <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                <h4 className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
                   1. Plano, Ciclo e Controle de Acesso
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
                       Plano Contratado
                     </label>
                     <select
                       value={editPlanoSlug}
                       onChange={(e) => setEditPlanoSlug(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                      className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#060913] text-slate-900 dark:text-white"
                     >
                       {(catalog?.planos ?? []).map((p) => (
                         <option key={p.id} value={p.slug}>
@@ -427,13 +559,13 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                    <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1">
                       Ciclo de Cobrança
                     </label>
                     <select
                       value={editCiclo}
                       onChange={(e) => setEditCiclo(e.target.value as CicloCobranca)}
-                      className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                      className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/10 rounded-lg bg-white dark:bg-[#060913] text-slate-900 dark:text-white"
                     >
                       <option value="MENSAL">Mensal</option>
                       <option value="SEMESTRAL">Semestral (-10%)</option>
@@ -450,7 +582,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer ${
                       editStatus === 'ATIVA'
                         ? 'bg-emerald-600 border-emerald-600 text-white'
-                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5'
                     }`}
                   >
                     <Unlock className="w-3.5 h-3.5" />
@@ -462,7 +594,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer ${
                       editStatus === 'TRIAL'
                         ? 'bg-[#1D4ED8] border-[#1D4ED8] text-white'
-                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5'
                     }`}
                   >
                     <Clock className="w-3.5 h-3.5" />
@@ -474,7 +606,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer ${
                       editStatus === 'SUSPENSA' || editStatus === 'INADIMPLENTE'
                         ? 'bg-red-600 border-red-600 text-white'
-                        : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                        : 'border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5'
                     }`}
                   >
                     <Lock className="w-3.5 h-3.5" />
@@ -483,14 +615,16 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                 </div>
 
                 {/* Extensão de Trial */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-2">
+                <div className="bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-2">
                   <div className="text-xs">
-                    <span className="font-medium text-slate-700">Expiração do Trial:</span>
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      Expiração do Trial:
+                    </span>
                     <input
                       type="date"
                       value={editTrialIso}
                       onChange={(e) => setEditTrialIso(e.target.value)}
-                      className="ml-2 px-2 py-1 text-xs font-mono bg-white border border-slate-200 rounded"
+                      className="ml-2 px-2 py-1 text-xs font-mono bg-white dark:bg-[#060913] border border-slate-200 dark:border-white/10 rounded text-slate-900 dark:text-white"
                     />
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -499,7 +633,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                         key={d}
                         type="button"
                         onClick={() => handleExtendTrial(d)}
-                        className="px-2 py-1 rounded border border-slate-200 bg-white text-[11px] font-mono font-medium text-slate-700 hover:bg-slate-100 cursor-pointer"
+                        className="px-2 py-1 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.05] text-[11px] font-mono font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
                       >
                         +{d}d
                       </button>
@@ -510,20 +644,24 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
 
               {/* Chaves de Liberação (Feature Flags) */}
               <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                <h4 className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
                   2. Chaves de Liberação (Feature Flags)
                 </h4>
-                <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden">
+                <div className="divide-y divide-slate-100 dark:divide-white/5 border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden">
                   {FEATURE_FLAG_DEFINITIONS.map((def) => {
                     const enabled = Boolean(editFlags[def.key]);
                     return (
                       <div
                         key={def.key}
-                        className="px-4 py-3 flex items-center justify-between gap-4 bg-white"
+                        className="px-4 py-3 flex items-center justify-between gap-4 bg-white dark:bg-white/[0.02]"
                       >
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-slate-900">{def.label}</p>
-                          <p className="text-[11px] text-slate-500">{def.desc}</p>
+                          <p className="text-xs font-semibold text-slate-900 dark:text-white">
+                            {def.label}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {def.desc}
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -531,7 +669,7 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                           aria-checked={enabled}
                           onClick={() => handleToggleFlag(def.key, def.addonSlug)}
                           className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
-                            enabled ? 'bg-[#1D4ED8]' : 'bg-slate-200'
+                            enabled ? 'bg-[#1D4ED8]' : 'bg-slate-200 dark:bg-slate-700'
                           }`}
                         >
                           <span
@@ -546,61 +684,148 @@ export const SuperAdminCompanies: React.FC<SuperAdminCompaniesProps> = ({
                 </div>
               </div>
 
-              {/* Upload do Modelo Próprio Exclusivo da Empresa */}
+              {/* Upload do Modelo Próprio via PowerPoint (.pptx) */}
               <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
-                  3. Modelo Próprio Exclusivo (vinculado ao empresa_id)
+                <h4 className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
+                  3. Modelo Próprio Exclusivo via PowerPoint (.pptx)
                 </h4>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-                  <p className="text-xs text-slate-600">
-                    Envie a arte/fundo exclusiva contratada por{' '}
-                    <strong>{managingEmpresa.razaoSocial}</strong>. Apenas esta empresa terá acesso
-                    a este arquivo.
+                <div className="bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-4 space-y-4">
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Envie o modelo de certificado em <strong className="text-slate-900 dark:text-white">PowerPoint (.pptx)</strong>{' '}
+                    personalizado de <strong>{managingEmpresa.razaoSocial}</strong>. Na emissão, o
+                    motor preserva 100% das camadas/vetores, substitui as tags dinâmicas abaixo e
+                    converte para PDF vetorial via LibreOffice Headless.
                   </p>
 
-                  {editModeloProprioUrl ? (
-                    <div className="space-y-2.5">
-                      <img
-                        src={editModeloProprioUrl}
-                        alt="Arte Modelo Próprio"
-                        className="w-full max-h-40 object-contain bg-white border border-slate-200 rounded-lg p-2"
-                      />
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-medium text-emerald-700">
-                          Arte exclusiva vinculada a {managingEmpresa.id}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setEditModeloProprioUrl(null)}
-                          className="inline-flex items-center gap-1 text-xs text-red-700 hover:underline cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Remover Arte
-                        </button>
-                      </div>
+                  {/* Estado atual do modelo vinculado */}
+                  {editModeloProprioUrl && (
+                    <div className="rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50/70 dark:bg-emerald-500/10 p-3 space-y-2.5">
+                      {isPptxTemplateRef ? (
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <FileSpreadsheet className="w-5 h-5 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold text-emerald-950 dark:text-emerald-200 truncate">
+                                {pptxInfo?.fileName || pptxRefFilename}
+                              </p>
+                              <p className="text-[11px] font-mono text-emerald-800 dark:text-emerald-300/80">
+                                Vinculado exclusivamente ao empresa_id {managingEmpresa.id}
+                              </p>
+                              {pptxInfo && (
+                                <p className="text-[11px] text-emerald-800 dark:text-emerald-300 mt-1">
+                                  {pptxInfo.slideCount} slide(s) · {pptxInfo.detectedTags.length}{' '}
+                                  tag(s) detectada(s) ·{' '}
+                                  {(pptxInfo.sizeBytes / 1024).toFixed(0)} KB
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditModeloProprioUrl(null);
+                              setPptxInfo(null);
+                            }}
+                            className="inline-flex items-center gap-1 text-xs text-red-700 dark:text-red-400 hover:underline cursor-pointer shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Remover
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <img
+                            src={editModeloProprioUrl}
+                            alt="Arte Modelo Próprio"
+                            className="w-full max-h-36 object-contain bg-white border border-slate-200 rounded-lg p-2"
+                          />
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-medium text-emerald-800 dark:text-emerald-300">
+                              Arte de fundo vinculada a {managingEmpresa.id}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setEditModeloProprioUrl(null)}
+                              className="inline-flex items-center gap-1 text-xs text-red-700 dark:text-red-400 hover:underline cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Remover Arte
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 bg-white text-xs font-medium text-slate-800 hover:bg-slate-50 cursor-pointer">
+                  )}
+
+                  {/* Botões de Upload (.pptx principal + imagem opcional) */}
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-xs font-semibold hover:bg-[#1E40AF] cursor-pointer shadow-sm shadow-blue-600/20">
                       <Upload className="w-3.5 h-3.5" />
-                      Subir Arte Exclusiva (PNG/JPG/SVG até 140 KB)
+                      {uploadingPptx
+                        ? 'Validando .pptx...'
+                        : 'Subir Modelo PowerPoint (.pptx)'}
                       <input
                         type="file"
-                        accept="image/png,image/jpeg,image/svg+xml"
-                        onChange={handleUploadModeloProprio}
+                        accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        disabled={uploadingPptx}
+                        onChange={(e) => void handleUploadPptxTemplate(e)}
                         className="hidden"
                       />
                     </label>
-                  )}
+
+                    <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-white/15 bg-white dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" />
+                      Fundo PNG/JPG/SVG (opcional)
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml"
+                        onChange={handleUploadModeloProprioImage}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Lista interativa das 13 Tags Dinâmicas suportadas no .pptx */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-white/10 space-y-2">
+                    <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                      Tags suportadas no PowerPoint (.pptx) — clique para copiar:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PPTX_SUPPORTED_TAGS.map((tag) => {
+                        const detected = pptxInfo?.detectedTags.includes(tag);
+                        const isCopied = copiedTag === tag;
+                        return (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => void handleCopyTag(tag)}
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-md font-mono text-[10px] border transition-colors cursor-pointer ${
+                              detected
+                                ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300'
+                                : 'bg-white dark:bg-[#060913] border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-blue-400'
+                            }`}
+                          >
+                            <span>{tag}</span>
+                            {isCopied ? (
+                              <Check className="w-2.5 h-2.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-2.5 h-2.5 opacity-60" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Rodapé Salvar */}
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2.5">
+            <div className="px-6 py-4 border-t border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-[#060913] flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setManagingEmpresa(null)}
-                className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 cursor-pointer"
               >
                 Fechar
               </button>

@@ -3,7 +3,10 @@ import {
   CalendarClock,
   Check,
   Copy,
+  Eye,
   FileBadge,
+  Info,
+  PenLine,
   Plus,
   QrCode,
   RefreshCw,
@@ -28,7 +31,8 @@ interface CertificadosVencimentosModuleProps {
   colaboradores: ColaboradorDoc[];
   assinaturas: AssinaturaDigitalDoc[];
   onRefresh: () => Promise<void>;
-  onOpenCertificate: (cert: CertificadoDoc) => void;
+  onOpenCertificate: (cert: CertificadoDoc, hideCollaboratorSig?: boolean) => void;
+  onOpenCertificateDetails: (cert: CertificadoDoc) => void;
   onScheduleRecycling: (cert: CertificadoDoc) => void;
 }
 
@@ -49,13 +53,13 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
   assinaturas,
   onRefresh,
   onOpenCertificate,
+  onOpenCertificateDetails,
   onScheduleRecycling,
 }) => {
   const [search, setSearch] = useState('');
   const [bucket, setBucket] = useState<ExpiryBucket>('ALL');
   const [copiedQr, setCopiedQr] = useState<string | null>(null);
 
-  // Emissão rápida de certificado
   const [showQuickEmit, setShowQuickEmit] = useState(false);
   const [emitTurmaId, setEmitTurmaId] = useState(turmas[0]?.id ?? '');
   const [emitColabId, setEmitColabId] = useState(colaboradores[0]?.id ?? '');
@@ -140,7 +144,7 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
         type: 'ok',
         text: `Certificado ${cert.numeroCertificado} emitido com sucesso.`,
       });
-      onOpenCertificate(cert);
+      onOpenCertificate(cert, false);
     } catch (err) {
       setFeedback({
         type: 'err',
@@ -155,14 +159,14 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
             {mode === 'certificados'
-              ? 'Certificados Emitidos (Frente e Verso + QR Code)'
+              ? 'Certificados Emitidos (Frente e Verso Vetorial + QR Code)'
               : 'Central de Vencimentos e Reciclagens'}
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             {mode === 'certificados'
-              ? 'Identidade visual dinâmica da empresa, snapshot imutável do conteúdo programático e validação pública 24h.'
+              ? 'Identidade visual dinâmica da empresa, snapshot imutável, carta de anuência vinculada e pacote de auditoria.'
               : 'Filtre treinamentos por janela de vencimento (60, 30, 15, 7, 1 dia e vencidos) e agende a reciclagem em 1 clique.'}
           </p>
         </div>
@@ -171,7 +175,7 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
           <button
             type="button"
             onClick={() => setShowQuickEmit((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-medium transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             Emitir Certificado
@@ -183,40 +187,39 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
         <div
           className={`rounded-xl px-4 py-3 text-xs border flex items-center gap-2 ${
             feedback.type === 'ok'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-red-50 border-red-200 text-red-900'
+              ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-900 dark:text-emerald-200'
+              : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-900 dark:text-red-200'
           }`}
         >
-          {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-700 shrink-0" />}
+          {feedback.type === 'ok' && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
           <span>{feedback.text}</span>
         </div>
       )}
 
       {showQuickEmit && mode === 'certificados' && (
-        <form
-          onSubmit={handleQuickEmit}
-          className="bg-white border border-slate-200 rounded-xl p-5 space-y-3"
-        >
+        <form onSubmit={handleQuickEmit} className="dk-glass-card rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
               Emissão Direta de Certificado com Snapshot Imutável
             </h3>
             <button
               type="button"
               onClick={() => setShowQuickEmit(false)}
-              className="text-xs text-slate-500 cursor-pointer"
+              className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
               Cancelar
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">Turma</label>
+              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
+                Turma
+              </label>
               <select
                 required
                 value={emitTurmaId}
                 onChange={(e) => setEmitTurmaId(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/15 rounded-lg bg-white dark:bg-[#0B1120] text-slate-900 dark:text-slate-100"
               >
                 {turmas.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -226,14 +229,14 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-600 mb-1">
+              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1">
                 Colaborador
               </label>
               <select
                 required
                 value={emitColabId}
                 onChange={(e) => setEmitColabId(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white"
+                className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-white/15 rounded-lg bg-white dark:bg-[#0B1120] text-slate-900 dark:text-slate-100"
               >
                 {colaboradores.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -245,7 +248,7 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
             <button
               type="submit"
               disabled={busy}
-              className="px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-xs font-medium hover:bg-[#1E40AF] cursor-pointer disabled:opacity-50"
+              className="px-4 py-2 rounded-lg bg-[#2563EB] text-white text-xs font-medium hover:bg-[#1D4ED8] cursor-pointer disabled:opacity-50"
             >
               {busy ? 'Emitindo...' : 'Emitir e Abrir PDF'}
             </button>
@@ -255,7 +258,7 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
 
       {/* Filtros da Central de Vencimentos */}
       {mode === 'vencimentos' && (
-        <div className="flex flex-wrap items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-2">
+        <div className="flex flex-wrap items-center gap-1.5 dk-glass-card rounded-xl p-2">
           {(
             [
               { id: 'ALL', label: 'Todos' },
@@ -276,17 +279,17 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
                 onClick={() => setBucket(f.id)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                   active
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    ? 'bg-[#2563EB] text-white'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
                 }`}
               >
                 <span>{f.label}</span>
                 <span
                   className={`font-mono text-[11px] ${
                     active
-                      ? 'text-blue-300'
+                      ? 'text-blue-100'
                       : f.id === 'EXPIRED' && count > 0
-                        ? 'text-red-700 font-bold'
+                        ? 'text-red-600 dark:text-red-400 font-bold'
                         : 'text-slate-400'
                   }`}
                 >
@@ -299,18 +302,18 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
       )}
 
       {/* Tabela Principal */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+      <div className="dk-glass-card rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-slate-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
           <div className="relative w-full sm:w-80">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por colaborador, NR, número ou QR..."
-              className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg"
+              className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 dark:bg-white/[0.04] border border-slate-200 dark:border-white/10 rounded-lg text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
             />
           </div>
-          <span className="text-xs font-mono text-slate-500">
+          <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
             {filteredList.length} registro(s)
           </span>
         </div>
@@ -322,7 +325,7 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
             ) : (
               <FileBadge className="w-6 h-6 text-slate-400 mx-auto" />
             )}
-            <p className="text-sm font-medium text-slate-800">
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
               {mode === 'vencimentos'
                 ? 'Nenhum certificado encontrado nesta janela de vencimento'
                 : 'Nenhum certificado emitido ainda'}
@@ -332,7 +335,7 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                <tr className="bg-slate-50 dark:bg-white/[0.03] border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400">
                   <th className="py-3 px-4">Número / QR</th>
                   <th className="py-3 px-4">Colaborador</th>
                   <th className="py-3 px-4">NR / Treinamento</th>
@@ -342,13 +345,17 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
                   <th className="py-3 px-4 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {filteredList.map(({ cert, diasRestantes }) => {
                   const vencido = diasRestantes < 0;
+                  const vencendo = !vencido && diasRestantes <= 30;
                   return (
-                    <tr key={cert.id} className="hover:bg-slate-50/70">
+                    <tr
+                      key={cert.id}
+                      className="hover:bg-slate-50/70 dark:hover:bg-white/[0.03] transition-colors"
+                    >
                       <td className="py-3 px-4">
-                        <p className="font-mono font-semibold text-slate-900">
+                        <p className="font-mono font-semibold text-slate-900 dark:text-white">
                           {cert.numeroCertificado}
                         </p>
                         <button
@@ -358,7 +365,7 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
                             setCopiedQr(cert.codigoValidacaoQr);
                             window.setTimeout(() => setCopiedQr(null), 1600);
                           }}
-                          className="inline-flex items-center gap-1 font-mono text-[11px] text-[#1D4ED8] hover:underline mt-0.5 cursor-pointer"
+                          className="inline-flex items-center gap-1 font-mono text-[11px] text-[#2563EB] dark:text-blue-400 hover:underline mt-0.5 cursor-pointer"
                         >
                           <QrCode className="w-3 h-3" />
                           {copiedQr === cert.codigoValidacaoQr
@@ -368,61 +375,86 @@ export const CertificadosVencimentosModule: React.FC<CertificadosVencimentosModu
                         </button>
                       </td>
                       <td className="py-3 px-4">
-                        <p className="font-semibold text-slate-900">
+                        <p className="font-semibold text-slate-900 dark:text-white">
                           {cert.snapshotColaborador.nome}
                         </p>
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
                           {cert.snapshotColaborador.funcao}
                         </p>
                       </td>
                       <td className="py-3 px-4">
-                        <p className="font-medium text-slate-900">
-                          <span className="font-mono font-bold mr-1">{cert.nrCodigo}</span>
+                        <p className="font-medium text-slate-900 dark:text-slate-100">
+                          <span className="font-mono font-bold mr-1 text-[#2563EB] dark:text-blue-400">
+                            {cert.nrCodigo}
+                          </span>
                           ({cert.cargaHorariaHoras}h)
                         </p>
-                        <p className="text-[11px] text-slate-500 line-clamp-1 max-w-[220px]">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 max-w-[210px]">
                           {cert.treinamentoTitulo}
                         </p>
                       </td>
-                      <td className="py-3 px-4 text-slate-600">
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
                         {cert.contratoObraNome || 'Geral'}
                       </td>
-                      <td className="py-3 px-4 font-mono text-slate-700">
+                      <td className="py-3 px-4 font-mono text-slate-700 dark:text-slate-300">
                         {cert.dataValidadeIso}
                       </td>
                       <td className="py-3 px-4 font-mono font-semibold">
                         <span
-                          className={
+                          className={`inline-flex items-center gap-1.5 ${
                             vencido
-                              ? 'text-red-700'
-                              : diasRestantes <= 15
-                                ? 'text-amber-700'
-                                : diasRestantes <= 30
-                                  ? 'text-slate-800'
-                                  : 'text-emerald-700'
-                          }
+                              ? 'text-red-600 dark:text-red-400'
+                              : vencendo
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-emerald-600 dark:text-emerald-400'
+                          }`}
                         >
+                          {vencendo && (
+                            <span className="dk-live-dot bg-amber-500 shadow-[0_0_8px_#F59E0B]" />
+                          )}
                           {vencido
                             ? `Vencido (${Math.abs(diasRestantes)}d)`
                             : `${diasRestantes} dias`}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right whitespace-nowrap space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => onOpenCertificate(cert)}
-                          className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
-                        >
-                          PDF Frente/Verso
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onScheduleRecycling(cert)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 cursor-pointer"
-                        >
-                          <RefreshCw className="w-3 h-3" />
-                          Agendar Reciclagem
-                        </button>
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => onOpenCertificateDetails(cert)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-white/15 bg-white dark:bg-white/[0.04] text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 cursor-pointer"
+                          >
+                            <Info className="w-3.5 h-3.5 text-[#3B82F6]" />
+                            Detalhes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onOpenCertificate(cert, false)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-medium cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Visualizar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onOpenCertificate(cert, true)}
+                            title="Imprimir sem assinatura do colaborador (Assinatura física)"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-300 text-xs font-medium hover:bg-amber-100 dark:hover:bg-amber-500/20 cursor-pointer"
+                          >
+                            <PenLine className="w-3.5 h-3.5" />
+                            Assinatura física
+                          </button>
+                          {mode === 'vencimentos' && (
+                            <button
+                              type="button"
+                              onClick={() => onScheduleRecycling(cert)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-950 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-slate-200 cursor-pointer"
+                            >
+                              <RefreshCw className="w-3 h-3" />
+                              Reciclar
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

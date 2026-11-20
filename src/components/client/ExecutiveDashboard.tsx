@@ -24,7 +24,9 @@ interface ExecutiveDashboardProps {
   colaboradores: ColaboradorDoc[];
   turmas: TurmaDoc[];
   certificados: CertificadoDoc[];
-  onNavigate: (tab: 'nrs' | 'turmas' | 'colaboradores' | 'certificados' | 'vencimentos' | 'plano') => void;
+  onNavigate: (
+    tab: 'nrs' | 'turmas' | 'colaboradores' | 'certificados' | 'vencimentos' | 'plano'
+  ) => void;
   onScheduleRecycling: (cert: CertificadoDoc) => void;
   onOpenCertificate: (cert: CertificadoDoc) => void;
 }
@@ -116,21 +118,21 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <button
           type="button"
           onClick={() => onNavigate('colaboradores')}
-          className="text-left bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors cursor-pointer"
+          className="text-left dk-glass-card rounded-2xl p-5 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-slate-500">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">Colaboradores Ativos</span>
             <Users className="w-4 h-4 text-slate-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
               {activeColaboradores.length}
             </span>
             <span className="text-xs font-mono text-slate-400">
               / {limits.limiteColaboradores}
             </span>
           </div>
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
             {obras.length} {obras.length === 1 ? 'contrato/obra ativo' : 'contratos/obras ativos'}
           </p>
         </button>
@@ -138,21 +140,21 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <button
           type="button"
           onClick={() => onNavigate('certificados')}
-          className="text-left bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors cursor-pointer"
+          className="text-left dk-glass-card rounded-2xl p-5 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-slate-500">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">Certificados Emitidos</span>
-            <FileBadge className="w-4 h-4 text-[#1D4ED8]" />
+            <FileBadge className="w-4 h-4 text-[#1D4ED8] dark:text-blue-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
               {certificadosEmitidos.length}
             </span>
             <span className="text-xs font-mono text-slate-400">
               {totalHorasConcluidas}h totais
             </span>
           </div>
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
             Todos com snapshot imutável e QR ativo
           </p>
         </button>
@@ -160,27 +162,29 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <button
           type="button"
           onClick={() => onNavigate('vencimentos')}
-          className="text-left bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors cursor-pointer"
+          className="text-left dk-glass-card rounded-2xl p-5 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-slate-500">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">A Vencer (30 dias / Vencidos)</span>
             <CalendarClock
               className={`w-4 h-4 ${
-                vencendoEm30Dias.length > 0 ? 'text-amber-600' : 'text-slate-400'
+                vencendoEm30Dias.length > 0 ? 'text-amber-500' : 'text-slate-400'
               }`}
             />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span
               className={`text-2xl font-bold font-mono tabular-nums ${
-                vencendoEm30Dias.length > 0 ? 'text-amber-700' : 'text-slate-900'
+                vencendoEm30Dias.length > 0
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-slate-900 dark:text-white'
               }`}
             >
               {vencendoEm30Dias.length}
             </span>
             <span className="text-xs text-slate-400">reciclagens</span>
           </div>
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
             Clique para abrir a Central de Vencimentos
           </p>
         </button>
@@ -188,21 +192,21 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         <button
           type="button"
           onClick={() => onNavigate('turmas')}
-          className="text-left bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors cursor-pointer"
+          className="text-left dk-glass-card rounded-2xl p-5 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-slate-500">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">Turmas em Andamento</span>
-            <GraduationCap className="w-4 h-4 text-emerald-700" />
+            <GraduationCap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
               {turmasEmAndamento.length}
             </span>
             <span className="text-xs font-mono text-slate-400">
               de {turmas.length} turmas
             </span>
           </div>
-          <p className="mt-1.5 text-xs text-slate-500">
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
             Links e QR Codes públicos prontos
           </p>
         </button>
@@ -210,19 +214,18 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
       {/* Gráfico + Lista Rápida de Próximos Vencimentos */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Gráfico de Horas por Contrato / Obra */}
-        <section className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+        <section className="lg:col-span-7 dk-glass-card rounded-2xl p-6 space-y-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                 Horas de Treinamento Concluídas por Contrato / Obra
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Consolidação real dos certificados emitidos na conta {empresa.razaoSocial}.
               </p>
             </div>
             <div className="text-right shrink-0">
-              <span className="text-lg font-bold font-mono tabular-nums text-slate-900">
+              <span className="text-lg font-bold font-mono tabular-nums text-slate-900 dark:text-white">
                 {totalHorasConcluidas}h
               </span>
               <p className="text-[11px] text-slate-400">acumuladas</p>
@@ -230,13 +233,13 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           </div>
 
           {horasPorObra.length === 0 ? (
-            <div className="border border-dashed border-slate-200 rounded-xl p-8 text-center space-y-3">
+            <div className="border border-dashed border-slate-200 dark:border-white/15 rounded-xl p-8 text-center space-y-3">
               <Building2 className="w-6 h-6 text-slate-400 mx-auto" />
               <div className="space-y-1">
-                <p className="text-sm font-medium text-slate-900">
+                <p className="text-sm font-medium text-slate-900 dark:text-white">
                   Nenhuma hora registrada por contrato ainda
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Cadastre seus contratos/obras, aplique turmas e emita certificados para acompanhar
                   a carga horária consolidada aqui.
                 </p>
@@ -245,14 +248,14 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => onNavigate('colaboradores')}
-                  className="px-3.5 py-2 rounded-lg border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  className="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-white/15 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer"
                 >
                   Cadastrar Obra e Colaborador
                 </button>
                 <button
                   type="button"
                   onClick={() => onNavigate('turmas')}
-                  className="px-3.5 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800 cursor-pointer"
+                  className="px-3.5 py-2 rounded-lg bg-[#1D4ED8] text-white text-xs font-medium hover:bg-[#1E40AF] cursor-pointer"
                 >
                   Abrir Nova Turma
                 </button>
@@ -265,19 +268,21 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                 return (
                   <div key={item.label} className="space-y-1.5">
                     <div className="flex items-center justify-between gap-3 text-xs">
-                      <span className="font-medium text-slate-800 truncate">{item.label}</span>
-                      <span className="font-mono tabular-nums text-slate-600 shrink-0">
-                        <strong className="text-slate-900">{item.horas}h</strong> ·{' '}
+                      <span className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                        {item.label}
+                      </span>
+                      <span className="font-mono tabular-nums text-slate-600 dark:text-slate-400 shrink-0">
+                        <strong className="text-slate-900 dark:text-white">{item.horas}h</strong> ·{' '}
                         {item.certificados}{' '}
                         {item.certificados === 1 ? 'certificado' : 'certificados'}
                       </span>
                     </div>
-                    <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-2.5 w-full bg-slate-100 dark:bg-white/10 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-300"
                         style={{
                           width: `${item.horas === 0 ? 0 : pct}%`,
-                          backgroundColor: empresa.corPrimaria || '#1D4ED8',
+                          backgroundColor: empresa.corPrimaria || '#3B82F6',
                         }}
                       />
                     </div>
@@ -289,16 +294,20 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
         </section>
 
         {/* Lista Rápida de Próximos Vencimentos */}
-        <section className="lg:col-span-5 bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-2">
+        <section className="lg:col-span-5 dk-glass-card rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between gap-2">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900">Próximos Vencimentos</h2>
-              <p className="text-xs text-slate-500">Vencidos e a vencer em até 30 dias</p>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                Próximos Vencimentos
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Vencidos e a vencer em até 30 dias
+              </p>
             </div>
             <button
               type="button"
               onClick={() => onNavigate('vencimentos')}
-              className="inline-flex items-center gap-1 text-xs font-medium text-[#1D4ED8] hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-xs font-medium text-[#1D4ED8] dark:text-blue-400 hover:underline cursor-pointer"
             >
               Ver central
               <ArrowRight className="w-3.5 h-3.5" />
@@ -307,28 +316,28 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
 
           {vencendoEm30Dias.length === 0 ? (
             <div className="p-8 text-center space-y-1.5">
-              <p className="text-sm font-medium text-slate-800">
+              <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
                 Nenhum vencimento crítico nos próximos 30 dias
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Todos os certificados emitidos estão dentro do prazo de validade.
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-white/5">
               {vencendoEm30Dias.slice(0, 6).map(({ cert, diasRestantes }) => {
                 const vencido = diasRestantes < 0;
                 return (
                   <div
                     key={cert.id}
-                    className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70"
+                    className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-white/[0.02]"
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-slate-900 truncate">
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
                         {cert.snapshotColaborador.nome}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        <span className="font-mono font-semibold text-slate-700">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">
                           {cert.nrCodigo}
                         </span>{' '}
                         · Validade {cert.dataValidadeIso}
@@ -338,10 +347,10 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                       <span
                         className={`text-[11px] font-mono font-semibold ${
                           vencido
-                            ? 'text-red-700'
+                            ? 'text-red-600 dark:text-red-400'
                             : diasRestantes <= 7
-                              ? 'text-amber-700'
-                              : 'text-slate-600'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-slate-600 dark:text-slate-400'
                         }`}
                       >
                         {vencido ? `Vencido há ${Math.abs(diasRestantes)}d` : `${diasRestantes}d`}
@@ -349,7 +358,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                       <button
                         type="button"
                         onClick={() => onScheduleRecycling(cert)}
-                        className="px-2.5 py-1 rounded-md border border-slate-200 text-[11px] font-medium text-slate-700 hover:bg-slate-100 cursor-pointer"
+                        className="px-2.5 py-1 rounded-md border border-slate-200 dark:border-white/15 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer"
                       >
                         Reciclar
                       </button>
@@ -363,27 +372,27 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       </div>
 
       {/* Últimos Certificados Emitidos */}
-      <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <section className="dk-glass-card rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
               Últimos Certificados Emitidos
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Acesso rápido ao PDF Frente e Verso com QR Code de validação
             </p>
           </div>
           <button
             type="button"
             onClick={() => onNavigate('certificados')}
-            className="text-xs font-medium text-[#1D4ED8] hover:underline cursor-pointer"
+            className="text-xs font-medium text-[#1D4ED8] dark:text-blue-400 hover:underline cursor-pointer"
           >
             Ver todos ({certificadosEmitidos.length})
           </button>
         </div>
 
         {certificadosEmitidos.length === 0 ? (
-          <div className="p-8 text-center text-xs text-slate-500">
+          <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
             Nenhum certificado emitido nesta empresa ainda. Abra uma turma e emita o primeiro
             certificado com 1 clique.
           </div>
@@ -391,7 +400,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                <tr className="bg-slate-50 dark:bg-white/[0.03] border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400">
                   <th className="py-2.5 px-5">Número</th>
                   <th className="py-2.5 px-4">Colaborador</th>
                   <th className="py-2.5 px-4">NR / Treinamento</th>
@@ -399,29 +408,29 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
                   <th className="py-2.5 px-5 text-right">Ação</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {certificadosEmitidos.slice(0, 5).map((cert) => (
-                  <tr key={cert.id} className="hover:bg-slate-50/60">
-                    <td className="py-3 px-5 font-mono font-semibold text-slate-900">
+                  <tr key={cert.id} className="hover:bg-slate-50/60 dark:hover:bg-white/[0.02]">
+                    <td className="py-3 px-5 font-mono font-semibold text-slate-900 dark:text-white">
                       {cert.numeroCertificado}
                     </td>
-                    <td className="py-3 px-4 font-medium text-slate-800">
+                    <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">
                       {cert.snapshotColaborador.nome}
                     </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      <span className="font-mono font-semibold text-slate-800">
+                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
+                      <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">
                         {cert.nrCodigo}
                       </span>{' '}
                       · {cert.cargaHorariaHoras}h
                     </td>
-                    <td className="py-3 px-4 font-mono text-slate-600">
+                    <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-400">
                       {cert.dataValidadeIso}
                     </td>
                     <td className="py-3 px-5 text-right">
                       <button
                         type="button"
                         onClick={() => onOpenCertificate(cert)}
-                        className="text-xs font-medium text-[#1D4ED8] hover:underline cursor-pointer"
+                        className="text-xs font-medium text-[#1D4ED8] dark:text-blue-400 hover:underline cursor-pointer"
                       >
                         Abrir Frente e Verso
                       </button>
@@ -435,9 +444,9 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
       </section>
 
       {vencendoEm30Dias.some((i) => i.diasRestantes < 0) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-4 text-xs text-amber-950">
+        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-xl px-4 py-3 flex items-center justify-between gap-4 text-xs text-amber-950 dark:text-amber-200">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
             <span>
               Existem certificados vencidos que podem bloquear integração em portaria. Use a
               Central de Vencimentos para agendar a reciclagem imediatamente.
@@ -446,7 +455,7 @@ export const ExecutiveDashboard: React.FC<ExecutiveDashboardProps> = ({
           <button
             type="button"
             onClick={() => onNavigate('vencimentos')}
-            className="font-semibold text-amber-900 underline whitespace-nowrap cursor-pointer"
+            className="font-semibold text-amber-900 dark:text-amber-300 underline whitespace-nowrap cursor-pointer"
           >
             Resolver agora
           </button>

@@ -4,6 +4,7 @@ import type { GlobalCatalogSnapshot } from '../services/catalogService.ts';
 import type { EmpresaDoc } from '../types/domain.ts';
 import { updateEmpresaIdentidade } from '../services/operationalCrudService.ts';
 import { CertificateTemplatePreview } from './CertificateTemplatePreview.tsx';
+import { ThemeToggleButton } from './ThemeProvider.tsx';
 
 interface OnboardingWizardProps {
   empresa: EmpresaDoc;
@@ -96,29 +97,33 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     }
   };
 
+  const inputCls =
+    'w-full px-3.5 py-2 text-sm bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 rounded-xl text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-500';
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] py-10 px-6">
+    <div className="min-h-screen dk-ambient-canvas py-10 px-6">
       <div className="max-w-[920px] mx-auto space-y-6">
         {/* Cabeçalho do Assistente */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-medium text-[#1D4ED8]">
+            <p className="text-xs font-semibold text-[#1D4ED8] dark:text-blue-400">
               Assistente Rápido de Primeiro Acesso · {empresa.razaoSocial}
             </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="mt-1 text-2xl font-bold tracking-tight dk-gradient-title">
               Configure a identidade dos seus certificados em 3 passos
             </h1>
           </div>
           <div className="flex items-center gap-2 text-xs font-mono">
+            <ThemeToggleButton compact />
             {[1, 2, 3].map((n) => (
               <span
                 key={n}
-                className={`px-2.5 py-1 rounded-md border ${
+                className={`px-2.5 py-1 rounded-lg border ${
                   step === n
-                    ? 'bg-slate-900 text-white border-slate-900'
+                    ? 'bg-[#1D4ED8] text-white border-[#1D4ED8]'
                     : step > n
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-white text-slate-500 border-slate-200'
+                      ? 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-500/30'
+                      : 'bg-white dark:bg-white/[0.04] text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10'
                 }`}
               >
                 0{n}
@@ -128,19 +133,19 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-900">
+          <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-900 dark:text-red-200">
             {error}
           </div>
         )}
 
         {/* PASSO 1: LOGO, COR PRINCIPAL, PREFIXO E ENDEREÇO */}
         {step === 1 && (
-          <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 space-y-6">
+          <div className="dk-glass-card rounded-2xl p-6 sm:p-8 space-y-6">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                 Passo 1 — Logotipo, cor principal e dados de emissão
               </h2>
-              <p className="text-sm text-slate-600 mt-1">
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 Essas informações são aplicadas automaticamente no cabeçalho dos seus certificados
                 PDF e na página de provas dos colaboradores.
               </p>
@@ -149,22 +154,22 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Upload de Logo */}
               <div className="space-y-2.5">
-                <label className="block text-xs font-medium text-slate-700">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300">
                   Logo da Empresa (PNG, JPG ou SVG até 140 KB)
                 </label>
-                <div className="border border-dashed border-slate-300 rounded-xl p-5 bg-slate-50 flex flex-col items-center justify-center gap-3 text-center">
+                <div className="border border-dashed border-slate-300 dark:border-white/15 rounded-xl p-5 bg-slate-50 dark:bg-white/[0.02] flex flex-col items-center justify-center gap-3 text-center">
                   {logoUrl ? (
                     <>
                       <img
                         src={logoUrl}
                         alt="Logo carregado"
                         referrerPolicy="no-referrer"
-                        className="max-h-16 max-w-[200px] object-contain"
+                        className="max-h-16 max-w-[200px] object-contain bg-white rounded-lg p-1.5"
                       />
                       <button
                         type="button"
                         onClick={() => setLogoUrl(null)}
-                        className="inline-flex items-center gap-1.5 text-xs text-red-700 hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-xs text-red-700 dark:text-red-400 hover:underline cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         Remover logo
@@ -173,7 +178,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   ) : (
                     <>
                       <Upload className="w-6 h-6 text-slate-400" />
-                      <label className="px-3.5 py-2 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-700 hover:bg-slate-100 cursor-pointer">
+                      <label className="px-3.5 py-2 rounded-lg bg-white dark:bg-white/[0.06] border border-slate-200 dark:border-white/15 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer">
                         Selecionar arquivo de logo
                         <input
                           type="file"
@@ -190,7 +195,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               {/* Cor principal + Prefixo */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-2">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
                     Cor Principal da Marca
                   </label>
                   <div className="flex flex-wrap items-center gap-2">
@@ -201,8 +206,8 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                         onClick={() => setCorPrimaria(hex)}
                         className={`w-8 h-8 rounded-lg border-2 cursor-pointer ${
                           corPrimaria.toLowerCase() === hex.toLowerCase()
-                            ? 'border-slate-900 scale-105'
-                            : 'border-transparent'
+                            ? 'border-blue-500 scale-105'
+                            : 'border-white/20'
                         }`}
                         style={{ backgroundColor: hex }}
                         aria-label={`Cor ${hex}`}
@@ -212,68 +217,74 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                       type="color"
                       value={corPrimaria}
                       onChange={(e) => setCorPrimaria(e.target.value)}
-                      className="w-8 h-8 rounded border border-slate-200 cursor-pointer"
+                      className="w-8 h-8 rounded border border-slate-200 dark:border-white/20 cursor-pointer"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Prefixo dos Certificados
                   </label>
                   <input
                     value={prefixoCertificado}
                     maxLength={10}
                     onChange={(e) =>
-                      setPrefixoCertificado(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase())
+                      setPrefixoCertificado(
+                        e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+                      )
                     }
-                    className="w-full px-3.5 py-2 text-sm font-mono border border-slate-300 rounded-lg"
+                    className={`${inputCls} font-mono`}
                   />
-                  <p className="mt-1 text-[11px] text-slate-500 font-mono">
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                     Exemplo de numeração: {prefixoCertificado || 'CERT'}-2026-0001
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 pt-4 border-t border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 pt-4 border-t border-slate-200/80 dark:border-white/10">
               <div className="sm:col-span-3">
-                <label className="block text-xs font-medium text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   CNPJ Confirmado
                 </label>
                 <input
                   readOnly
                   value={empresa.cnpj}
-                  className="w-full px-3.5 py-2 text-sm font-mono bg-slate-50 border border-slate-200 rounded-lg text-slate-600"
+                  className="w-full px-3.5 py-2 text-sm font-mono bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl text-slate-600 dark:text-slate-400"
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-xs font-medium text-slate-700 mb-1">Cidade</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Cidade
+                </label>
                 <input
                   value={cidade}
                   onChange={(e) => setCidade(e.target.value)}
                   placeholder="Cidade da sede"
-                  className="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg"
+                  className={inputCls}
                 />
               </div>
               <div className="sm:col-span-1">
-                <label className="block text-xs font-medium text-slate-700 mb-1">UF</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  UF
+                </label>
                 <input
                   value={uf}
                   maxLength={2}
                   onChange={(e) => setUf(e.target.value.toUpperCase())}
-                  className="w-full px-3.5 py-2 text-sm font-mono border border-slate-300 rounded-lg"
+                  className={`${inputCls} font-mono`}
                 />
               </div>
               <div className="sm:col-span-6">
-                <label className="block text-xs font-medium text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Endereço completo (exibido no rodapé/cabeçalho do certificado)
                 </label>
                 <input
                   value={endereco}
                   onChange={(e) => setEndereco(e.target.value)}
                   placeholder="Av. / Rua, número, bairro"
-                  className="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg"
+                  className={inputCls}
                 />
               </div>
             </div>
@@ -282,7 +293,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1E40AF] cursor-pointer"
               >
                 Continuar para Modelos
                 <ArrowRight className="w-4 h-4" />
@@ -293,14 +304,15 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
         {/* PASSO 2: ESCOLHER MODELO GRATUITO OU INDICAR MODELO PRÓPRIO */}
         {step === 2 && (
-          <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 space-y-6">
+          <div className="dk-glass-card rounded-2xl p-6 sm:p-8 space-y-6">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                 Passo 2 — Escolha o modelo visual dos seus certificados
               </h2>
-              <p className="text-sm text-slate-600 mt-1">
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 Todos os modelos abaixo são gratuitos e já exibem a identidade visual configurada no
-                Passo 1. Você também pode contratar a implantação de um Modelo Próprio exclusivo.
+                Passo 1. Você também pode contratar a implantação de um Modelo Próprio (.pptx)
+                exclusivo.
               </p>
             </div>
 
@@ -314,50 +326,54 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                     onClick={() => setModeloId(modelo.id)}
                     className={`text-left p-4 rounded-xl border transition-colors space-y-3 cursor-pointer ${
                       active
-                        ? 'border-[#1D4ED8] ring-1 ring-[#1D4ED8]/20 bg-blue-50/20'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                        ? 'border-[#1D4ED8] ring-1 ring-[#1D4ED8]/25 bg-blue-50/40 dark:bg-blue-500/10'
+                        : 'border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 bg-white dark:bg-white/[0.02]'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-slate-900">{modelo.nome}</span>
+                      <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {modelo.nome}
+                      </span>
                       {active && (
-                        <span className="text-xs font-medium text-[#1D4ED8] inline-flex items-center gap-1">
+                        <span className="text-xs font-medium text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-1">
                           <Check className="w-3.5 h-3.5" />
                           Selecionado
                         </span>
                       )}
                     </div>
-                    <CertificateTemplatePreview
-                      modelo={modelo}
-                      empresaPreview={{
-                        razaoSocial: empresa.razaoSocial,
-                        cnpj: empresa.cnpj,
-                        endereco: endereco || `${cidade}${uf ? `/${uf}` : ''}`,
-                        logoUrl,
-                        corPrimaria,
-                        prefixoCertificado,
-                      }}
-                    />
+                    <div className="dk-paper-surface rounded-lg overflow-hidden">
+                      <CertificateTemplatePreview
+                        modelo={modelo}
+                        empresaPreview={{
+                          razaoSocial: empresa.razaoSocial,
+                          cnpj: empresa.cnpj,
+                          endereco: endereco || `${cidade}${uf ? `/${uf}` : ''}`,
+                          logoUrl,
+                          corPrimaria,
+                          prefixoCertificado,
+                        }}
+                      />
+                    </div>
                   </button>
                 );
               })}
             </div>
 
-            <label className="flex items-start gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50 cursor-pointer">
+            <label className="flex items-start gap-3 p-4 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03] cursor-pointer">
               <input
                 type="checkbox"
                 checked={desejaModeloProprio}
                 onChange={(e) => setDesejaModeloProprio(e.target.checked)}
-                className="mt-0.5 rounded border-slate-300"
+                className="mt-0.5 rounded border-slate-300 dark:border-white/20"
               />
               <div className="text-xs">
-                <p className="font-semibold text-slate-900">
-                  Quero também contratar o adicional "Modelo Próprio de Certificado" depois em Meu
+                <p className="font-semibold text-slate-900 dark:text-white">
+                  Quero também contratar o adicional &quot;Modelo Próprio de Certificado&quot; depois em Meu
                   Plano
                 </p>
-                <p className="text-slate-600 mt-0.5">
-                  Nossa equipe sobe a arte exclusiva frente e verso da sua empresa direto na sua
-                  conta.
+                <p className="text-slate-600 dark:text-slate-400 mt-0.5">
+                  Nossa equipe implanta o modelo PowerPoint (.pptx) exclusivo frente e verso da sua
+                  empresa direto na sua conta.
                 </p>
               </div>
             </label>
@@ -366,7 +382,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/15 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Voltar
@@ -374,7 +390,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-slate-900 text-white text-sm font-medium hover:bg-slate-800 cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-sm font-semibold hover:bg-[#1E40AF] cursor-pointer"
               >
                 Revisar e Liberar Painel
                 <ArrowRight className="w-4 h-4" />
@@ -385,52 +401,56 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
         {/* PASSO 3: REVISÃO E LIBERAÇÃO */}
         {step === 3 && (
-          <div className="bg-white border border-slate-200 rounded-xl p-6 sm:p-8 space-y-6">
+          <div className="dk-glass-card rounded-2xl p-6 sm:p-8 space-y-6">
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                 Passo 3 — Confirmação final de primeiro acesso
               </h2>
-              <p className="text-sm text-slate-600 mt-1">
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                 Revise os dados abaixo. Você poderá ajustar logotipo, cores e modelo a qualquer
                 momento nas configurações da empresa.
               </p>
             </div>
 
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 border border-slate-200 rounded-xl p-5 text-xs">
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/10 rounded-xl p-5 text-xs">
               <div>
-                <dt className="text-slate-500">Empresa</dt>
-                <dd className="mt-0.5 font-semibold text-slate-900">{empresa.razaoSocial}</dd>
+                <dt className="text-slate-500 dark:text-slate-400">Empresa</dt>
+                <dd className="mt-0.5 font-semibold text-slate-900 dark:text-white">
+                  {empresa.razaoSocial}
+                </dd>
               </div>
               <div>
-                <dt className="text-slate-500">CNPJ</dt>
-                <dd className="mt-0.5 font-mono text-slate-900">{empresa.cnpj}</dd>
+                <dt className="text-slate-500 dark:text-slate-400">CNPJ</dt>
+                <dd className="mt-0.5 font-mono text-slate-900 dark:text-slate-200">
+                  {empresa.cnpj}
+                </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Endereço nos Certificados</dt>
-                <dd className="mt-0.5 text-slate-900">
+                <dt className="text-slate-500 dark:text-slate-400">Endereço nos Certificados</dt>
+                <dd className="mt-0.5 text-slate-900 dark:text-slate-200">
                   {endereco || 'Não informado'} {cidade ? `· ${cidade}/${uf}` : ''}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Prefixo e Cor Principal</dt>
-                <dd className="mt-0.5 font-mono text-slate-900 flex items-center gap-2">
+                <dt className="text-slate-500 dark:text-slate-400">Prefixo e Cor Principal</dt>
+                <dd className="mt-0.5 font-mono text-slate-900 dark:text-slate-200 flex items-center gap-2">
                   <span>{prefixoCertificado}</span>
                   <span
-                    className="inline-block w-3.5 h-3.5 rounded border border-slate-300"
+                    className="inline-block w-3.5 h-3.5 rounded border border-slate-300 dark:border-white/20"
                     style={{ backgroundColor: corPrimaria }}
                   />
                   <span>{corPrimaria}</span>
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Modelo Selecionado</dt>
-                <dd className="mt-0.5 font-semibold text-slate-900">
+                <dt className="text-slate-500 dark:text-slate-400">Modelo Selecionado</dt>
+                <dd className="mt-0.5 font-semibold text-slate-900 dark:text-white">
                   {selectedModelo?.nome || modeloId}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-500">Modelo Próprio (Adicional)</dt>
-                <dd className="mt-0.5 text-slate-900">
+                <dt className="text-slate-500 dark:text-slate-400">Modelo Próprio (Adicional)</dt>
+                <dd className="mt-0.5 text-slate-900 dark:text-slate-200">
                   {desejaModeloProprio
                     ? 'Solicitado para contratação em Meu Plano'
                     : 'Usando modelo gratuito incluso'}
@@ -442,7 +462,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-white/15 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Voltar
@@ -451,7 +471,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                 type="button"
                 disabled={saving}
                 onClick={() => void handleFinish()}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[#1D4ED8] text-white text-sm font-medium hover:bg-[#1E40AF] cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#1D4ED8] to-[#2563EB] text-white text-sm font-semibold hover:from-[#1E40AF] hover:to-[#1D4ED8] cursor-pointer disabled:opacity-50 shadow-lg shadow-blue-600/25"
               >
                 <Check className="w-4 h-4" />
                 {saving ? 'Salvando identidade...' : 'Concluir e Acessar Painel Principal'}

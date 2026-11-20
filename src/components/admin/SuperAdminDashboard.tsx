@@ -72,7 +72,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     };
   }, [empresas, catalog]);
 
-  // Série histórica dos últimos 6 meses (receita acumulada e novas empresas)
   const monthlySeries = useMemo(() => {
     const now = new Date();
     const buckets: {
@@ -116,7 +115,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     [monthlySeries]
   );
 
-  // Resumo de Serviços Adicionais contratados
   const addonsSummary = useMemo(() => {
     const counts = new Map<string, number>();
     for (const emp of empresas) {
@@ -142,15 +140,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     <div className="space-y-6">
       {/* KPIs Principais (6 cartões reais) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center justify-between text-slate-500">
+        <div className="dk-glass-card rounded-2xl p-5">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">Faturamento Mensal (MRR)</span>
-            <DollarSign className="w-4 h-4 text-emerald-700" />
+            <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <p className="mt-3 text-2xl font-bold font-mono tabular-nums text-slate-900">
+          <p className="mt-3 text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
             {formatarMoedaBRL(stats.mrrCentavos)}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Receita recorrente de {stats.ativasCount} conta(s) ativa(s) + adicionais
           </p>
         </div>
@@ -158,89 +156,96 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         <button
           type="button"
           onClick={onGoCompanies}
-          className="text-left bg-white border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors cursor-pointer"
+          className="text-left dk-glass-card rounded-2xl p-5 cursor-pointer"
         >
-          <div className="flex items-center justify-between text-slate-500">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">Empresas Ativas & Trial</span>
-            <Building2 className="w-4 h-4 text-[#1D4ED8]" />
+            <Building2 className="w-4 h-4 text-[#1D4ED8] dark:text-blue-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-3">
-            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
               {stats.ativasCount}
             </span>
-            <span className="text-xs font-medium text-emerald-700">ativas</span>
-            <span className="text-slate-300">·</span>
-            <span className="text-lg font-bold font-mono tabular-nums text-[#1D4ED8]">
+            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              ativas
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">·</span>
+            <span className="text-lg font-bold font-mono tabular-nums text-[#1D4ED8] dark:text-blue-400">
               {stats.trialsCount}
             </span>
-            <span className="text-xs font-medium text-slate-500">em trial</span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">em trial</span>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Total de {empresas.length} empresa(s) cadastrada(s) no ecossistema
           </p>
         </button>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center justify-between text-slate-500">
+        <div className="dk-glass-card rounded-2xl p-5">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">Pendentes / Suspensas</span>
             <AlertTriangle
               className={`w-4 h-4 ${
-                stats.bloqueadasCount > 0 ? 'text-red-600' : 'text-slate-400'
+                stats.bloqueadasCount > 0 ? 'text-red-500' : 'text-slate-400'
               }`}
             />
           </div>
           <p
             className={`mt-3 text-2xl font-bold font-mono tabular-nums ${
-              stats.bloqueadasCount > 0 ? 'text-red-700' : 'text-slate-900'
+              stats.bloqueadasCount > 0
+                ? 'text-red-700 dark:text-red-400'
+                : 'text-slate-900 dark:text-white'
             }`}
           >
             {stats.bloqueadasCount}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Contas bloqueadas aguardando regularização Asaas
           </p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center justify-between text-slate-500">
+        <div className="dk-glass-card rounded-2xl p-5">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">Acessos Hoje</span>
-            <Eye className="w-4 h-4 text-slate-500" />
+            <Eye className="w-4 h-4 text-slate-400" />
           </div>
-          <p className="mt-3 text-2xl font-bold font-mono tabular-nums text-slate-900">
+          <p className="mt-3 text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
             {analytics.acessosHoje}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Sessões únicas registradas desde 00:00
           </p>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl p-5">
-          <div className="flex items-center justify-between text-slate-500">
+        <div className="dk-glass-card rounded-2xl p-5">
+          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
             <span className="text-xs font-medium">Acessos no Mês</span>
-            <Clock className="w-4 h-4 text-slate-500" />
+            <Clock className="w-4 h-4 text-slate-400" />
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900">
+            <span className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
               {analytics.acessosMes}
             </span>
             <span className="text-xs font-mono text-slate-400">
               ({analytics.totalAcessosRegistrados} total)
             </span>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Site institucional, painel cliente e provas públicas
           </p>
         </div>
 
-        <div className="bg-slate-900 text-white border border-slate-800 rounded-xl p-5">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-medium">Usuários Online / Visualizando Agora</span>
+        <div className="bg-gradient-to-br from-[#0F172A] to-[#1E3A8A] text-white border border-blue-500/30 rounded-2xl p-5 shadow-lg shadow-blue-950/20">
+          <div className="flex items-center justify-between text-blue-200">
+            <span className="text-xs font-medium inline-flex items-center gap-2">
+              <span className="dk-live-dot" />
+              Usuários Online Agora
+            </span>
             <Activity className="w-4 h-4 text-emerald-400" />
           </div>
           <p className="mt-3 text-2xl font-bold font-mono tabular-nums text-white">
             {analytics.usuariosOnlineAgora}
           </p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-blue-200/80">
             Heartbeat real nos últimos 2 minutos
           </p>
         </div>
@@ -248,14 +253,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
       {/* Gráfico de Crescimento MRR/Empresas + Resumo de Adicionais */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <section className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 space-y-5">
+        <section className="lg:col-span-7 dk-glass-card rounded-2xl p-6 space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-[#1D4ED8]" />
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-[#1D4ED8] dark:text-blue-400" />
                 Evolução de Receita (MRR) e Novas Empresas
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Últimos 6 meses calculados em tempo real a partir da base de clientes.
               </p>
             </div>
@@ -269,19 +274,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
               );
               return (
                 <div key={b.key} className="flex flex-col items-center justify-end h-full gap-2">
-                  <div className="text-[10px] font-mono text-slate-500 text-center leading-tight">
-                    <span className="font-semibold text-slate-900 block">
+                  <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 text-center leading-tight">
+                    <span className="font-semibold text-slate-900 dark:text-white block">
                       {formatarMoedaBRL(b.mrrAcumuladoCentavos)}
                     </span>
                     <span>+{b.empresasNovas} emp.</span>
                   </div>
                   <div className="w-full max-w-[44px] flex-1 flex items-end">
                     <div
-                      className="w-full rounded-t-lg bg-[#1D4ED8] transition-all duration-300"
+                      className="w-full rounded-t-lg bg-gradient-to-t from-[#1D4ED8] to-[#3B82F6] transition-all duration-300"
                       style={{ height: `${heightPct}%` }}
                     />
                   </div>
-                  <span className="text-[11px] font-mono text-slate-500">{b.label}</span>
+                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                    {b.label}
+                  </span>
                 </div>
               );
             })}
@@ -289,33 +296,33 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         </section>
 
         {/* Resumo de Serviços Adicionais Contratados */}
-        <section className="lg:col-span-5 bg-white border border-slate-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <section className="lg:col-span-5 dk-glass-card rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-slate-700" />
-              <h2 className="text-sm font-semibold text-slate-900">
+              <Package className="w-4 h-4 text-slate-700 dark:text-blue-400" />
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                 Serviços Adicionais Contratados
               </h2>
             </div>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-white/5">
             {addonsSummary.map(({ addon, qtdEmpresas, receitaCentavos }) => (
               <div
                 key={addon.id}
                 className="px-5 py-3 flex items-center justify-between gap-3 text-xs"
               >
                 <div className="min-w-0">
-                  <p className="font-medium text-slate-900 truncate">{addon.nome}</p>
-                  <p className="text-[11px] text-slate-500 font-mono">
+                  <p className="font-medium text-slate-900 dark:text-white truncate">{addon.nome}</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                     {formatarMoedaBRL(addon.precoMensalCentavos)}
                     {addon.tipoCobranca === 'RECORRENTE' ? '/mês' : ' único'}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="font-mono font-semibold text-slate-900">
+                  <p className="font-mono font-semibold text-slate-900 dark:text-white">
                     {qtdEmpresas} {qtdEmpresas === 1 ? 'empresa' : 'empresas'}
                   </p>
-                  <p className="font-mono text-[11px] text-emerald-700">
+                  <p className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
                     {formatarMoedaBRL(receitaCentavos)}
                   </p>
                 </div>
@@ -326,13 +333,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
       </div>
 
       {/* Sessões Online / Acessos Recentes (Heartbeat Real) */}
-      <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+      <section className="dk-glass-card rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
               Monitoramento de Sessões e Acessos em Tempo Real
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {onlineSessions.length} sessão(ões) ativa(s) nos últimos 2 minutos · exibindo os 15
               acessos mais recentes.
             </p>
@@ -340,14 +347,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         </div>
 
         {analytics.sessoesRecentes.length === 0 ? (
-          <p className="p-6 text-xs text-slate-500 text-center">
+          <p className="p-6 text-xs text-slate-500 dark:text-slate-400 text-center">
             Nenhuma sessão registrada ainda.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500">
+                <tr className="bg-slate-50 dark:bg-white/[0.03] border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400">
                   <th className="py-2.5 px-5">Status</th>
                   <th className="py-2.5 px-4">Origem</th>
                   <th className="py-2.5 px-4">Rota Visualizada</th>
@@ -355,7 +362,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                   <th className="py-2.5 px-5 text-right">Último Heartbeat</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                 {analytics.sessoesRecentes.slice(0, 15).map((s) => {
                   const pingMs = s.ultimoPingEm?.toMillis() ?? 0;
                   const online = Date.now() - pingMs <= 2 * 60 * 1000;
@@ -363,18 +370,29 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                     ? empresas.find((e) => e.id === s.empresaId)
                     : null;
                   return (
-                    <tr key={s.id} className="hover:bg-slate-50/70">
+                    <tr key={s.id} className="hover:bg-slate-50/70 dark:hover:bg-white/[0.02]">
                       <td className="py-2.5 px-5 font-semibold">
-                        <span className={online ? 'text-emerald-700' : 'text-slate-400'}>
+                        <span
+                          className={`inline-flex items-center gap-1.5 ${
+                            online
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-slate-400 dark:text-slate-500'
+                          }`}
+                        >
+                          {online && <span className="dk-live-dot" />}
                           {online ? 'Online agora' : 'Recente'}
                         </span>
                       </td>
-                      <td className="py-2.5 px-4 font-mono text-slate-700">{s.origem}</td>
-                      <td className="py-2.5 px-4 font-mono text-[#1D4ED8]">{s.rota}</td>
-                      <td className="py-2.5 px-4 text-slate-600">
+                      <td className="py-2.5 px-4 font-mono text-slate-700 dark:text-slate-300">
+                        {s.origem}
+                      </td>
+                      <td className="py-2.5 px-4 font-mono text-[#1D4ED8] dark:text-blue-400">
+                        {s.rota}
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">
                         {emp ? emp.razaoSocial : 'Visitante / Público'}
                       </td>
-                      <td className="py-2.5 px-5 text-right font-mono text-slate-500">
+                      <td className="py-2.5 px-5 text-right font-mono text-slate-500 dark:text-slate-400">
                         {pingMs ? new Date(pingMs).toLocaleTimeString('pt-BR') : '—'}
                       </td>
                     </tr>
