@@ -46,6 +46,15 @@ try {
   });
   assert.equal(forged.status, 410);
   assert.equal((await fetch(`${base}/api/billing/asaas/charge`, { method: 'POST' })).status, 410);
+  assert.equal((await fetch(`${base}/api/auth/hash-password`, { method: 'POST' })).status, 410);
+  assert.equal((await fetch(`${base}/api/tenant/evaluate-access`, { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: 'ATIVA' }),
+  })).status, 410);
+  for (const route of ['/api/certificates/render', '/api/documents/render-comprovante',
+    '/api/documents/render-dossie-aplicacao', '/api/documents/render-carta-anuencia',
+    '/api/documents/render-lista-presenca', '/api/documents/render-pacote-auditoria']) {
+    assert.equal((await fetch(`${base}${route}`, { method: 'POST' })).status, 410);
+  }
 
   const badLogin = await fetch(`${base}/api/auth/login`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -82,7 +91,29 @@ try {
   });
   assert.equal(logout.status, 204);
   assert.equal((await me()).status, 401);
-  process.stdout.write('Auth smoke test passou: token forjado, senha inválida, login, escopo, inativação e revogação.\n');
+  assert.equal((await fetch(`${base}/api/auth/password-reset/request`, { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'invalido' }),
+  })).status, 400);
+  const resetToken = crypto.randomBytes(32).toString('base64url');
+  await db.recuperacaoSenha.create({ data: {
+    usuarioId: user.id,
+    tokenHash: crypto.createHash('sha256').update(resetToken).digest('hex'),
+    expiraEm: new Date(Date.now() + 30 * 60_000),
+  } });
+  const newPassword = `NovaSenha-${crypto.randomBytes(12).toString('hex')}`;
+  const confirmReset = () => fetch(`${base}/api/auth/password-reset/confirm`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ token: resetToken, password: newPassword }),
+  });
+  assert.equal((await confirmReset()).status, 204);
+  assert.equal((await confirmReset()).status, 410);
+  assert.equal((await fetch(`${base}/api/auth/login`, { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }),
+  })).status, 401);
+  assert.equal((await fetch(`${base}/api/auth/login`, { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password: newPassword }),
+  })).status, 200);
+  process.stdout.write('Auth smoke test passou: rotas legadas fechadas, login, escopo, revogação e redefinição de senha.\n');
 } finally {
   if (companyId) await db.empresa.delete({ where: { id: companyId } });
   server.close();

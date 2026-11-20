@@ -28,19 +28,19 @@ import {
 } from '../services/certificateEngine.ts';
 import {
   generateSecureCode,
-  hashPassword,
   signJwtToken,
   verifyPassword,
 } from '../lib/security.ts';
-import { evaluateTenantAccess, type TenantPlanState } from '../middleware/tenantGuard.ts';
 import { getPrisma } from '../lib/prisma.ts';
 import { requireDatabaseAuth, requireSuperAdmin, requireTenantScope } from '../middleware/databaseAuth.ts';
 import { orderRouter } from './orderRoutes.ts';
 import { mercadoPagoWebhookRouter } from './mercadoPagoWebhookRoutes.ts';
+import { passwordResetRouter } from './passwordResetRoutes.ts';
 
 export const apiRouter = Router();
 apiRouter.use(orderRouter);
 apiRouter.use(mercadoPagoWebhookRouter);
+apiRouter.use(passwordResetRouter);
 
 // ----------------------------------------------------------------------------
 // 1. HEALTH CHECK & RUNTIME CAPABILITIES
@@ -97,28 +97,17 @@ apiRouter.post('/api/auth/session-token', (_req: Request, res: Response) => {
   res.status(410).json({ error: 'Emissão de sessão desativada até a autenticação ser verificada no servidor.' });
 });
 
-apiRouter.post('/api/auth/hash-password', (req: Request, res: Response) => {
-  const { password } = req.body ?? {};
-  if (typeof password !== 'string' || password.length < 6) {
-    res.status(400).json({ error: 'A senha deve possuir no mínimo 6 caracteres.' });
-    return;
-  }
-  const passwordHash = hashPassword(password);
-  const verified = verifyPassword(password, passwordHash);
-  res.json({ passwordHash, verified });
+apiRouter.post('/api/auth/hash-password', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'A senha será criada no primeiro acesso seguro.' });
 });
 
 // ----------------------------------------------------------------------------
 // 3. VERIFICAÇÃO DE PLANO, TRIAL E INADIMPLÊNCIA
 // ----------------------------------------------------------------------------
-apiRouter.post('/api/tenant/evaluate-access', (req: Request, res: Response) => {
-  const state = req.body as TenantPlanState;
-  if (!state || !state.status) {
-    res.status(400).json({ error: 'Estado da empresa inválido.' });
-    return;
-  }
-  const decision = evaluateTenantAccess(state);
-  res.json(decision);
+// A avaliação baseada em estado fornecido pelo navegador não pode autorizar acesso.
+// Ela era apenas um cálculo consultivo; a decisão real depende do vínculo no banco.
+apiRouter.post('/api/tenant/evaluate-access', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'Consulte o estado do plano autenticado no servidor.' });
 });
 
 // ----------------------------------------------------------------------------
@@ -237,6 +226,19 @@ apiRouter.post('/api/billing/asaas/verify-and-process', (req: Request, res: Resp
 // ----------------------------------------------------------------------------
 // 6. MOTOR VETORIAL DE DOCUMENTOS (CERTIFICADO, EVD, PROVA, CAN, LISTAS, PACOTE)
 // ----------------------------------------------------------------------------
+// Nenhum documento oficial deve nascer de campos arbitrários enviados pelo cliente.
+// As rotas abaixo permanecem bloqueadas até lerem registros persistidos e autorizados.
+apiRouter.post([
+  '/api/certificates/render',
+  '/api/documents/render-comprovante',
+  '/api/documents/render-dossie-aplicacao',
+  '/api/documents/render-carta-anuencia',
+  '/api/documents/render-lista-presenca',
+  '/api/documents/render-pacote-auditoria',
+], (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'Emissão indisponível até a validação dos registros no servidor.' });
+});
+
 apiRouter.post('/api/certificates/render', async (req: Request, res: Response) => {
   try {
     const payload = req.body as CertificateRenderPayload;
