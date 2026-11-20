@@ -9,6 +9,20 @@ if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL obrigatória.');
 if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) throw new Error('JWT_SECRET de teste obrigatório.');
 process.env.APP_URL = 'https://example.invalid';
 process.env.CSDK_COOKIE_AUTH = '1';
+process.env.RESEND_API_KEY = 're_smoke_test';
+process.env.EMAIL_FROM = 'Teste <noreply@example.invalid>';
+const nativeFetch = globalThis.fetch;
+let resetToken = '';
+let sentEmails = 0;
+globalThis.fetch = ((url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+  if (String(url) === 'https://api.resend.com/emails') {
+    const body = JSON.parse(String(init?.body)) as { text: string };
+    resetToken = new URL(body.text.match(/https:\/\/\S+/)?.[0] ?? '').searchParams.get('token') ?? '';
+    sentEmails += 1;
+    return Promise.resolve(new Response(JSON.stringify({ id: 'email-test' }), { status: 200 }));
+  }
+  return nativeFetch(url, init);
+}) as typeof fetch;
 
 const db = getPrisma();
 const suffix = crypto.randomBytes(6).toString('hex');
@@ -124,12 +138,18 @@ try {
   assert.equal((await fetch(`${base}/api/auth/password-reset/request`, { method: 'POST',
     headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'invalido' }),
   })).status, 400);
-  const resetToken = crypto.randomBytes(32).toString('base64url');
-  await db.recuperacaoSenha.create({ data: {
-    usuarioId: user.id,
-    tokenHash: crypto.createHash('sha256').update(resetToken).digest('hex'),
-    expiraEm: new Date(Date.now() + 30 * 60_000),
-  } });
+  const requestReset = () => fetch(`${base}/api/auth/password-reset/request`, { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }),
+  });
+  assert.equal((await requestReset()).status, 202);
+  assert.equal(resetToken.length, 43);
+  assert.equal(sentEmails, 1);
+  assert.equal((await requestReset()).status, 202);
+  assert.equal(sentEmails, 1);
+  assert.equal((await fetch(`${base}/api/auth/password-reset/request`, { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: unknownEmail }),
+  })).status, 202);
+  assert.equal(sentEmails, 1);
   const newPassword = `NovaSenha-${crypto.randomBytes(12).toString('hex')}`;
   const confirmReset = () => fetch(`${base}/api/auth/password-reset/confirm`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -145,6 +165,7 @@ try {
   })).status, 200);
   process.stdout.write('Auth smoke test passou: rotas legadas fechadas, login, escopo, revogação e redefinição de senha.\n');
 } finally {
+  globalThis.fetch = nativeFetch;
   if (companyId) await db.empresa.delete({ where: { id: companyId } });
   server.close();
   await db.$disconnect();
