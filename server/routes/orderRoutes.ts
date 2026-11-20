@@ -77,6 +77,17 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
     });
     res.status(201).json({ id: order.id, status: order.status, totalCentavos });
   } catch {
+    // Duas requisições simultâneas podem disputar a mesma chave única.
+    try {
+      const existing = await getPrisma().pedido.findUnique({ where: { idempotencyKey: key }, include: { plano: true } });
+      if (existing && existing.documento === cleanDocument && existing.emailComprador === email &&
+          existing.ciclo === ciclo && existing.plano.slug === planoSlug) {
+        res.json({ id: existing.id, status: existing.status, totalCentavos: existing.totalCentavos });
+        return;
+      }
+    } catch {
+      // A indisponibilidade do banco é tratada abaixo.
+    }
     res.status(503).json({ error: 'Não foi possível criar o pedido.' });
   }
 });

@@ -40,6 +40,11 @@ try {
   assert.equal((await repeated.json() as { id: string }).id, created.id);
   assert.equal((await post({ ...body, documento: '11.222.333/0001-81', tipoDocumento: 'PJ' }, key)).status, 409);
   assert.equal((await post({ ...body, documento: '529.982.247-24' }, crypto.randomUUID())).status, 400);
+  const parallelKey = crypto.randomUUID();
+  const parallel = await Promise.all([post(body, parallelKey), post(body, parallelKey)]);
+  assert.deepEqual(parallel.map((item) => item.status).sort(), [200, 201]);
+  const parallelIds = await Promise.all(parallel.map(async (item) => (await item.json() as { id: string }).id));
+  assert.equal(parallelIds[0], parallelIds[1]);
   assert.equal(await db.usoTrial.count({ where: { documento: '52998224725' } }), 0);
   process.stdout.write('Pedido passou: preço servidor, CPF, idempotência, conflito e trial não ativado.\n');
 } finally {
