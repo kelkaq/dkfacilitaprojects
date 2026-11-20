@@ -36,11 +36,13 @@ import { requireDatabaseAuth, requireSuperAdmin, requireTenantScope } from '../m
 import { orderRouter } from './orderRoutes.ts';
 import { mercadoPagoWebhookRouter } from './mercadoPagoWebhookRoutes.ts';
 import { passwordResetRouter } from './passwordResetRoutes.ts';
+import { tenantUsersRouter } from './tenantUsersRoutes.ts';
 
 export const apiRouter = Router();
 apiRouter.use(orderRouter);
 apiRouter.use(mercadoPagoWebhookRouter);
 apiRouter.use(passwordResetRouter);
+apiRouter.use(tenantUsersRouter);
 
 // ----------------------------------------------------------------------------
 // 1. HEALTH CHECK & RUNTIME CAPABILITIES
