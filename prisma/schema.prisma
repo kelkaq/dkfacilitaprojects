@@ -56,6 +56,11 @@ enum StatusPedido {
   EXPIRADO
 }
 
+enum AmbientePagamento {
+  TEST
+  PRODUCTION
+}
+
 enum StatusFatura {
   PENDENTE
   PAGA
@@ -138,8 +143,27 @@ model Plano {
 
   assinaturas Assinatura[]
   pedidos Pedido[]
+  ofertas PlanoOferta[]
 
   @@map("planos")
+}
+
+model PlanoOferta {
+  id                 String        @id @default(uuid())
+  planoId            String        @map("plano_id")
+  ciclo              CicloCobranca
+  ambiente           AmbientePagamento
+  trialDias          Int           @default(0) @map("trial_dias")
+  totalCentavos      Int           @map("total_centavos")
+  mercadoPagoPlanId  String        @unique @map("mercado_pago_plan_id")
+  ativa              Boolean       @default(false)
+  createdAt          DateTime      @default(now()) @map("created_at")
+
+  plano              Plano         @relation(fields: [planoId], references: [id])
+  pedidos            Pedido[]
+
+  @@index([planoId, ciclo, ambiente, ativa])
+  @@map("plano_ofertas")
 }
 
 model Adicional {
@@ -309,6 +333,7 @@ model Pedido {
   id                    String          @id @default(uuid())
   empresaId             String?         @map("empresa_id")
   planoId               String          @map("plano_id")
+  ofertaId              String?         @map("oferta_id")
   tipoDocumento         TipoDocumento   @map("tipo_documento")
   documento             String
   emailComprador        String          @map("email_comprador")
@@ -326,6 +351,7 @@ model Pedido {
 
   empresa               Empresa?        @relation(fields: [empresaId], references: [id])
   plano                 Plano           @relation(fields: [planoId], references: [id])
+  oferta                PlanoOferta?    @relation(fields: [ofertaId], references: [id])
 
   @@index([documento, createdAt])
   @@map("pedidos")
