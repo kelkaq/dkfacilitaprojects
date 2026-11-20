@@ -1,156 +1,42 @@
-# Guia de Deploy em VPS Ubuntu — DK Facilita (`dkfacilita.com`)
+# Implantação do Certifica Software - DK
 
-Este guia descreve o passo a passo exato para colocar em produção todo o ecossistema **DK Facilita** + **Certifica Software - DK** em uma VPS **Ubuntu 22.04 LTS / 24.04 LTS**, com os 4 domínios oficiais, SSL gratuito (Certbot), PostgreSQL + Prisma e gerenciamento via PM2.
+Estado verificado em 20/11/2026. A situação concreta da VPS está em [ACTUAL_VPS_STATE.md](./ACTUAL_VPS_STATE.md). Este projeto ainda não está pronto para substituir o serviço público de `dkfacilita.com`.
 
----
+## Ambientes existentes
 
-## 1. Apontamento de DNS (Registro A)
+- Site atual: Apache encaminha `dkfacilita.com` para `dk-solucoes.service`, em `/var/www/dk-solucoes`, com banco `dk_db`.
+- CSDK isolado: `/var/www/csdk-staging`, branch `feature/csdk-production-waves`, banco `csdk_db` e usuário `csdk_app`.
+- Segredo do banco CSDK: `/etc/dk/csdk/database.env`, somente no servidor. Não copiar para o Git.
+- Backup anterior à troca: `/root/csdk-predeploy-20261120`.
 
-No painel do seu registrador de domínio, aponte os registros **A** para o IP público da sua VPS:
+## Atualização segura da homologação
 
-| Tipo | Nome / Host | Destino | Finalidade |
-| --- | --- | --- | --- |
-| `A` | `@` | `IP_DA_VPS` | Site institucional e checkout (`dkfacilita.com`) |
-| `A` | `www` | `IP_DA_VPS` | Redirecionamento `www.dkfacilita.com` |
-| `A` | `certifica` | `IP_DA_VPS` | Painel SaaS dos clientes (`certifica.dkfacilita.com`) |
-| `A` | `admin` | `IP_DA_VPS` | Painel Super Admin (`admin.dkfacilita.com`) |
-| `A` | `api` | `IP_DA_VPS` | Backend API e Webhook Asaas (`api.dkfacilita.com`) |
-
----
-
-## 2. Preparação do Servidor Ubuntu
-
-Conecte via SSH na VPS e instale Node.js 20 LTS, PostgreSQL, Nginx (ou Apache), Certbot e PM2:
+Executar como administrador da VPS, depois de revisar o commit que será instalado:
 
 ```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl git build-essential postgresql postgresql-contrib nginx certbot python3-certbot-nginx
-
-# Instalar Node.js 20 LTS
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Instalar PM2 globalmente
-sudo npm install -g pm2
+sudo -u dkapp git -C /var/www/csdk-staging pull --ff-only
+cd /var/www/csdk-staging
+sudo -u dkapp npm ci
+sudo -u dkapp npx prisma generate
+. /etc/dk/csdk/database.env
+sudo -u dkapp env DATABASE_URL="$DATABASE_URL" npx prisma migrate deploy
+sudo -u dkapp env DATABASE_URL="$DATABASE_URL" npx prisma migrate status
+sudo -u dkapp npm run lint
+sudo -u dkapp npm run build
 ```
 
----
+Esses comandos atualizam apenas a homologação. Não alteram Apache, domínio, DNS ou o serviço atual. Testes de integração usam `csdk_db` e devem remover seus próprios registros temporários.
 
-## 3. Criação do Banco de Dados PostgreSQL
+## Critérios antes da publicação
 
-```bash
-sudo -u postgres psql << 'EOF'
-CREATE USER dkfacilita_user WITH PASSWORD 'TROCAR_POR_SENHA_FORTE';
-CREATE DATABASE dkfacilita_certifica OWNER dkfacilita_user;
-GRANT ALL PRIVILEGES ON DATABASE dkfacilita_certifica TO dkfacilita_user;
-EOF
-```
+1. Login, convite, recuperação de senha e limite de usuários ligados às telas e ao PostgreSQL.
+2. Checkout com preço calculado no servidor; tokenização do cartão Mercado Pago; trial de sete dias; Pix imediato; cancelamento, webhooks e conciliação testados em TEST e depois em PRODUCTION.
+3. Turmas, provas, assinaturas, modelos próprios e emissão centralizados no servidor. Rotas que montam documentos apenas com dados enviados pelo navegador permanecem fechadas.
+4. Teste de isolamento entre pelo menos duas empresas fictícias distintas, incluindo um titular CPF e outro CNPJ.
+5. Backup e restauração do CSDK testados, procedimento de retorno do site atual documentado, monitoramento e alertas configurados.
 
----
+Depois dos critérios, criar serviço systemd CSDK próprio, ambiente protegido em `/etc/dk/csdk/`, configurar Apache para o novo serviço, executar teste público de compra e primeiro acesso e monitorar. Nunca apontar o domínio para a pasta de homologação apenas porque o build passou.
 
-## 4. Clonar Repositório, Configurar `.env` e Rodar Build
+## Integração financeira atual
 
-```bash
-sudo mkdir -p /var/www/dkfacilita /var/log/pm2
-sudo chown -R $USER:$USER /var/www/dkfacilita /var/log/pm2
-
-git clone https://github.com/SEU_USUARIO/dkfacilita-certifica.git /var/www/dkfacilita
-cd /var/www/dkfacilita
-
-# Instalar dependências
-npm ci
-
-# Criar arquivo .env de produção
-cp deploy/.env.example .env
-nano .env
-```
-
-Preencha no `.env`:
-- `DATABASE_URL` com usuário, senha e nome do banco criado no Passo 3.
-- `JWT_SECRET` (gere com `openssl rand -hex 32`).
-- `ASAAS_API_KEY` e `ASAAS_WEBHOOK_TOKEN` obtidos na conta Asaas.
-
-### Aplicar Migrações Prisma + Seed Global + Build de Produção
-
-```bash
-npx prisma generate
-npx prisma migrate deploy
-npx tsx prisma/seed.ts
-npm run build
-```
-
----
-
-## 5. Subir Backend API com PM2
-
-```bash
-pm2 start deploy/ecosystem.config.cjs --env production
-pm2 save
-pm2 startup
-```
-
-Verifique se a API responde corretamente:
-
-```bash
-curl -s http://127.0.0.1:3000/api/health
-```
-
----
-
-## 6. Configurar Proxy Reverso e SSL (Nginx — Recomendado)
-
-```bash
-sudo cp deploy/nginx-dkfacilita.conf /etc/nginx/sites-available/dkfacilita.conf
-sudo ln -sf /etc/nginx/sites-available/dkfacilita.conf /etc/nginx/sites-enabled/dkfacilita.conf
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
-
-# Emitir certificados SSL gratuitos para todos os domínios
-sudo certbot --nginx \
-  -d dkfacilita.com \
-  -d www.dkfacilita.com \
-  -d certifica.dkfacilita.com \
-  -d admin.dkfacilita.com \
-  -d api.dkfacilita.com
-```
-
-### Alternativa com Apache2
-
-Caso sua VPS utilize Apache2 em vez de Nginx:
-
-```bash
-sudo a2enmod proxy proxy_http rewrite headers ssl
-sudo cp deploy/apache-dkfacilita.conf /etc/apache2/sites-available/dkfacilita.conf
-sudo a2ensite dkfacilita.conf
-sudo apache2ctl configtest && sudo systemctl reload apache2
-sudo certbot --apache \
-  -d dkfacilita.com \
-  -d www.dkfacilita.com \
-  -d certifica.dkfacilita.com \
-  -d admin.dkfacilita.com \
-  -d api.dkfacilita.com
-```
-
----
-
-## 7. Configurar Webhook no Painel Asaas
-
-No painel da **Asaas** (*Integrações → Webhooks*):
-1. **URL do Webhook:** `https://api.dkfacilita.com/webhooks/asaas`
-2. **Token de Autenticação (`asaas-access-token`):** exatamente o mesmo valor de `ASAAS_WEBHOOK_TOKEN` definido no `.env`.
-3. **Eventos habilitados:** `PAYMENT_CONFIRMED`, `PAYMENT_RECEIVED`, `PAYMENT_OVERDUE`, `PAYMENT_REFUNDED`, `PAYMENT_DELETED`.
-
----
-
-## 8. Rotina de Atualização (Deploy Contínuo)
-
-Sempre que enviar atualizações para o GitHub:
-
-```bash
-cd /var/www/dkfacilita
-git pull origin main
-npm ci
-npx prisma migrate deploy
-npm run build
-pm2 reload dkfacilita-api
-```
+O provedor escolhido é Mercado Pago. Rotas Asaas devolvem 410. A oferta TEST de homologação está inativa; o webhook Mercado Pago apenas registra notificações verificadas e ainda não ativa contas. O checkout antigo continua dependente de Firebase e Asaas, por isso não deve ser anunciado como compra funcional.
