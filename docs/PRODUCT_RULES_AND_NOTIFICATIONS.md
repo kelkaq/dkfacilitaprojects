@@ -160,4 +160,6 @@ O login PostgreSQL agora limita dez tentativas inválidas por par IP/e-mail a ca
 
 `GET /api/tenant/access` agora deriva bloqueio e limites da empresa, assinatura, plano e contagens reais no PostgreSQL usando a empresa da sessão autenticada. A rota antiga, que aceitava estado de plano arbitrário do navegador, segue fechada. Esta consulta ainda não substituiu os guards da interface e das operações legadas do Firebase.
 
+O administrador da empresa pode revogar convite pendente e ativar/desativar membro por API. A desativação incrementa a versão de sessão e invalida o token anterior. O próprio administrador não pode desativar a si mesmo, e reativação confere novamente status da conta e limite do plano. Ainda falta ligar esses comandos às telas.
+
 Referências oficiais consultadas: https://www.mercadopago.com.br/developers/pt/reference/online-payments/subscriptions/create-preapproval/post ; https://www.mercadopago.com.br/developers/pt/docs/subscriptions/subscription-management ; https://www.mercadopago.com.br/developers/pt/docs/subscriptions/additional-content/your-integrations/notifications/webhooks ; https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/websites/pix .

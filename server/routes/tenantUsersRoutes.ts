@@ -153,3 +153,61 @@ tenantUsersRouter.post('/api/auth/invitations/accept', async (req: Request, res:
     res.status(503).json({ error: 'Não foi possível aceitar o convite.' });
   }
 });
+
+tenantUsersRouter.delete('/api/tenant/users/invitations/:id', requireDatabaseAuth, async (req: Request, res: Response) => {
+  const empresaId = adminTenant(res);
+  if (!empresaId) { res.status(403).json({ error: 'Acesso de administrador da conta obrigatório.' }); return; }
+  const id = String(req.params.id ?? '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) { res.status(400).json({ error: 'Convite inválido.' }); return; }
+  try {
+    const result = await getPrisma().conviteUsuario.deleteMany({ where: { id, empresaId, aceitoEm: null } });
+    if (result.count === 0) { res.status(404).json({ error: 'Convite pendente não encontrado.' }); return; }
+    res.status(204).end();
+  } catch { res.status(503).json({ error: 'Não foi possível revogar o convite.' }); }
+});
+
+tenantUsersRouter.patch('/api/tenant/users/:id', requireDatabaseAuth, async (req: Request, res: Response) => {
+  const empresaId = adminTenant(res);
+  if (!empresaId) { res.status(403).json({ error: 'Acesso de administrador da conta obrigatório.' }); return; }
+  const id = String(req.params.id ?? '');
+  const ativo = req.body?.ativo;
+  if (!/^[0-9a-f-]{36}$/i.test(id) || typeof ativo !== 'boolean') {
+    res.status(400).json({ error: 'Usuário ou estado inválido.' }); return;
+  }
+  if (id === res.locals.authUser.id) {
+    res.status(409).json({ error: 'Você não pode desativar sua própria conta.' }); return;
+  }
+  try {
+    const user = await getPrisma().$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM empresas WHERE id = ${empresaId} FOR UPDATE`;
+      const target = await tx.usuario.findFirst({ where: { id, empresaId } });
+      if (!target) throw new Error('USER_NOT_FOUND');
+      if (target.ativo === ativo) return target;
+      if (!ativo && target.perfil === 'ADMIN_EMPRESA' &&
+          await tx.usuario.count({ where: { empresaId, perfil: 'ADMIN_EMPRESA', ativo: true } }) <= 1) {
+        throw new Error('LAST_ADMIN');
+      }
+      if (ativo) {
+        const company = await tx.empresa.findUnique({ where: { id: empresaId } });
+        const subscription = await tx.assinatura.findFirst({ where: { empresaId, status: { in: ['TRIAL', 'ATIVA'] } },
+          orderBy: { createdAt: 'desc' }, include: { plano: true } });
+        if (!company || !['TRIAL', 'ATIVA'].includes(company.status) || !subscription ||
+            (company.status === 'TRIAL' && (!company.trialExpiraEm || company.trialExpiraEm <= new Date()))) {
+          throw new Error('ACCOUNT_BLOCKED');
+        }
+        if (await tx.usuario.count({ where: { empresaId, ativo: true } }) >= subscription.plano.limiteUsuarios) {
+          throw new Error('USER_LIMIT');
+        }
+      }
+      return tx.usuario.update({ where: { id }, data: { ativo, versaoSessao: { increment: 1 } } });
+    });
+    res.json({ id: user.id, ativo: user.ativo, perfil: user.perfil });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : '';
+    if (code === 'USER_NOT_FOUND') { res.status(404).json({ error: 'Usuário não encontrado.' }); return; }
+    if (code === 'LAST_ADMIN') { res.status(409).json({ error: 'A conta precisa manter um administrador ativo.' }); return; }
+    if (code === 'USER_LIMIT') { res.status(409).json({ error: 'Limite de usuários do plano atingido.' }); return; }
+    if (code === 'ACCOUNT_BLOCKED') { res.status(403).json({ error: 'Conta sem assinatura ativa.' }); return; }
+    res.status(503).json({ error: 'Não foi possível atualizar o usuário.' });
+  }
+});

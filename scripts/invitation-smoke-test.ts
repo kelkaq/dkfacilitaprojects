@@ -50,12 +50,20 @@ try {
     body: JSON.stringify(body),
   });
   const inviteEmail = `user-${suffix}@example.invalid`;
+  const temporary = await post('/api/tenant/users/invitations', { email: `temp-${suffix}@example.invalid`, perfil: 'RT' }, true);
+  assert.equal(temporary.status, 201);
+  const temporaryId = (await temporary.json() as { id: string }).id;
+  assert.equal((await fetch(`${base}/api/tenant/users/invitations/${temporaryId}`, {
+    method: 'DELETE', headers: { authorization: `Bearer ${jwt}` },
+  })).status, 204);
   const invited = await post('/api/tenant/users/invitations', { email: inviteEmail, perfil: 'RT' }, true);
   assert.equal(invited.status, 201);
   assert.equal(inviteToken.length, 43);
   assert.equal((await post('/api/tenant/users/invitations', { email: `other-${suffix}@example.invalid`, perfil: 'RT' }, true)).status, 409);
   const password = 'Senha-de-convite-123';
-  assert.equal((await post('/api/auth/invitations/accept', { token: inviteToken, nome: 'Responsável Técnico', password })).status, 201);
+  const accepted = await post('/api/auth/invitations/accept', { token: inviteToken, nome: 'Responsável Técnico', password });
+  assert.equal(accepted.status, 201);
+  const memberId = (await accepted.json() as { id: string }).id;
   assert.equal((await post('/api/auth/invitations/accept', { token: inviteToken, nome: 'Responsável Técnico', password })).status, 410);
   assert.equal((await post('/api/tenant/users/invitations', { email: `another-${suffix}@example.invalid`, perfil: 'RT' }, true)).status, 409);
   const list = await fetch(`${base}/api/tenant/users`, { headers: { authorization: `Bearer ${jwt}` } });
@@ -70,9 +78,28 @@ try {
   assert.equal(activeBody.permitido, true);
   assert.equal(activeBody.limites.usuariosAtuais, 2);
   assert.equal(activeBody.limites.limiteUsuarios, 2);
+  const memberLogin = await post('/api/auth/login', { email: inviteEmail, password });
+  assert.equal(memberLogin.status, 200);
+  const memberToken = (await memberLogin.json() as { token: string }).token;
+  const memberMe = () => fetch(`${base}/api/auth/me`, { headers: { authorization: `Bearer ${memberToken}` } });
+  assert.equal((await memberMe()).status, 200);
+  assert.equal((await fetch(`${base}/api/tenant/users/${memberId}`, { method: 'PATCH',
+    headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ ativo: false }),
+  })).status, 200);
+  assert.equal((await memberMe()).status, 401);
+  assert.equal((await fetch(`${base}/api/tenant/users/${memberId}`, { method: 'PATCH',
+    headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ ativo: true }),
+  })).status, 200);
+  assert.equal((await memberMe()).status, 401);
+  assert.equal((await fetch(`${base}/api/tenant/users/${admin.id}`, { method: 'PATCH',
+    headers: { authorization: `Bearer ${jwt}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ ativo: false }),
+  })).status, 409);
   await db.empresa.update({ where: { id: company.id }, data: { status: 'SUSPENSA' } });
   assert.equal((await access().then((response) => response.json()) as { permitido: boolean }).permitido, false);
-  process.stdout.write('Convites e acesso passaram: cota, aceite único e bloqueio pela empresa no banco.\n');
+  process.stdout.write('Equipe passou: cota, convite revogado, aceite único, sessão desativada e bloqueio da empresa.\n');
 } finally {
   globalThis.fetch = nativeFetch;
   if (companyId) await db.empresa.delete({ where: { id: companyId } });
