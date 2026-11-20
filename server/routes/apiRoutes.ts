@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import crypto from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import QRCode from 'qrcode';
@@ -39,6 +40,7 @@ import { passwordResetRouter } from './passwordResetRoutes.ts';
 import { tenantUsersRouter } from './tenantUsersRoutes.ts';
 
 export const apiRouter = Router();
+const loginAttempts = new Map<string, { count: number; until: number }>();
 apiRouter.use(orderRouter);
 apiRouter.use(mercadoPagoWebhookRouter);
 apiRouter.use(passwordResetRouter);
@@ -62,16 +64,29 @@ apiRouter.get('/api/health', (_req: Request, res: Response) => {
 apiRouter.post('/api/auth/login', async (req: Request, res: Response) => {
   const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const password = req.body?.password;
-  if (!email || typeof password !== 'string' || password.length > 256) {
+  if (!email || email.length > 160 || typeof password !== 'string' || password.length > 256) {
     res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+    return;
+  }
+  const attemptKey = crypto.createHash('sha256').update(`${req.ip}:${email}`).digest('hex');
+  const now = Date.now();
+  const previous = loginAttempts.get(attemptKey);
+  if (previous && previous.until > now && previous.count >= 10) {
+    res.status(429).json({ error: 'Muitas tentativas. Aguarde 15 minutos.' });
     return;
   }
   try {
     const user = await getPrisma().usuario.findUnique({ where: { email } });
     if (!user || !user.ativo || !verifyPassword(password, user.senhaHash)) {
+      if (loginAttempts.size >= 10000) {
+        for (const [key, value] of loginAttempts) if (value.until <= now) loginAttempts.delete(key);
+        if (loginAttempts.size >= 10000) loginAttempts.delete(loginAttempts.keys().next().value!);
+      }
+      loginAttempts.set(attemptKey, { count: previous && previous.until > now ? previous.count + 1 : 1, until: now + 15 * 60_000 });
       res.status(401).json({ error: 'Credenciais inválidas.' });
       return;
     }
+    loginAttempts.delete(attemptKey);
     const token = signJwtToken({
       userId: user.id,
       email: user.email,

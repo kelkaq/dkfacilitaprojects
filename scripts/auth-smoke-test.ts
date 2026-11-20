@@ -61,6 +61,17 @@ try {
     body: JSON.stringify({ email, password: 'errada' }),
   });
   assert.equal(badLogin.status, 401);
+  const unknownEmail = `unknown-${suffix}@example.invalid`;
+  for (let i = 0; i < 10; i++) {
+    assert.equal((await fetch(`${base}/api/auth/login`, { method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: unknownEmail, password: 'senha-errada' }),
+    })).status, 401);
+  }
+  assert.equal((await fetch(`${base}/api/auth/login`, { method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: unknownEmail, password: 'senha-errada' }),
+  })).status, 429);
 
   const login = await fetch(`${base}/api/auth/login`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
