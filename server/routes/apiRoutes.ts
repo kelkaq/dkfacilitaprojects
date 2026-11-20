@@ -35,8 +35,10 @@ import {
 import { evaluateTenantAccess, type TenantPlanState } from '../middleware/tenantGuard.ts';
 import { getPrisma } from '../lib/prisma.ts';
 import { requireDatabaseAuth, requireSuperAdmin, requireTenantScope } from '../middleware/databaseAuth.ts';
+import { orderRouter } from './orderRoutes.ts';
 
 export const apiRouter = Router();
+apiRouter.use(orderRouter);
 
 // ----------------------------------------------------------------------------
 // 1. HEALTH CHECK & RUNTIME CAPABILITIES
