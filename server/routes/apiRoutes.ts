@@ -34,7 +34,7 @@ import {
 } from '../lib/security.ts';
 import { evaluateTenantAccess, type TenantPlanState } from '../middleware/tenantGuard.ts';
 import { getPrisma } from '../lib/prisma.ts';
-import { requireDatabaseAuth } from '../middleware/databaseAuth.ts';
+import { requireDatabaseAuth, requireSuperAdmin, requireTenantScope } from '../middleware/databaseAuth.ts';
 
 export const apiRouter = Router();
 
@@ -385,7 +385,7 @@ apiRouter.get('/api/certificates/pptx-template/tags', (_req: Request, res: Respo
   res.json({ tags: PPTX_SUPPORTED_TAGS });
 });
 
-apiRouter.post('/api/certificates/pptx-template/upload', async (req: Request, res: Response) => {
+apiRouter.post('/api/certificates/pptx-template/upload', requireDatabaseAuth, requireTenantScope, async (req: Request, res: Response) => {
   try {
     const { empresaId, fileName, base64Content } = req.body ?? {};
     if (!empresaId || !fileName || !base64Content) {
@@ -409,7 +409,7 @@ apiRouter.post('/api/certificates/pptx-template/upload', async (req: Request, re
   }
 });
 
-apiRouter.post('/api/certificates/pptx-template/render', async (req: Request, res: Response) => {
+apiRouter.post('/api/certificates/pptx-template/render', requireDatabaseAuth, requireTenantScope, async (req: Request, res: Response) => {
   try {
     const { empresaId, payload } = req.body ?? {};
     if (!empresaId || !payload) {
@@ -472,7 +472,7 @@ const ALLOWED_IMAGE_MIMES: Record<string, string> = {
   'image/webp': 'webp',
 };
 
-apiRouter.post('/api/cms/upload-media', (req: Request, res: Response) => {
+apiRouter.post('/api/cms/upload-media', requireDatabaseAuth, requireSuperAdmin, (req: Request, res: Response) => {
   try {
     const { dataUrl, fileName } = req.body ?? {};
     if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {

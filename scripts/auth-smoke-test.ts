@@ -61,6 +61,17 @@ try {
   const me = () => fetch(`${base}/api/auth/me`, { headers: { authorization: `Bearer ${token}` } });
   assert.equal((await me()).status, 200);
 
+  const mediaAsTenant = await fetch(`${base}/api/cms/upload-media`, {
+    method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ dataUrl: 'data:image/png;base64,AA==', fileName: 'test.png' }),
+  });
+  assert.equal(mediaAsTenant.status, 403);
+  const otherTenantUpload = await fetch(`${base}/api/certificates/pptx-template/upload`, {
+    method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ empresaId: crypto.randomUUID(), fileName: 'test.pptx', base64Content: 'AA==' }),
+  });
+  assert.equal(otherTenantUpload.status, 403);
+
   await db.usuario.update({ where: { id: user.id }, data: { ativo: false } });
   assert.equal((await me()).status, 401);
   await db.usuario.update({ where: { id: user.id }, data: { ativo: true } });
@@ -70,7 +81,7 @@ try {
   });
   assert.equal(logout.status, 204);
   assert.equal((await me()).status, 401);
-  process.stdout.write('Auth smoke test passou: token forjado, senha inválida, login, inativação e revogação.\n');
+  process.stdout.write('Auth smoke test passou: token forjado, senha inválida, login, escopo, inativação e revogação.\n');
 } finally {
   if (companyId) await db.empresa.delete({ where: { id: companyId } });
   server.close();

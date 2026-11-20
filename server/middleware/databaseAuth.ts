@@ -37,3 +37,17 @@ export function requireSuperAdmin(_req: Request, res: Response, next: NextFuncti
   }
   next();
 }
+
+export function requireTenantScope(req: Request, res: Response, next: NextFunction): void {
+  const user = res.locals.authUser;
+  const empresaId = req.body?.empresaId;
+  if (typeof empresaId !== 'string' || !empresaId) {
+    res.status(400).json({ error: 'empresaId obrigatório.' });
+    return;
+  }
+  if (user?.perfil !== 'SUPER_ADMIN' && user?.empresaId !== empresaId) {
+    res.status(403).json({ error: 'Acesso a outra empresa negado.' });
+    return;
+  }
+  next();
+}
