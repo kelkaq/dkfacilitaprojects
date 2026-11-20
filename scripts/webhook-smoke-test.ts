@@ -34,7 +34,7 @@ const subscription = {
 };
 let invoiceStatus = 'approved';
 let providerSubscriptionStatus = 'authorized';
-globalThis.fetch = ((url: Parameters<typeof fetch>[0]) => {
+globalThis.fetch = ((url: Parameters<typeof fetch>[0], init?: RequestInit) => {
   const target = String(url);
   if (target === `https://api.mercadopago.com/preapproval/${subscriptionId}`) {
     return Promise.resolve(new Response(JSON.stringify({ ...subscription, status: providerSubscriptionStatus }), { status: 200 }));
@@ -44,7 +44,7 @@ globalThis.fetch = ((url: Parameters<typeof fetch>[0]) => {
       external_reference: subscription.external_reference, transaction_amount: '100.00', currency_id: 'BRL',
       debit_date: new Date().toISOString(), status: 'processed', payment: { id: 987654321, status: invoiceStatus } }), { status: 200 }));
   }
-  return nativeFetch(url);
+  return nativeFetch(url, init);
 }) as typeof fetch;
 
 const app = express();
