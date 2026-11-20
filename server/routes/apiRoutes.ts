@@ -46,11 +46,7 @@ apiRouter.get('/api/health', (_req: Request, res: Response) => {
     ok: true,
     service: 'DK Facilita — Certifica Software - DK API',
     timestamp: new Date().toISOString(),
-    asaasConfigured: Boolean(
-      process.env.ASAAS_API_KEY &&
-        !process.env.ASAAS_API_KEY.includes('SUA_CHAVE') &&
-        process.env.ASAAS_API_KEY.length > 16
-    ),
+    paymentProvider: 'MERCADO_PAGO_PENDING',
   });
 });
 
@@ -124,6 +120,14 @@ apiRouter.post('/api/tenant/evaluate-access', (req: Request, res: Response) => {
 // ----------------------------------------------------------------------------
 // 4. COBRANÇA ASAAS (PIX QR CODE & CARTÃO RECORRENTE)
 // ----------------------------------------------------------------------------
+// Rotas antigas permanecem no código apenas durante a migração. Não podem cobrar.
+apiRouter.use('/api/billing/asaas', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'Integração financeira legada desativada.' });
+});
+apiRouter.use('/webhooks/asaas', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'Webhook financeiro legado desativado.' });
+});
+
 apiRouter.post('/api/billing/asaas/charge', async (req: Request, res: Response) => {
   try {
     const body = req.body as Partial<AsaasChargeRequest>;

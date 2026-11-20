@@ -45,6 +45,7 @@ try {
     body: JSON.stringify({ userId: user.id, email, perfil: 'SUPER_ADMIN' }),
   });
   assert.equal(forged.status, 410);
+  assert.equal((await fetch(`${base}/api/billing/asaas/charge`, { method: 'POST' })).status, 410);
 
   const badLogin = await fetch(`${base}/api/auth/login`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
