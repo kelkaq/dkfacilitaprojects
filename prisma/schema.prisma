@@ -44,6 +44,18 @@ enum StatusAssinatura {
   CANCELADA
 }
 
+enum StatusPedido {
+  CARRINHO
+  AGUARDANDO_DADOS
+  AGUARDANDO_CARTAO
+  AGUARDANDO_PAGAMENTO
+  TRIAL_ATIVO
+  ASSINATURA_ATIVA
+  PAGAMENTO_RECUSADO
+  CANCELADO
+  EXPIRADO
+}
+
 enum StatusFatura {
   PENDENTE
   PAGA
@@ -125,6 +137,7 @@ model Plano {
   updatedAt           DateTime @updatedAt @map("updated_at")
 
   assinaturas Assinatura[]
+  pedidos Pedido[]
 
   @@map("planos")
 }
@@ -249,6 +262,7 @@ model Empresa {
 
   modeloCertificado   ModeloCertificadoGlobal? @relation(fields: [modeloCertificadoId], references: [id])
   assinaturas         Assinatura[]
+  pedidos             Pedido[]
   faturas             Fatura[]
   usuarios            Usuario[]
   convites            ConviteUsuario[]
@@ -273,6 +287,8 @@ model Assinatura {
   ciclo               CicloCobranca    @default(MENSAL)
   status              StatusAssinatura @default(TRIAL)
   valorCentavos       Int              @map("valor_centavos")
+  condicoesSnapshot   Json?            @map("condicoes_snapshot")
+  mercadoPagoId       String?          @unique @map("mercado_pago_id")
   asaasSubscriptionId String?          @unique @map("asaas_subscription_id")
   inicioEm            DateTime         @default(now()) @map("inicio_em")
   proximaCobrancaEm   DateTime?        @map("proxima_cobranca_em")
@@ -287,6 +303,54 @@ model Assinatura {
 
   @@index([empresaId])
   @@map("assinaturas")
+}
+
+model Pedido {
+  id                    String          @id @default(uuid())
+  empresaId             String?         @map("empresa_id")
+  planoId               String          @map("plano_id")
+  tipoDocumento         TipoDocumento   @map("tipo_documento")
+  documento             String
+  emailComprador        String          @map("email_comprador")
+  ciclo                 CicloCobranca
+  status                StatusPedido    @default(CARRINHO)
+  precoSnapshot         Json            @map("preco_snapshot")
+  totalCentavos         Int             @map("total_centavos")
+  cupomCodigo           String?         @map("cupom_codigo")
+  idempotencyKey        String          @unique @map("idempotency_key")
+  externalReference     String          @unique @map("external_reference")
+  mercadoPagoId         String?         @unique @map("mercado_pago_id")
+  expiraEm              DateTime?       @map("expira_em")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+
+  empresa               Empresa?        @relation(fields: [empresaId], references: [id])
+  plano                 Plano           @relation(fields: [planoId], references: [id])
+
+  @@index([documento, createdAt])
+  @@map("pedidos")
+}
+
+model UsoTrial {
+  documento             String          @id
+  tipoDocumento         TipoDocumento   @map("tipo_documento")
+  empresaId             String          @map("empresa_id")
+  ativadoEm             DateTime        @default(now()) @map("ativado_em")
+
+  @@map("usos_trial")
+}
+
+model PagamentoEvento {
+  id                    String          @id @default(uuid())
+  provedorEventoId      String          @unique @map("provedor_evento_id")
+  topico                String
+  recursoId             String          @map("recurso_id")
+  status                String          @default("RECEBIDO")
+  recebidoEm            DateTime        @default(now()) @map("recebido_em")
+  processadoEm           DateTime?       @map("processado_em")
+
+  @@index([topico, recursoId])
+  @@map("pagamento_eventos")
 }
 
 model AssinaturaAdicional {
