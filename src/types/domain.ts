@@ -17,11 +17,15 @@ export type TipoNotificacaoAdmin =
 export interface EmpresaDoc {
   id: string;
   ownerUid: string;
+  tipoPessoa?: 'PJ' | 'PF' | null;
   cnpj: string;
   razaoSocial: string;
   nomeFantasia?: string | null;
+  nomeAdministrador?: string | null;
   emailFinanceiro: string;
   whatsapp: string;
+  cupomAplicado?: string | null;
+  descontoCupomCentavos?: number | null;
   endereco?: string | null;
   cidade?: string | null;
   uf?: string | null;
@@ -353,4 +357,108 @@ export interface EffectivePlanLimits {
   incluiAlertasWpp: boolean;
   incluiDominioProprio: boolean;
   incluiModeloProprio: boolean;
+}
+
+// ============================================================================
+// CMS — SITE & CAMPANHAS, CUPONS E CENTRAL DE COMUNICADOS
+// ============================================================================
+
+export type CmsTopBarTheme = 'AMBAR' | 'AZUL' | 'ESMERALDA' | 'VERMELHO';
+
+export interface CmsTopBarConfig {
+  ativo: boolean;
+  texto: string;
+  textoBotao: string;
+  corTema: CmsTopBarTheme;
+  linkDestino: string;
+  cupomAutomatico: string;
+  inicioIso: string;
+  fimIso: string;
+}
+
+export interface CmsHeroSlide {
+  id: string;
+  titulo: string;
+  subtitulo?: string;
+  imagemDesktopUrl: string;
+  imagemMobileUrl?: string;
+  linkDestino: string;
+  cupomAutomatico: string;
+  inicioIso: string;
+  fimIso: string;
+  ativo: boolean;
+  ordem: number;
+}
+
+export type CmsPromoPosition = 'ABAIXO_HERO' | 'ACIMA_PLANOS' | 'ABAIXO_PLANOS';
+
+export interface CmsPromoCard {
+  id: string;
+  titulo: string;
+  descricao?: string;
+  imagemUrl: string;
+  posicao: CmsPromoPosition;
+  textoBotao?: string;
+  linkDestino: string;
+  cupomAutomatico: string;
+  inicioIso: string;
+  fimIso: string;
+  ativo: boolean;
+  ordem: number;
+}
+
+export interface SiteCmsConfigDoc {
+  id: string;
+  faixaTopo: CmsTopBarConfig;
+  carrosselSlides: CmsHeroSlide[];
+  cardsPromocionais: CmsPromoCard[];
+  updatedAt?: Timestamp | null;
+}
+
+export type TipoDescontoCupom = 'PERCENTUAL' | 'FIXO';
+
+export interface CupomDoc {
+  id: string;
+  codigo: string;
+  descricao?: string | null;
+  tipoDesconto: TipoDescontoCupom;
+  valorDesconto: number; // percentual (1..90) ou centavos (se FIXO)
+  planosAplicaveis: string[]; // vazio = todos os planos
+  ciclosAplicaveis: CicloCobranca[]; // vazio = todos os ciclos
+  inicioIso: string;
+  fimIso: string;
+  limiteUsos: number; // 0 = ilimitado
+  usosAtuais: number;
+  ativo: boolean;
+  createdAt?: Timestamp | null;
+  updatedAt?: Timestamp | null;
+}
+
+export type TipoComunicado = 'INFORMATIVO' | 'MANUTENCAO' | 'NOVIDADE' | 'URGENTE';
+export type PublicoComunicado = 'TODAS' | 'ATIVAS' | 'TRIAL' | 'PLANO_ESPECIFICO';
+export type RepeticaoComunicado = 'UNICO' | 'DIARIO' | 'SEMANAL' | 'MENSAL';
+export type StatusComunicado = 'RASCUNHO' | 'AGENDADO' | 'ATIVO' | 'ENCERRADO';
+
+export interface ComunicadoDoc {
+  id: string;
+  titulo: string;
+  mensagem: string;
+  tipo: TipoComunicado;
+  exibirPopup: boolean;
+  publicoAlvo: PublicoComunicado;
+  planoAlvoSlug?: string | null;
+  agendadoInicioIso: string;
+  agendadoFimIso: string;
+  repeticao: RepeticaoComunicado;
+  status: StatusComunicado;
+  createdAt?: Timestamp | null;
+  updatedAt?: Timestamp | null;
+}
+
+export interface ComunicadoLidoDoc {
+  id: string; // comunicadoId
+  comunicadoId: string;
+  empresaId: string;
+  lidoPorUid: string;
+  lidoEm?: Timestamp | null;
 }

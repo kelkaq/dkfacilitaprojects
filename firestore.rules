@@ -85,6 +85,7 @@ service cloud.firestore {
         ]) &&
         data.keys().hasOnly([
           'id', 'slug', 'nome', 'subtitulo', 'descricao', 'precoMensalCentavos',
+          'precoPromocionalCentavos', 'seloPromocional',
           'descontoSemestral', 'descontoAnual', 'limiteColaboradores',
           'limiteUsuarios', 'limiteObras', 'incluiCartaAnuencia',
           'incluiDossieLink', 'incluiAlertasWpp', 'incluiDominioProprio',
@@ -92,6 +93,8 @@ service cloud.firestore {
         ]) &&
         isOptionalString(data, 'id', 128) &&
         isOptionalTimestamp(data, 'createdAt') &&
+        isOptionalInt(data, 'precoPromocionalCentavos') &&
+        isOptionalString(data, 'seloPromocional', 60) &&
         data.slug is string && data.slug.size() >= 2 && data.slug.size() <= 64 &&
         data.nome is string && data.nome.size() >= 2 && data.nome.size() <= 100 &&
         data.subtitulo is string && data.subtitulo.size() <= 200 &&
@@ -193,8 +196,9 @@ service cloud.firestore {
           'status', 'onboardingConcluido', 'createdAt', 'updatedAt'
         ]) &&
         data.keys().hasOnly([
-          'ownerUid', 'cnpj', 'razaoSocial', 'nomeFantasia', 'emailFinanceiro',
-          'whatsapp', 'endereco', 'cidade', 'uf', 'logoUrl',
+          'ownerUid', 'tipoPessoa', 'cnpj', 'razaoSocial', 'nomeFantasia', 'nomeAdministrador',
+          'emailFinanceiro', 'whatsapp', 'cupomAplicado', 'descontoCupomCentavos',
+          'endereco', 'cidade', 'uf', 'logoUrl',
           'corPrimaria', 'corSecundaria', 'prefixoCertificado',
           'modeloCertificadoId', 'modeloProprioUrl', 'dominioProprio',
           'status', 'trialExpiraEmIso', 'onboardingConcluido',
@@ -203,11 +207,15 @@ service cloud.firestore {
           'createdAt', 'updatedAt'
         ]) &&
         data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
-        data.cnpj is string && data.cnpj.size() >= 14 && data.cnpj.size() <= 18 &&
+        isOptionalString(data, 'tipoPessoa', 4) &&
+        data.cnpj is string && data.cnpj.size() >= 11 && data.cnpj.size() <= 18 &&
         data.razaoSocial is string && data.razaoSocial.size() >= 2 && data.razaoSocial.size() <= 200 &&
         isOptionalString(data, 'nomeFantasia', 200) &&
+        isOptionalString(data, 'nomeAdministrador', 160) &&
         data.emailFinanceiro is string && data.emailFinanceiro.size() >= 5 && data.emailFinanceiro.size() <= 160 &&
         data.whatsapp is string && data.whatsapp.size() >= 8 && data.whatsapp.size() <= 32 &&
+        isOptionalString(data, 'cupomAplicado', 40) &&
+        isOptionalInt(data, 'descontoCupomCentavos') &&
         isOptionalString(data, 'endereco', 300) &&
         isOptionalString(data, 'cidade', 100) &&
         isOptionalString(data, 'uf', 4) &&
@@ -650,6 +658,65 @@ service cloud.firestore {
       allow delete: if isSuperAdmin() && isValidId(notificacaoId);
     }
 
+    // Site & Campanhas (CMS) — leitura pública na Landing Page, escrita exclusiva do Super Admin
+    match /site_cms/{docId} {
+      allow get: if isValidId(docId);
+      allow list: if isSuperAdmin();
+      allow create, update: if isSuperAdmin() && isValidId(docId) &&
+        incoming().keys().hasAll(['faixaTopo', 'carrosselSlides', 'cardsPromocionais', 'updatedAt']) &&
+        incoming().faixaTopo is map &&
+        incoming().carrosselSlides is list && incoming().carrosselSlides.size() <= 10 &&
+        incoming().cardsPromocionais is list && incoming().cardsPromocionais.size() <= 12 &&
+        incoming().updatedAt == request.time;
+      allow delete: if isSuperAdmin() && isValidId(docId);
+    }
+
+    // Cupons de Desconto — validação pública por código, CRUD exclusivo do Super Admin
+    match /cupons/{cupomId} {
+      allow get: if isValidId(cupomId);
+      allow list: if isSuperAdmin() || resource.data.ativo == true;
+      allow create: if isSuperAdmin() && isValidId(cupomId) &&
+        incoming().keys().hasAll(['codigo', 'tipoDesconto', 'valorDesconto', 'planosAplicaveis', 'ciclosAplicaveis', 'limiteUsos', 'usosAtuais', 'ativo', 'updatedAt']) &&
+        incoming().codigo is string && incoming().codigo.size() >= 3 && incoming().codigo.size() <= 40 &&
+        incoming().tipoDesconto in ['PERCENTUAL', 'FIXO'] &&
+        incoming().valorDesconto is int && incoming().valorDesconto >= 1 &&
+        incoming().limiteUsos is int && incoming().limiteUsos >= 0 &&
+        incoming().usosAtuais is int && incoming().usosAtuais >= 0 &&
+        incoming().ativo is bool &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(cupomId) && incoming().updatedAt == request.time && (
+        (
+          isSuperAdmin() &&
+          incoming().codigo is string && incoming().codigo.size() >= 3 && incoming().codigo.size() <= 40 &&
+          incoming().tipoDesconto in ['PERCENTUAL', 'FIXO'] &&
+          incoming().valorDesconto is int && incoming().valorDesconto >= 1
+        ) ||
+        (
+          isVerifiedUser() &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['usosAtuais', 'updatedAt']) &&
+          incoming().usosAtuais == existing().usosAtuais + 1
+        )
+      );
+      allow delete: if isSuperAdmin() && isValidId(cupomId);
+    }
+
+    // Central de Comunicados (Dono -> Empresas Clientes)
+    match /comunicados/{comunicadoId} {
+      allow get: if isValidId(comunicadoId) && (isSuperAdmin() || (isVerifiedUser() && resource.data.status in ['ATIVO', 'AGENDADO']));
+      allow list: if isSuperAdmin() || (isVerifiedUser() && resource.data.status in ['ATIVO', 'AGENDADO']);
+      allow create, update: if isSuperAdmin() && isValidId(comunicadoId) &&
+        incoming().keys().hasAll(['titulo', 'mensagem', 'tipo', 'exibirPopup', 'publicoAlvo', 'repeticao', 'status', 'updatedAt']) &&
+        incoming().titulo is string && incoming().titulo.size() >= 2 && incoming().titulo.size() <= 160 &&
+        incoming().mensagem is string && incoming().mensagem.size() >= 2 && incoming().mensagem.size() <= 2000 &&
+        incoming().tipo in ['INFORMATIVO', 'MANUTENCAO', 'NOVIDADE', 'URGENTE'] &&
+        incoming().exibirPopup is bool &&
+        incoming().publicoAlvo in ['TODAS', 'ATIVAS', 'TRIAL', 'PLANO_ESPECIFICO'] &&
+        incoming().repeticao in ['UNICO', 'DIARIO', 'SEMANAL', 'MENSAL'] &&
+        incoming().status in ['RASCUNHO', 'AGENDADO', 'ATIVO', 'ENCERRADO'] &&
+        incoming().updatedAt == request.time;
+      allow delete: if isSuperAdmin() && isValidId(comunicadoId);
+    }
+
     // =========================================================================
     // 2. EMPRESAS & SUBCOLEÇÕES ISOLADAS POR empresa_id (MASTER GATE)
     // =========================================================================
@@ -859,6 +926,17 @@ service cloud.firestore {
           incoming().emitidaEm == request.time &&
           (isSuperAdmin() || isTenantMember(empresaId));
         allow delete: if isValidId(empresaId) && isValidId(cartaId) && (isSuperAdmin() || isTenantMember(empresaId));
+      }
+
+      // Controle de Comunicados Lidos por Empresa
+      match /comunicados_lidos/{comunicadoId} {
+        allow get, list: if isValidId(empresaId) && (isSuperAdmin() || isTenantMember(empresaId));
+        allow create, update: if isValidId(empresaId) && isValidId(comunicadoId) &&
+          (isSuperAdmin() || isTenantMember(empresaId)) &&
+          incoming().empresaId == empresaId &&
+          incoming().comunicadoId == comunicadoId &&
+          incoming().lidoEm == request.time;
+        allow delete: if isSuperAdmin() && isValidId(empresaId) && isValidId(comunicadoId);
       }
     }
 

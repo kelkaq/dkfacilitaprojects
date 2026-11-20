@@ -1,28 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Bell,
   BookOpen,
   CalendarClock,
+  CheckCheck,
   CreditCard,
   FileBadge,
   Globe,
   GraduationCap,
+  Info,
   LayoutDashboard,
   Lock,
   LogOut,
   Menu,
   Plus,
   RefreshCw,
+  Sparkles,
   Users,
   Wand2,
+  Wrench,
   X,
 } from 'lucide-react';
+import { auth } from '../../lib/firebase.ts';
 import type { GlobalCatalogSnapshot } from '../../services/catalogService.ts';
 import type {
   AssinaturaDigitalDoc,
   CartaAnuenciaDoc,
   CertificadoDoc,
   ColaboradorDoc,
+  ComunicadoDoc,
   EmpresaDoc,
   FaturaDoc,
   MembroDoc,
@@ -50,6 +57,12 @@ import {
   listTreinamentosEmpresa,
   listTurmas,
 } from '../../services/operationalCrudService.ts';
+import {
+  filterComunicadosForEmpresa,
+  listComunicados,
+  listComunicadosLidosEmpresa,
+  markComunicadoLido,
+} from '../../services/cmsAndCommsService.ts';
 import { ThemeToggleButton } from '../ThemeProvider.tsx';
 import { ExecutiveDashboard } from './ExecutiveDashboard.tsx';
 import { NrsManagerModule } from './NrsManagerModule.tsx';
@@ -124,6 +137,10 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
   const [assinaturas, setAssinaturas] = useState<AssinaturaDigitalDoc[]>([]);
   const [faturas, setFaturas] = useState<FaturaDoc[]>([]);
   const [membros, setMembros] = useState<MembroDoc[]>([]);
+  const [comunicadosRaw, setComunicadosRaw] = useState<ComunicadoDoc[]>([]);
+  const [comunicadosLidosIds, setComunicadosLidosIds] = useState<string[]>([]);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [dismissedPopupIds, setDismissedPopupIds] = useState<string[]>([]);
 
   // Modais e estados cruzados
   const [viewerState, setViewerState] = useState<{
@@ -155,6 +172,8 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
           sigList,
           fatList,
           membrosList,
+          comList,
+          lidosIds,
         ] = await Promise.all([
           getEmpresaById(empresaId),
           listObras(empresaId),
@@ -167,6 +186,8 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
           listAssinaturasDigitais(empresaId),
           listFaturasEmpresa(empresaId),
           listMembrosEmpresa(empresaId),
+          listComunicados(false).catch(() => []),
+          listComunicadosLidosEmpresa(empresaId),
         ]);
 
         if (freshEmpresa) {
@@ -182,6 +203,8 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
         setAssinaturas(sigList);
         setFaturas(fatList);
         setMembros(membrosList);
+        setComunicadosRaw(comList);
+        setComunicadosLidosIds(lidosIds);
       } finally {
         setLoadingTenant(false);
       }
@@ -193,6 +216,46 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
     if (!empresa?.id) return;
     void loadTenantData(empresa.id);
   }, [empresa?.id, loadTenantData]);
+
+  const comunicadosElegiveis = useMemo(
+    () => (empresa ? filterComunicadosForEmpresa(comunicadosRaw, empresa) : []),
+    [comunicadosRaw, empresa]
+  );
+
+  const unreadComunicados = useMemo(
+    () => comunicadosElegiveis.filter((c) => !comunicadosLidosIds.includes(c.id)),
+    [comunicadosElegiveis, comunicadosLidosIds]
+  );
+
+  const priorityPopupComunicado = useMemo(
+    () =>
+      unreadComunicados.find(
+        (c) => c.exibirPopup && !dismissedPopupIds.includes(c.id)
+      ) ?? null,
+    [unreadComunicados, dismissedPopupIds]
+  );
+
+  const handleMarkComunicadoRead = async (comunicadoId: string) => {
+    if (!empresa) return;
+    setComunicadosLidosIds((prev) =>
+      prev.includes(comunicadoId) ? prev : [...prev, comunicadoId]
+    );
+    setDismissedPopupIds((prev) =>
+      prev.includes(comunicadoId) ? prev : [...prev, comunicadoId]
+    );
+    await markComunicadoLido(
+      empresa.id,
+      comunicadoId,
+      auth.currentUser?.uid || empresa.ownerUid
+    ).catch(() => {});
+  };
+
+  const handleMarkAllComunicadosRead = async () => {
+    if (!empresa) return;
+    for (const c of unreadComunicados) {
+      await handleMarkComunicadoRead(c.id);
+    }
+  };
 
   const limits = useMemo(() => {
     if (!empresa) return null;
@@ -473,12 +536,102 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
                 {activeTab === 'plano' && 'Meu Plano e Serviços Adicionais'}
               </h1>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                {empresa.razaoSocial} · CNPJ {empresa.cnpj}
+                {empresa.razaoSocial} · {empresa.tipoPessoa === 'PF' ? 'CPF' : 'CNPJ'}{' '}
+                {empresa.cnpj}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 relative">
+            {/* Sininho de Comunicados com Contador */}
+            <div className="relative">
+              <button
+                type="button"
+                aria-label="Central de Comunicados"
+                onClick={() => setInboxOpen((v) => !v)}
+                className="relative p-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] cursor-pointer"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadComunicados.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-white font-mono text-[10px] font-bold flex items-center justify-center shadow">
+                    {unreadComunicados.length}
+                  </span>
+                )}
+              </button>
+
+              {inboxOpen && (
+                <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200 dark:border-white/15 bg-white dark:bg-[#0B1120] shadow-2xl z-40 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+                      Comunicados DK Facilita ({unreadComunicados.length} não lido(s))
+                    </span>
+                    {unreadComunicados.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => void handleMarkAllComunicadosRead()}
+                        className="text-[11px] font-medium text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        Marcar todos
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-white/5">
+                    {comunicadosElegiveis.length === 0 ? (
+                      <div className="p-6 text-center text-xs text-slate-500 dark:text-slate-400">
+                        Nenhum comunicado ativo no momento.
+                      </div>
+                    ) : (
+                      comunicadosElegiveis.map((c) => {
+                        const isUnread = !comunicadosLidosIds.includes(c.id);
+                        return (
+                          <div
+                            key={c.id}
+                            className={`p-4 space-y-1.5 text-xs ${
+                              isUnread ? 'bg-blue-50/50 dark:bg-blue-500/10' : ''
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                {c.tipo === 'URGENTE' && (
+                                  <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                                )}
+                                {c.tipo === 'MANUTENCAO' && (
+                                  <Wrench className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                )}
+                                {c.tipo === 'NOVIDADE' && (
+                                  <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                )}
+                                {c.tipo === 'INFORMATIVO' && (
+                                  <Info className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                )}
+                                {c.titulo}
+                              </span>
+                              {isUnread && (
+                                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1" />
+                              )}
+                            </div>
+                            <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+                              {c.mensagem}
+                            </p>
+                            {isUnread && (
+                              <button
+                                type="button"
+                                onClick={() => void handleMarkComunicadoRead(c.id)}
+                                className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer pt-1"
+                              >
+                                Marcar como lido
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <ThemeToggleButton compact />
             <button
               type="button"
@@ -647,6 +800,59 @@ export const ClientSaasApp: React.FC<ClientSaasAppProps> = ({
         document={vectorDoc}
         onClose={() => setVectorDoc(null)}
       />
+
+      {/* Pop-up Prioritário de Comunicado do Super Admin */}
+      {priorityPopupComunicado && (
+        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#0B1120] border border-slate-200 dark:border-blue-500/40 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                  {priorityPopupComunicado.tipo === 'URGENTE' ? (
+                    <AlertTriangle className="w-5 h-5 text-red-500" />
+                  ) : priorityPopupComunicado.tipo === 'MANUTENCAO' ? (
+                    <Wrench className="w-5 h-5 text-amber-500" />
+                  ) : (
+                    <Sparkles className="w-5 h-5 text-blue-500" />
+                  )}
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                    Comunicado Oficial DK Facilita · {priorityPopupComunicado.tipo}
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {priorityPopupComunicado.titulo}
+                  </h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Fechar aviso"
+                onClick={() =>
+                  setDismissedPopupIds((prev) => [...prev, priorityPopupComunicado.id])
+                }
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
+              {priorityPopupComunicado.mensagem}
+            </p>
+
+            <div className="pt-3 border-t border-slate-200 dark:border-white/10 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => void handleMarkComunicadoRead(priorityPopupComunicado.id)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#3B82F6] text-white text-xs font-semibold hover:from-[#1D4ED8] hover:to-[#2563EB] cursor-pointer"
+              >
+                Entendi, marcar como lido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

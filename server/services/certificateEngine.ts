@@ -679,8 +679,8 @@ export async function renderComprovanteAvaliacaoHtml(
         <div class="meta-val">${escapeHtml(t.nrCodigo)} — ${escapeHtml(t.titulo)} (${t.cargaHorariaHoras}h)</div>
       </div>
       <div>
-        <div class="meta-label">Data / Horário Oficial</div>
-        <div class="meta-val mono">${formatDatePtBr(t.dataRealizacaoIso)} · ${escapeHtml(t.horarioOficial || p.dataHoraConclusao)}</div>
+        <div class="meta-label">Data / Conclusão</div>
+        <div class="meta-val mono">${formatDatePtBr(t.dataRealizacaoIso)}${t.horarioOficial ? ` · ${escapeHtml(t.horarioOficial)}` : p.dataHoraConclusao ? ` · ${escapeHtml(p.dataHoraConclusao)}` : ''}</div>
       </div>
       <div>
         <div class="meta-label">Contrato / Obra</div>
@@ -887,7 +887,7 @@ export async function renderDossieAplicacaoHtml(
       <div><div class="meta-label">Contrato / Obra</div><div class="meta-val">${escapeHtml(t.contratoObraNome || 'Geral')}</div></div>
       <div><div class="meta-label">Carga Horária</div><div class="meta-val mono">${t.cargaHorariaHoras} horas</div></div>
       <div><div class="meta-label">Período / Data</div><div class="meta-val mono">${formatDatePtBr(t.dataRealizacaoIso)}</div></div>
-      <div><div class="meta-label">Horário Oficial</div><div class="meta-val mono">${escapeHtml(t.horarioOficial || '08:00 às 17:00')}</div></div>
+      <div><div class="meta-label">Horário Registrado</div><div class="meta-val mono">${escapeHtml(t.horarioOficial || 'Não registrado')}</div></div>
       <div><div class="meta-label">Local</div><div class="meta-val">${escapeHtml(t.localRealizacao || formatEmpresaAddress(emp) || 'Unidade Operacional')}</div></div>
       <div><div class="meta-label">Instrutor / TST</div><div class="meta-val">${escapeHtml(t.instrutorNome || '—')} ${t.instrutorRegistro ? `(${escapeHtml(t.instrutorRegistro)})` : ''}</div></div>
       <div><div class="meta-label">Responsável Técnico</div><div class="meta-val">${escapeHtml(t.rtNome || '—')} ${t.rtRegistro ? `(${escapeHtml(t.rtRegistro)})` : ''}</div></div>
@@ -1168,12 +1168,12 @@ export function renderListaPresencaHtml(payload: ListaPresencaPayload): { html: 
 export async function renderPacoteAuditoriaHtml(params: {
   certificado: CertificateRenderPayload;
   comprovante?: ComprovanteAvaliacaoPayload | null;
-  cartaAnuencia: CartaAnuenciaRenderPayload;
+  cartaAnuencia?: CartaAnuenciaRenderPayload | null;
 }): Promise<{ html: string }> {
   const [certRes, compRes, cartaRes] = await Promise.all([
     renderCertificateFrontAndBackHtml(params.certificado),
     params.comprovante ? renderComprovanteAvaliacaoHtml(params.comprovante) : Promise.resolve(null),
-    renderCartaAnuenciaHtml(params.cartaAnuencia),
+    params.cartaAnuencia ? renderCartaAnuenciaHtml(params.cartaAnuencia) : Promise.resolve(null),
   ]);
 
   const extractBody = (docHtml: string) => {
@@ -1211,7 +1211,7 @@ export async function renderPacoteAuditoriaHtml(params: {
     }
     ${extractStyle(certRes.html)}
     ${compRes ? extractStyle(compRes.html) : ''}
-    ${extractStyle(cartaRes.html)}
+    ${cartaRes ? extractStyle(cartaRes.html) : ''}
   </style>
 </head>
 <body>
@@ -1227,10 +1227,14 @@ export async function renderPacoteAuditoriaHtml(params: {
         </div>`
       : ''
   }
-  <div class="pkg-section">
-    <div class="pkg-banner">${compRes ? '3' : '2'}. CARTA DE ANUÊNCIA — ${escapeHtml(params.cartaAnuencia.codigoCarta)}</div>
-    ${extractBody(cartaRes.html)}
-  </div>
+  ${
+    cartaRes && params.cartaAnuencia
+      ? `<div class="pkg-section">
+          <div class="pkg-banner">${compRes ? '3' : '2'}. CARTA DE ANUÊNCIA — ${escapeHtml(params.cartaAnuencia.codigoCarta)}</div>
+          ${extractBody(cartaRes.html)}
+        </div>`
+      : ''
+  }
 </body>
 </html>`;
 

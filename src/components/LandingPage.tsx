@@ -1,7 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Database,
   FileBadge,
   Plus,
@@ -14,8 +16,19 @@ import {
   calcularPrecoCicloCentavos,
   formatarMoedaBRL,
 } from '../data/globalCatalogSeed.ts';
-import type { CertificadoPublicoDoc, CicloCobranca } from '../types/domain.ts';
+import type {
+  CertificadoPublicoDoc,
+  CicloCobranca,
+  CmsPromoPosition,
+  CmsTopBarTheme,
+  SiteCmsConfigDoc,
+} from '../types/domain.ts';
 import { validatePublicCertificadoQr } from '../services/operationalCrudService.ts';
+import {
+  EMPTY_SITE_CMS_CONFIG,
+  fetchSiteCmsConfig,
+  isWithinSchedule,
+} from '../services/cmsAndCommsService.ts';
 import { ThemeToggleButton } from './ThemeProvider.tsx';
 
 import heroImage from '../assets/images/hero_dk_industrial_safety_1795121863859.jpg';
@@ -29,6 +42,7 @@ export interface CheckoutSelection {
   ciclo: CicloCobranca;
   modoInicio: 'TRIAL' | 'IMEDIATO';
   adicionaisSlugs: string[];
+  cupomCodigo?: string;
 }
 
 interface LandingPageProps {
@@ -79,6 +93,32 @@ const CAPABILITIES = [
   },
 ];
 
+function getTopBarThemeClasses(theme: CmsTopBarTheme): { bar: string; btn: string } {
+  switch (theme) {
+    case 'AZUL':
+      return {
+        bar: 'bg-gradient-to-r from-[#09152E] via-[#1E3A8A] to-[#09152E] border-b border-blue-400/35 text-blue-100',
+        btn: 'border-blue-300/60 bg-blue-500/20 hover:bg-blue-500/35 text-white',
+      };
+    case 'ESMERALDA':
+      return {
+        bar: 'bg-gradient-to-r from-[#04231A] via-[#065F46] to-[#04231A] border-b border-emerald-400/35 text-emerald-100',
+        btn: 'border-emerald-300/60 bg-emerald-500/20 hover:bg-emerald-500/35 text-white',
+      };
+    case 'VERMELHO':
+      return {
+        bar: 'bg-gradient-to-r from-[#2A080C] via-[#991B1B] to-[#2A080C] border-b border-red-400/35 text-red-100',
+        btn: 'border-red-300/60 bg-red-500/20 hover:bg-red-500/35 text-white',
+      };
+    case 'AMBAR':
+    default:
+      return {
+        bar: 'bg-gradient-to-r from-[#1A1006] via-[#4A2508] to-[#1A1006] border-b border-amber-500/45 text-amber-100',
+        btn: 'border-amber-400/65 bg-amber-500/15 hover:bg-amber-500/30 text-amber-100',
+      };
+  }
+}
+
 export const LandingPage: React.FC<LandingPageProps> = ({
   catalog,
   loadingCatalog,
@@ -92,11 +132,65 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [heroImgFailed, setHeroImgFailed] = useState(false);
   const [mobileImgFailed, setMobileImgFailed] = useState(false);
 
+  // CMS dinâmico do Super Admin
+  const [cms, setCms] = useState<SiteCmsConfigDoc>(EMPTY_SITE_CMS_CONFIG);
+  const [carouselIdx, setCarouselIdx] = useState(0);
+
   // Validador público de QR Code
   const [qrCodeInput, setQrCodeInput] = useState('');
   const [qrLoading, setQrLoading] = useState(false);
   const [qrResult, setQrResult] = useState<CertificadoPublicoDoc | null>(null);
   const [qrSearched, setQrSearched] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    void fetchSiteCmsConfig().then((cfg) => {
+      if (mounted) setCms(cfg);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const showTopBar = useMemo(
+    () =>
+      Boolean(
+        cms.faixaTopo.ativo &&
+          cms.faixaTopo.texto.trim() &&
+          isWithinSchedule(cms.faixaTopo.inicioIso, cms.faixaTopo.fimIso)
+      ),
+    [cms.faixaTopo]
+  );
+
+  const activeCarouselSlides = useMemo(
+    () =>
+      cms.carrosselSlides.filter(
+        (s) =>
+          s.ativo &&
+          Boolean(s.imagemDesktopUrl?.trim()) &&
+          isWithinSchedule(s.inicioIso, s.fimIso)
+      ),
+    [cms.carrosselSlides]
+  );
+
+  useEffect(() => {
+    if (activeCarouselSlides.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setCarouselIdx((prev) => (prev + 1) % activeCarouselSlides.length);
+    }, 7000);
+    return () => window.clearInterval(timer);
+  }, [activeCarouselSlides.length]);
+
+  const activePromoCards = useMemo(
+    () =>
+      cms.cardsPromocionais.filter(
+        (c) =>
+          c.ativo &&
+          Boolean(c.imagemUrl?.trim()) &&
+          isWithinSchedule(c.inicioIso, c.fimIso)
+      ),
+    [cms.cardsPromocionais]
+  );
 
   const toggleAddon = (slug: string) => {
     setSelectedAddons((prev) =>
@@ -114,6 +208,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const defaultPlanoSlug =
     catalog?.planos.find((p) => p.destaque)?.slug || catalog?.planos[0]?.slug || 'profissional';
 
+  const handleCmsLinkClick = (linkDestino: string, cupomAutomatico?: string) => {
+    const cleanLink = (linkDestino || '').trim();
+    const fallbackCupom = (cupomAutomatico || '').trim().toUpperCase();
+
+    if (cleanLink.startsWith('#')) {
+      const targetEl = document.querySelector(cleanLink);
+      targetEl?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
+    // Parse parâmetros de /checkout?plano=...&cupom=...&ciclo=...
+    try {
+      const url = new URL(cleanLink || '/checkout', window.location.origin);
+      const planoFromUrl = url.searchParams.get('plano') || defaultPlanoSlug;
+      const cupomFromUrl =
+        (url.searchParams.get('cupom') || fallbackCupom || '').trim().toUpperCase();
+      const cicloParam = (url.searchParams.get('ciclo') || '').toUpperCase();
+      const resolvedCiclo: CicloCobranca =
+        cicloParam === 'MENSAL' || cicloParam === 'SEMESTRAL' || cicloParam === 'ANUAL'
+          ? cicloParam
+          : ciclo;
+
+      onStartCheckout({
+        planoSlug: planoFromUrl,
+        ciclo: resolvedCiclo,
+        modoInicio: 'TRIAL',
+        adicionaisSlugs: selectedAddons,
+        cupomCodigo: cupomFromUrl,
+      });
+    } catch {
+      onStartCheckout({
+        planoSlug: defaultPlanoSlug,
+        ciclo,
+        modoInicio: 'TRIAL',
+        adicionaisSlugs: selectedAddons,
+        cupomCodigo: fallbackCupom,
+      });
+    }
+  };
+
   const handleValidateQr = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!qrCodeInput.trim()) return;
@@ -128,18 +262,93 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   };
 
+  const renderPromoCardsSection = (posicao: CmsPromoPosition) => {
+    const cards = activePromoCards.filter((c) => c.posicao === posicao);
+    if (cards.length === 0) return null;
+    return (
+      <section className="max-w-[1200px] mx-auto px-6 py-8">
+        <div
+          className={`grid gap-5 ${
+            cards.length === 1
+              ? 'grid-cols-1'
+              : cards.length === 2
+                ? 'grid-cols-1 md:grid-cols-2'
+                : 'grid-cols-1 md:grid-cols-3'
+          }`}
+        >
+          {cards.map((card) => (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => handleCmsLinkClick(card.linkDestino, card.cupomAutomatico)}
+              className="group text-left dk-glass-card rounded-2xl overflow-hidden cursor-pointer flex flex-col"
+            >
+              <div className="relative w-full aspect-[16/7] overflow-hidden bg-slate-900">
+                <img
+                  src={card.imagemUrl}
+                  alt={card.titulo}
+                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                />
+              </div>
+              {(card.titulo || card.descricao || card.textoBotao) && (
+                <div className="p-5 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                      {card.titulo}
+                    </h3>
+                    {card.descricao && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                        {card.descricao}
+                      </p>
+                    )}
+                  </div>
+                  <span className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#3B82F6] text-white text-xs font-semibold shrink-0">
+                    {card.textoBotao || 'Aproveitar'}
+                  </span>
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </section>
+    );
+  };
+
   const hasCatalog = Boolean(catalog && catalog.planos.length > 0);
+  const topBarClasses = getTopBarThemeClasses(cms.faixaTopo.corTema);
+  const activeSlide =
+    activeCarouselSlides.length > 0
+      ? activeCarouselSlides[carouselIdx % activeCarouselSlides.length]
+      : null;
 
   return (
     <div className="min-h-screen dk-ambient-canvas">
-      {/* NAVBAR FLUTUANTE TRANSLÚCIDA */}
-      <header className="sticky top-0 z-30 bg-white/80 dark:bg-[#060913]/75 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/10">
-        <div className="max-w-[1200px] mx-auto px-6 py-4 flex items-center justify-between gap-8">
+      {/* SLOT 1 — FAIXA DE TOPO (INVISÍVEL SE INATIVA OU FORA DA DATA) */}
+      {showTopBar && (
+        <div className={`${topBarClasses.bar} px-4 py-2.5 text-xs`}>
+          <div className="max-w-[1200px] mx-auto flex flex-wrap items-center justify-center gap-3 text-center">
+            <span className="font-medium tracking-wide">{cms.faixaTopo.texto}</span>
+            <button
+              type="button"
+              onClick={() =>
+                handleCmsLinkClick(cms.faixaTopo.linkDestino, cms.faixaTopo.cupomAutomatico)
+              }
+              className={`px-3 py-1 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${topBarClasses.btn}`}
+            >
+              {cms.faixaTopo.textoBotao || 'Aproveitar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* NAVBAR FLUTUANTE TRANSLÚCIDA (PADRÃO DARK INTELLIGENCE PRO MAX) */}
+      <header className="sticky top-0 z-30 pt-3 px-4 sm:px-6">
+        <div className="max-w-[1200px] mx-auto rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#0B1120]/75 backdrop-blur-xl px-5 py-3 flex items-center justify-between gap-6 shadow-lg shadow-slate-950/5 dark:shadow-black/30">
           <a
             href="#topo"
-            className="text-lg font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 flex items-center gap-2.5"
+            className="text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 flex items-center gap-2.5"
           >
-            <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#1D4ED8] to-[#3B82F6] text-white text-xs font-extrabold flex items-center justify-center shadow-md shadow-blue-600/30">
+            <span className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2563EB] via-[#3B82F6] to-[#F97316] text-white text-xs font-extrabold flex items-center justify-center shadow-md shadow-blue-600/30">
               DK
             </span>
             <span>DK Facilita</span>
@@ -184,29 +393,119 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 type="button"
                 onClick={onGoPanel}
-                className="px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-xs font-semibold hover:bg-[#1E40AF] transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-md shadow-blue-600/25"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#3B82F6] text-white text-xs font-semibold hover:from-[#1D4ED8] hover:to-[#2563EB] transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-md shadow-blue-600/25"
               >
                 Acessar Painel
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={onGoLogin}
-                className="px-4 py-2 rounded-lg bg-slate-900 dark:bg-white text-white dark:text-slate-950 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                Entrar
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={onGoLogin}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  Entrar
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onStartCheckout({
+                      planoSlug: defaultPlanoSlug,
+                      ciclo,
+                      modoInicio: 'TRIAL',
+                      adicionaisSlugs: selectedAddons,
+                    })
+                  }
+                  className="hidden sm:inline-flex px-4 py-2 rounded-xl border border-slate-300 dark:border-white/20 bg-slate-900 dark:bg-white/10 text-white text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white/20 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  Testar Grátis
+                </button>
+              </>
             )}
           </div>
         </div>
       </header>
 
+      {/* SLOT 2 — CARROSSEL PRINCIPAL (HERO BANNER — INVISÍVEL SE SEM SLIDES ATIVOS) */}
+      {activeSlide && (
+        <section className="max-w-[1200px] mx-auto px-4 sm:px-6 pt-6">
+          <div className="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/15 bg-slate-950 shadow-2xl shadow-blue-950/30 group">
+            <button
+              type="button"
+              onClick={() =>
+                handleCmsLinkClick(activeSlide.linkDestino, activeSlide.cupomAutomatico)
+              }
+              className="block w-full text-left cursor-pointer"
+            >
+              <img
+                src={activeSlide.imagemDesktopUrl}
+                alt={activeSlide.titulo || 'Campanha DK Facilita'}
+                className={`w-full max-h-[420px] object-cover ${
+                  activeSlide.imagemMobileUrl ? 'hidden sm:block' : 'block'
+                }`}
+              />
+              {activeSlide.imagemMobileUrl && (
+                <img
+                  src={activeSlide.imagemMobileUrl}
+                  alt={activeSlide.titulo || 'Campanha DK Facilita'}
+                  className="w-full max-h-[380px] object-cover sm:hidden"
+                />
+              )}
+            </button>
+
+            {activeCarouselSlides.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Banner anterior"
+                  onClick={() =>
+                    setCarouselIdx(
+                      (prev) =>
+                        (prev - 1 + activeCarouselSlides.length) % activeCarouselSlides.length
+                    )
+                  }
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-950/65 hover:bg-slate-950/85 border border-white/15 text-white flex items-center justify-center backdrop-blur-md transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Próximo banner"
+                  onClick={() =>
+                    setCarouselIdx((prev) => (prev + 1) % activeCarouselSlides.length)
+                  }
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-slate-950/65 hover:bg-slate-950/85 border border-white/15 text-white flex items-center justify-center backdrop-blur-md transition-colors cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-950/60 backdrop-blur-md border border-white/10">
+                  {activeCarouselSlides.map((s, idx) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      aria-label={`Ir para slide ${idx + 1}`}
+                      onClick={() => setCarouselIdx(idx)}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                        idx === carouselIdx % activeCarouselSlides.length
+                          ? 'w-6 bg-white'
+                          : 'w-1.5 bg-white/40 hover:bg-white/70'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* HERO SECTION — DARK INTELLIGENCE / PRO MAX */}
       <section id="topo" className="border-b border-slate-200/80 dark:border-white/10">
-        <div className="max-w-[1200px] mx-auto px-6 py-16 lg:py-24 grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
+        <div className="max-w-[1200px] mx-auto px-6 py-14 lg:py-20 grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
           <div className="lg:col-span-6 flex flex-col justify-center">
             <div className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/25 text-xs font-medium text-[#1D4ED8] dark:text-blue-400">
-              <span className="dk-live-dot" style={{ backgroundColor: '#3B82F6' }} />
+              <span className="dk-live-dot bg-[#3B82F6] shadow-[0_0_8px_#3B82F6]" />
               <span>DK Facilita · Ecossistema de Softwares Empresariais</span>
             </div>
 
@@ -232,7 +531,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     adicionaisSlugs: selectedAddons,
                   })
                 }
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#1D4ED8] to-[#2563EB] text-white text-sm font-semibold hover:from-[#1E40AF] hover:to-[#1D4ED8] transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-lg shadow-blue-600/30"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#1D4ED8] to-[#3B82F6] text-white text-sm font-semibold hover:from-[#1E40AF] hover:to-[#2563EB] transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-lg shadow-blue-600/30"
               >
                 Testar Grátis por 7 Dias
                 <ArrowRight className="w-4 h-4" />
@@ -284,7 +583,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               )}
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#060913]/95 via-[#060913]/65 to-transparent px-6 py-5 text-white">
                 <p className="text-xs text-blue-300 font-medium inline-flex items-center gap-2">
-                  <span className="dk-live-dot" />
+                  <span className="dk-live-dot bg-emerald-400 shadow-[0_0_8px_#34D399]" />
                   Produto principal · DK Facilita
                 </p>
                 <p className="text-sm font-semibold mt-1">
@@ -295,6 +594,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
       </section>
+
+      {/* SLOT 3 (POSIÇÃO ABAIXO DO HERO) */}
+      {renderPromoCardsSection('ABAIXO_HERO')}
 
       {/* VITRINE DE SOFTWARES DA DK FACILITA */}
       <section id="softwares" className="max-w-[1200px] mx-auto px-6 py-16 space-y-8">
@@ -317,7 +619,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div>
               <div className="flex items-center justify-between gap-4 text-xs text-slate-500 dark:text-slate-400">
                 <span className="font-semibold text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-1.5">
-                  <span className="dk-live-dot" />
+                  <span className="dk-live-dot bg-emerald-400 shadow-[0_0_8px_#34D399]" />
                   Produto principal · Disponível agora
                 </span>
                 <span className="font-mono">certifica.dkfacilita.com</span>
@@ -363,7 +665,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     adicionaisSlugs: selectedAddons,
                   })
                 }
-                className="px-4 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-xs font-semibold hover:bg-[#1E40AF] transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#1D4ED8] to-[#3B82F6] text-white text-xs font-semibold hover:from-[#1E40AF] hover:to-[#2563EB] transition-colors cursor-pointer"
               >
                 Iniciar Teste Grátis de 7 Dias
               </button>
@@ -478,8 +780,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* TABELA DE PLANOS INTERATIVA (LENDO DA BASE REAL) */}
-      <section id="planos" className="max-w-[1200px] mx-auto px-6 py-16 space-y-8">
+      {/* SLOT 3 (POSIÇÃO ACIMA DOS PLANOS) */}
+      {renderPromoCardsSection('ACIMA_PLANOS')}
+
+      {/* SLOT 4 — TABELA DE PLANOS DINÂMICA (COM PREÇO NORMAL, "DE/POR" PROMO E SELO NO CARD) */}
+      <section id="planos" className="max-w-[1200px] mx-auto px-6 py-16 space-y-10">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="max-w-xl">
             <p className="text-xs font-semibold uppercase tracking-wider text-[#1D4ED8] dark:text-blue-400">
@@ -522,10 +827,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {loadingCatalog ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {[1, 2, 3, 4].map((n) => (
-              <div
-                key={n}
-                className="h-96 dk-glass-card rounded-2xl animate-pulse"
-              />
+              <div key={n} className="h-96 dk-glass-card rounded-2xl animate-pulse" />
             ))}
           </div>
         ) : !hasCatalog ? (
@@ -549,30 +851,61 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {catalog!.planos.map((plano) => {
-              const preco = calcularPrecoCicloCentavos(
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-3">
+            {catalog!.planos.map((plano, idx) => {
+              const hasPromo =
+                typeof plano.precoPromocionalCentavos === 'number' &&
+                plano.precoPromocionalCentavos > 0 &&
+                plano.precoPromocionalCentavos < plano.precoMensalCentavos;
+
+              const precoNormal = calcularPrecoCicloCentavos(
                 plano.precoMensalCentavos,
                 ciclo,
                 plano.descontoSemestral,
                 plano.descontoAnual
               );
 
+              const precoFinal = calcularPrecoCicloCentavos(
+                hasPromo ? plano.precoPromocionalCentavos! : plano.precoMensalCentavos,
+                ciclo,
+                plano.descontoSemestral,
+                plano.descontoAnual
+              );
+
+              const isAmberCard = idx === catalog!.planos.length - 1;
+
               return (
                 <div
                   key={plano.id}
-                  className={`dk-glass-card rounded-2xl p-6 flex flex-col justify-between ${
+                  className={`relative dk-glass-card rounded-2xl p-6 flex flex-col justify-between ${
                     plano.destaque
-                      ? '!border-[#1D4ED8] dark:!border-blue-500/70 ring-1 ring-blue-500/25 shadow-xl shadow-blue-950/15'
-                      : ''
+                      ? '!border-[#3B82F6] dark:!border-blue-500/75 ring-1 ring-blue-500/25 shadow-xl shadow-blue-950/20'
+                      : isAmberCard && hasPromo
+                        ? '!border-amber-500/70 ring-1 ring-amber-500/20'
+                        : ''
                   }`}
                 >
+                  {/* Selo Flutuante Promocional (ex.: OFERTA BLACK FRIDAY) */}
+                  {plano.seloPromocional && (
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                      <span
+                        className={`px-3.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-white shadow-lg ${
+                          isAmberCard
+                            ? 'bg-gradient-to-r from-red-600 to-amber-500 shadow-red-600/30'
+                            : 'bg-gradient-to-r from-[#F97316] to-[#FB923C] shadow-orange-500/30'
+                        }`}
+                      >
+                        {plano.seloPromocional}
+                      </span>
+                    </div>
+                  )}
+
                   <div>
-                    <div className="flex items-baseline justify-between gap-2">
+                    <div className="flex items-baseline justify-between gap-2 pt-1">
                       <h3 className="text-base font-bold text-slate-900 dark:text-white">
                         {plano.nome}
                       </h3>
-                      {plano.destaque && (
+                      {plano.destaque && !plano.seloPromocional && (
                         <span className="text-[11px] font-semibold text-[#1D4ED8] dark:text-blue-400">
                           Recomendado
                         </span>
@@ -583,16 +916,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </p>
 
                     <div className="mt-5 pt-5 border-t border-slate-200/80 dark:border-white/10">
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-bold font-mono tabular-nums text-slate-900 dark:text-white">
-                          {formatarMoedaBRL(preco.mensalEquivalenteCentavos)}
+                      {hasPromo && (
+                        <p className="text-xs font-mono text-slate-400 line-through">
+                          de {formatarMoedaBRL(precoNormal.mensalEquivalenteCentavos)}
+                        </p>
+                      )}
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        {hasPromo && (
+                          <span className="text-xs font-medium text-blue-500 dark:text-blue-400 mr-0.5">
+                            por
+                          </span>
+                        )}
+                        <span
+                          className={`text-3xl font-bold font-mono tabular-nums ${
+                            hasPromo
+                              ? isAmberCard
+                                ? 'text-amber-500 dark:text-amber-400'
+                                : 'text-[#2563EB] dark:text-blue-400'
+                              : 'text-slate-900 dark:text-white'
+                          }`}
+                        >
+                          {formatarMoedaBRL(precoFinal.mensalEquivalenteCentavos)}
                         </span>
                         <span className="text-xs text-slate-500 dark:text-slate-400">/mês</span>
                       </div>
                       <p className="mt-1 text-xs font-mono tabular-nums text-slate-500 dark:text-slate-400">
                         {ciclo === 'MENSAL'
                           ? 'Sem fidelidade · cobrança mensal'
-                          : `${formatarMoedaBRL(preco.totalPeriodoCentavos)} no plano ${ciclo.toLowerCase()}`}
+                          : `${formatarMoedaBRL(precoFinal.totalPeriodoCentavos)} no plano ${ciclo.toLowerCase()}`}
                       </p>
                     </div>
 
@@ -647,10 +998,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           adicionaisSlugs: selectedAddons,
                         })
                       }
-                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
-                        plano.destaque
-                          ? 'bg-[#1D4ED8] text-white hover:bg-[#1E40AF] shadow-md shadow-blue-600/25'
-                          : 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'
+                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                        isAmberCard && hasPromo
+                          ? 'bg-gradient-to-r from-[#F97316] to-[#FB923C] text-white hover:from-[#EA580C] hover:to-[#F97316] shadow-md shadow-orange-600/25'
+                          : plano.destaque
+                            ? 'bg-gradient-to-r from-[#1D4ED8] to-[#3B82F6] text-white hover:from-[#1E40AF] hover:to-[#2563EB] shadow-md shadow-blue-600/25'
+                            : 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'
                       }`}
                     >
                       Testar Grátis por 7 Dias
@@ -667,7 +1020,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       }
                       className="w-full py-2 px-4 rounded-xl border border-slate-200 dark:border-white/15 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                     >
-                      Contratar Agora
+                      Assinar Agora
                     </button>
                   </div>
                 </div>
@@ -676,6 +1029,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         )}
       </section>
+
+      {/* SLOT 3 (POSIÇÃO ABAIXO DOS PLANOS) */}
+      {renderPromoCardsSection('ABAIXO_PLANOS')}
 
       {/* SEÇÃO DE SERVIÇOS ADICIONAIS */}
       {hasCatalog && (

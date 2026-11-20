@@ -7,9 +7,12 @@ import {
   LayoutDashboard,
   Layers,
   LogOut,
+  Megaphone,
   Menu,
+  MonitorPlay,
   RefreshCw,
   ShieldCheck,
+  TicketPercent,
   Users,
   X,
 } from 'lucide-react';
@@ -30,8 +33,18 @@ import { SuperAdminDashboard } from './SuperAdminDashboard.tsx';
 import { SuperAdminCompanies } from './SuperAdminCompanies.tsx';
 import { SuperAdminNotifications } from './SuperAdminNotifications.tsx';
 import { SuperAdminCatalogManager } from './SuperAdminCatalogManager.tsx';
+import { SuperAdminSiteCms } from './SuperAdminSiteCms.tsx';
+import { SuperAdminCupons } from './SuperAdminCupons.tsx';
+import { SuperAdminComunicados } from './SuperAdminComunicados.tsx';
 
-type AdminTab = 'dashboard' | 'empresas' | 'notificacoes' | 'catalogo';
+type AdminTab =
+  | 'dashboard'
+  | 'empresas'
+  | 'site_cms'
+  | 'cupons'
+  | 'comunicados'
+  | 'notificacoes'
+  | 'catalogo';
 
 interface SuperAdminAppProps {
   userEmail: string;
@@ -130,9 +143,12 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
     badge?: number;
   }[] = [
     { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
-    { id: 'empresas', label: 'Empresas Clientes', icon: Building2 },
+    { id: 'empresas', label: 'Empresas', icon: Building2 },
+    { id: 'site_cms', label: 'Site & Campanhas', icon: MonitorPlay },
+    { id: 'catalogo', label: 'Planos & Catálogo', icon: Layers },
+    { id: 'cupons', label: 'Cupons', icon: TicketPercent },
+    { id: 'comunicados', label: 'Comunicados', icon: Megaphone },
     { id: 'notificacoes', label: 'Notificações', icon: Bell, badge: unreadCount },
-    { id: 'catalogo', label: 'Catálogo Global', icon: Layers },
   ];
 
   const sidebarContent = (
@@ -248,11 +264,14 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
               <h1 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight truncate">
                 {activeTab === 'dashboard' && 'Visão Geral — Dono do Software'}
                 {activeTab === 'empresas' && 'Empresas Clientes, Feature Flags & .pptx'}
+                {activeTab === 'site_cms' && 'DK Facilita | Site & Campanhas'}
+                {activeTab === 'cupons' && 'DK Facilita | Cupons de Desconto'}
+                {activeTab === 'comunicados' && 'DK Facilita | Central de Comunicados'}
                 {activeTab === 'notificacoes' && 'Central de Notificações'}
-                {activeTab === 'catalogo' && 'Catálogo Global DK Facilita'}
+                {activeTab === 'catalogo' && 'Planos, Preços & Catálogo Global'}
               </h1>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate inline-flex items-center gap-2">
-                <span className="dk-live-dot" />
+                <span className="dk-live-dot bg-emerald-400 shadow-[0_0_8px_#34D399]" />
                 <span>
                   {analytics.usuariosOnlineAgora} online agora · Certifica Software - DK
                 </span>
@@ -301,6 +320,17 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
               onImpersonateClient={(empId) => onOpenClientPanel(empId)}
             />
           )}
+
+          {activeTab === 'site_cms' && (
+            <SuperAdminSiteCms
+              planos={adminCatalog.planos}
+              onCatalogChanged={handleCatalogRefresh}
+            />
+          )}
+
+          {activeTab === 'cupons' && <SuperAdminCupons planos={adminCatalog.planos} />}
+
+          {activeTab === 'comunicados' && <SuperAdminComunicados planos={adminCatalog.planos} />}
 
           {activeTab === 'notificacoes' && (
             <SuperAdminNotifications notificacoes={notificacoes} onRefresh={loadAll} />

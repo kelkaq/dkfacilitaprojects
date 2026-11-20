@@ -275,9 +275,11 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
     const terminoStr = attempt?.concluidaEm?.toDate
       ? attempt.concluidaEm.toDate().toLocaleString('pt-BR')
       : attempt
-        ? `${activeTurma?.dataRealizacaoIso || ''} 16:45`
+        ? 'Horário não registrado'
         : '—';
-    const inicioStr = activeTurma ? `${activeTurma.dataRealizacaoIso} 08:00` : '—';
+    const inicioStr = activeTurma?.createdAt?.toDate
+      ? activeTurma.createdAt.toDate().toLocaleString('pt-BR')
+      : activeTurma?.dataRealizacaoIso || '—';
     return { attempt, existingCert, evdCode, inicioStr, terminoStr };
   };
 
@@ -482,7 +484,7 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
           totalQuestoes: att.totalQuestoes ?? questoes.length,
           dataHoraConclusao: att.concluidaEm?.toDate
             ? att.concluidaEm.toDate().toLocaleString('pt-BR')
-            : `${activeTurma.dataRealizacaoIso} 16:45`,
+            : 'Horário não registrado',
           assinaturaDataUrl: att.assinaturaDataUrl || null,
           selfieDataUrl: att.selfieDataUrl || null,
           questoes: questoes.map((q, idx) => {
@@ -516,7 +518,6 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
           nrCodigo: activeTreinamento.nrCodigo,
           cargaHorariaHoras: activeTreinamento.cargaHorariaHoras,
           dataRealizacaoIso: activeTurma.dataRealizacaoIso,
-          horarioOficial: '08:00 às 17:00',
           contratoObraNome: activeTurma.contratoObraNome || 'Geral',
           localRealizacao: activeTurma.localRealizacao || undefined,
           instrutorNome: respInstrutorNome || activeTurma.instrutorNome || undefined,
@@ -574,7 +575,6 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
           nrCodigo: activeTreinamento.nrCodigo,
           cargaHorariaHoras: activeTreinamento.cargaHorariaHoras,
           dataRealizacaoIso: activeTurma.dataRealizacaoIso,
-          horarioOficial: '08:00 às 17:00',
           contratoObraNome: activeTurma.contratoObraNome || 'Geral',
           localRealizacao: activeTurma.localRealizacao || undefined,
           instrutorNome: respInstrutorNome || activeTurma.instrutorNome || undefined,
@@ -595,7 +595,7 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
           totalQuestoes: attempt.totalQuestoes ?? questoes.length,
           dataHoraConclusao: attempt.concluidaEm?.toDate
             ? attempt.concluidaEm.toDate().toLocaleString('pt-BR')
-            : `${activeTurma.dataRealizacaoIso} 16:45`,
+            : 'Horário não registrado',
           assinaturaDataUrl: attempt.assinaturaDataUrl || null,
           selfieDataUrl: attempt.selfieDataUrl || null,
         },

@@ -107,6 +107,12 @@ export async function adminFetchAllCatalog(): Promise<GlobalCatalogSnapshot> {
 
 export async function adminSavePlano(plano: PlanoCatalogo): Promise<PlanoCatalogo> {
   const id = plano.id ? sanitizeId(plano.id, 'plano') : sanitizeId(`plano_${plano.slug}`, 'plano');
+  const promoVal =
+    typeof plano.precoPromocionalCentavos === 'number' && plano.precoPromocionalCentavos > 0
+      ? Math.round(plano.precoPromocionalCentavos)
+      : null;
+  const seloVal = plano.seloPromocional?.trim() ? plano.seloPromocional.trim().slice(0, 60) : null;
+
   const payload = {
     id,
     slug: sanitizeId(plano.slug || plano.nome, 'plano').replace(/_/g, '-'),
@@ -114,6 +120,8 @@ export async function adminSavePlano(plano: PlanoCatalogo): Promise<PlanoCatalog
     subtitulo: plano.subtitulo.trim().slice(0, 200),
     descricao: plano.descricao.trim().slice(0, 600),
     precoMensalCentavos: Math.max(0, Math.round(Number(plano.precoMensalCentavos) || 0)),
+    precoPromocionalCentavos: promoVal,
+    seloPromocional: seloVal,
     descontoSemestral: Math.min(80, Math.max(0, Math.round(Number(plano.descontoSemestral) || 0))),
     descontoAnual: Math.min(80, Math.max(0, Math.round(Number(plano.descontoAnual) || 0))),
     limiteColaboradores: Math.max(1, Math.round(Number(plano.limiteColaboradores) || 50)),
@@ -136,6 +144,8 @@ export async function adminSavePlano(plano: PlanoCatalogo): Promise<PlanoCatalog
       id,
       slug: payload.slug,
       precoMensalCentavos: payload.precoMensalCentavos,
+      precoPromocionalCentavos: payload.precoPromocionalCentavos,
+      seloPromocional: payload.seloPromocional,
     };
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `planos/${id}`);

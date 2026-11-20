@@ -11,6 +11,8 @@ export interface PlanoCatalogo {
   subtitulo: string;
   descricao: string;
   precoMensalCentavos: number;
+  precoPromocionalCentavos?: number | null;
+  seloPromocional?: string | null;
   descontoSemestral: number;
   descontoAnual: number;
   limiteColaboradores: number;

@@ -37,17 +37,30 @@ export async function createPlanCharge(params: {
   ciclo: CicloCobranca;
   metodoPagamento: 'PIX' | 'CARTAO_CREDITO';
   isUpgrade?: boolean;
+  valorTotalOverrideCentavos?: number;
+  cupomCodigo?: string | null;
 }): Promise<FaturaDoc> {
   const faturaId = `fat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  const baseMensal =
+    typeof params.plano.precoPromocionalCentavos === 'number' &&
+    params.plano.precoPromocionalCentavos > 0
+      ? params.plano.precoPromocionalCentavos
+      : params.plano.precoMensalCentavos;
   const preco = calcularPrecoCicloCentavos(
-    params.plano.precoMensalCentavos,
+    baseMensal,
     params.ciclo,
     params.plano.descontoSemestral,
     params.plano.descontoAnual
   );
 
+  const valorFinalCentavos =
+    typeof params.valorTotalOverrideCentavos === 'number' && params.valorTotalOverrideCentavos >= 100
+      ? Math.round(params.valorTotalOverrideCentavos)
+      : preco.totalPeriodoCentavos;
+
   const tipoItem = params.isUpgrade ? 'UPGRADE' : 'PLANO';
-  const descricao = `${params.isUpgrade ? 'Upgrade' : 'Assinatura'} Certifica Software - DK · Plano ${params.plano.nome} (${params.ciclo})`;
+  const cupomSuffix = params.cupomCodigo ? ` · Cupom ${params.cupomCodigo.toUpperCase()}` : '';
+  const descricao = `${params.isUpgrade ? 'Upgrade' : 'Assinatura'} Certifica Software - DK · Plano ${params.plano.nome} (${params.ciclo})${cupomSuffix}`;
 
   const response = await fetch('/api/billing/asaas/charge', {
     method: 'POST',
@@ -59,7 +72,7 @@ export async function createPlanCharge(params: {
       email: params.empresa.emailFinanceiro,
       whatsapp: params.empresa.whatsapp,
       descricao,
-      valorCentavos: preco.totalPeriodoCentavos,
+      valorCentavos: valorFinalCentavos,
       metodoPagamento: params.metodoPagamento,
       ciclo: params.ciclo,
       tipoItem,
@@ -80,7 +93,7 @@ export async function createPlanCharge(params: {
   const faturaPayload = {
     empresaId: params.empresa.id,
     descricao,
-    valorCentavos: preco.totalPeriodoCentavos,
+    valorCentavos: valorFinalCentavos,
     status: 'PENDENTE' as const,
     metodoPagamento: params.metodoPagamento,
     tipoItem: tipoItem as 'PLANO' | 'UPGRADE',

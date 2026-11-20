@@ -1,4 +1,6 @@
 import { Router, type Request, type Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import QRCode from 'qrcode';
 import {
   createAsaasCharge,
@@ -324,10 +326,10 @@ apiRouter.post('/api/documents/render-pacote-auditoria', async (req: Request, re
     const body = req.body as {
       certificado: CertificateRenderPayload;
       comprovante?: ComprovanteAvaliacaoPayload | null;
-      cartaAnuencia: CartaAnuenciaRenderPayload;
+      cartaAnuencia?: CartaAnuenciaRenderPayload | null;
     };
-    if (!body?.certificado || !body?.cartaAnuencia) {
-      res.status(400).json({ error: 'Certificado e Carta de Anuência são obrigatórios.' });
+    if (!body?.certificado) {
+      res.status(400).json({ error: 'Dados do certificado são obrigatórios.' });
       return;
     }
     const baseUrl =
@@ -339,7 +341,9 @@ apiRouter.post('/api/documents/render-pacote-auditoria', async (req: Request, re
       comprovante: body.comprovante
         ? { ...body.comprovante, validationBaseUrl: baseUrl }
         : null,
-      cartaAnuencia: { ...body.cartaAnuencia, validationBaseUrl: baseUrl },
+      cartaAnuencia: body.cartaAnuencia
+        ? { ...body.cartaAnuencia, validationBaseUrl: baseUrl }
+        : null,
     });
     res.json(result);
   } catch (error) {
@@ -429,4 +433,85 @@ apiRouter.get('/api/utils/secure-code', (req: Request, res: Response) => {
       ? req.query.prefix
       : 'DK';
   res.json({ code: generateSecureCode(prefix, 6) });
+});
+
+// ----------------------------------------------------------------------------
+// 9. UPLOAD E ENTREGA DE BANNERS / FLYERS DO CMS (SUPER ADMIN)
+// ----------------------------------------------------------------------------
+const CMS_MEDIA_DIR = path.resolve(process.cwd(), 'storage', 'cms_media');
+
+const ALLOWED_IMAGE_MIMES: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/webp': 'webp',
+};
+
+apiRouter.post('/api/cms/upload-media', (req: Request, res: Response) => {
+  try {
+    const { dataUrl, fileName } = req.body ?? {};
+    if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+      res.status(400).json({ error: 'Envie uma imagem válida (PNG, JPG ou WebP).' });
+      return;
+    }
+
+    const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+    if (!match) {
+      res.status(400).json({ error: 'Formato de imagem inválido.' });
+      return;
+    }
+
+    const mime = match[1].toLowerCase();
+    const ext = ALLOWED_IMAGE_MIMES[mime];
+    if (!ext) {
+      res.status(400).json({ error: 'Formato não suportado. Utilize PNG, JPG ou WebP.' });
+      return;
+    }
+
+    const buffer = Buffer.from(match[2], 'base64');
+    if (buffer.length > 3 * 1024 * 1024) {
+      res.status(400).json({ error: 'A imagem deve ter no máximo 3 MB.' });
+      return;
+    }
+
+    fs.mkdirSync(CMS_MEDIA_DIR, { recursive: true });
+    const safeStem = String(fileName || 'banner')
+      .replace(/\.[^.]+$/, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '')
+      .slice(0, 32) || 'banner';
+    const storedName = `${safeStem}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
+    const fullPath = path.join(CMS_MEDIA_DIR, storedName);
+    fs.writeFileSync(fullPath, buffer);
+
+    res.json({
+      ok: true,
+      url: `/api/cms/media/${storedName}`,
+      fileName: storedName,
+      sizeBytes: buffer.length,
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: error instanceof Error ? error.message : 'Falha ao salvar imagem de campanha.',
+    });
+  }
+});
+
+apiRouter.get('/api/cms/media/:filename', (req: Request, res: Response) => {
+  const raw = String(req.params.filename || '');
+  const safe = path.basename(raw);
+  if (!safe || safe !== raw || !/^[a-zA-Z0-9_-]+\.(png|jpg|webp)$/.test(safe)) {
+    res.status(400).json({ error: 'Nome de arquivo inválido.' });
+    return;
+  }
+  const fullPath = path.join(CMS_MEDIA_DIR, safe);
+  if (!fs.existsSync(fullPath)) {
+    res.status(404).json({ error: 'Mídia não encontrada.' });
+    return;
+  }
+  const ext = path.extname(safe).toLowerCase();
+  const contentType =
+    ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+  res.setHeader('Content-Type', contentType);
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  fs.createReadStream(fullPath).pipe(res);
 });

@@ -25,9 +25,11 @@ import {
 import { createAdminNotification } from './analyticsService.ts';
 
 export interface RegisterCompanyInput {
-  cnpj: string;
-  razaoSocial: string;
+  tipoPessoa?: 'PJ' | 'PF';
+  cnpj: string; // CNPJ para PJ ou CPF para PF
+  razaoSocial: string; // Razão Social (PJ) ou Nome Completo (PF)
   nomeFantasia?: string;
+  nomeAdministrador?: string;
   emailFinanceiro: string;
   whatsapp: string;
   cidade?: string;
@@ -36,6 +38,10 @@ export interface RegisterCompanyInput {
   ciclo: CicloCobranca;
   modoInicio: 'TRIAL' | 'IMEDIATO';
   nrsIniciais: NrGlobalCatalogo[];
+  adicionaisIniciais?: string[];
+  cupomAplicado?: string | null;
+  descontoCupomCentavos?: number | null;
+  valorMensalOverrideCentavos?: number | null;
   modeloPadraoId?: string;
 }
 
@@ -44,31 +50,47 @@ export async function registerNewTenantCompany(
 ): Promise<EmpresaDoc> {
   const user = auth.currentUser;
   if (!user || !user.emailVerified) {
-    throw new Error('Faça login com uma conta verificada para criar sua empresa.');
+    throw new Error('Faça login com uma conta verificada para criar sua conta.');
   }
 
   const empresaId = `emp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   const now = serverTimestamp();
   const trialExpira = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const baseMensal =
+    typeof input.plano.precoPromocionalCentavos === 'number' &&
+    input.plano.precoPromocionalCentavos > 0
+      ? input.plano.precoPromocionalCentavos
+      : input.plano.precoMensalCentavos;
   const preco = calcularPrecoCicloCentavos(
-    input.plano.precoMensalCentavos,
+    baseMensal,
     input.ciclo,
     input.plano.descontoSemestral,
     input.plano.descontoAnual
   );
 
-  const prefixo = input.razaoSocial
-    .replace(/[^A-Za-z]/g, '')
-    .toUpperCase()
-    .slice(0, 4) || 'CERT';
+  const prefixo =
+    input.razaoSocial
+      .replace(/[^A-Za-z]/g, '')
+      .toUpperCase()
+      .slice(0, 4) || 'CERT';
+
+  const tipoPessoa: 'PF' | 'PJ' = input.tipoPessoa === 'PF' ? 'PF' : 'PJ';
+  const adminName = input.nomeAdministrador?.trim() || user.displayName || input.razaoSocial.trim();
 
   const empresaData = {
     ownerUid: user.uid,
+    tipoPessoa,
     cnpj: input.cnpj.trim(),
     razaoSocial: input.razaoSocial.trim(),
     nomeFantasia: input.nomeFantasia?.trim() || input.razaoSocial.trim(),
+    nomeAdministrador: adminName,
     emailFinanceiro: input.emailFinanceiro.trim().toLowerCase(),
     whatsapp: input.whatsapp.trim(),
+    cupomAplicado: input.cupomAplicado?.trim().toUpperCase() || null,
+    descontoCupomCentavos:
+      typeof input.descontoCupomCentavos === 'number' && input.descontoCupomCentavos > 0
+        ? Math.round(input.descontoCupomCentavos)
+        : null,
     endereco: null,
     cidade: input.cidade?.trim() || null,
     uf: input.uf?.trim().toUpperCase() || null,
@@ -85,27 +107,31 @@ export async function registerNewTenantCompany(
     planoId: input.plano.id,
     planoSlug: input.plano.slug,
     ciclo: input.ciclo,
-    valorMensalCentavos: preco.mensalEquivalenteCentavos,
+    valorMensalCentavos:
+      typeof input.valorMensalOverrideCentavos === 'number' &&
+      input.valorMensalOverrideCentavos >= 0
+        ? Math.round(input.valorMensalOverrideCentavos)
+        : preco.mensalEquivalenteCentavos,
     asaasCustomerId: null,
-    adicionaisAtivos: [] as string[],
+    adicionaisAtivos: Array.isArray(input.adicionaisIniciais) ? input.adicionaisIniciais : [],
     featureFlags: {},
     createdAt: now,
     updatedAt: now,
   };
 
   try {
-    // 1. Cria documento principal da empresa (tenant)
+    // 1. Cria documento principal da empresa / titular (tenant)
     await setDoc(doc(db, 'empresas', empresaId), empresaData);
 
     // 2. Cria membro ADMIN_EMPRESA na subcoleção RBAC (Master Gate)
     await setDoc(doc(db, 'empresas', empresaId, 'membros', user.uid), {
       uid: user.uid,
       empresaId,
-      nome: user.displayName || input.razaoSocial.trim(),
+      nome: adminName,
       email: user.email || input.emailFinanceiro.trim().toLowerCase(),
       perfil: 'ADMIN_EMPRESA',
       registroProfissional: null,
-      cargo: 'Administrador',
+      cargo: tipoPessoa === 'PF' ? 'Profissional Titular' : 'Administrador',
       ativo: true,
       createdAt: now,
     });
@@ -137,13 +163,15 @@ export async function registerNewTenantCompany(
     }
 
     // 4. Notifica o Super Admin em tempo real
+    const docLabel = tipoPessoa === 'PF' ? `CPF ${input.cnpj}` : `CNPJ ${input.cnpj}`;
+    const cupomLabel = input.cupomAplicado ? ` · Cupom ${input.cupomAplicado}` : '';
     await createAdminNotification({
       tipo: input.modoInicio === 'TRIAL' ? 'NOVO_TRIAL' : 'NOVA_VENDA',
       titulo:
         input.modoInicio === 'TRIAL'
           ? `Novo Trial 7 dias: ${input.razaoSocial}`
           : `Nova contratação: ${input.razaoSocial}`,
-      mensagem: `Plano ${input.plano.nome} (${input.ciclo}) · CNPJ ${input.cnpj} · Contato ${input.whatsapp}`,
+      mensagem: `Plano ${input.plano.nome} (${input.ciclo}) · ${docLabel} · Contato ${input.whatsapp}${cupomLabel}`,
       empresaId,
       empresaNome: input.razaoSocial,
     });

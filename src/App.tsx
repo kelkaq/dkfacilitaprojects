@@ -45,7 +45,26 @@ const DEFAULT_CHECKOUT_SELECTION: CheckoutSelection = {
   ciclo: 'ANUAL',
   modoInicio: 'TRIAL',
   adicionaisSlugs: [],
+  cupomCodigo: '',
 };
+
+function parseCheckoutSelectionFromQuery(): Partial<CheckoutSelection> {
+  const params = new URLSearchParams(window.location.search);
+  const plano = params.get('plano')?.trim();
+  const cupom = params.get('cupom')?.trim().toUpperCase();
+  const cicloRaw = params.get('ciclo')?.trim().toUpperCase();
+  const modoRaw = params.get('modo')?.trim().toUpperCase();
+  const patch: Partial<CheckoutSelection> = {};
+  if (plano) patch.planoSlug = plano;
+  if (cupom) patch.cupomCodigo = cupom;
+  if (cicloRaw === 'MENSAL' || cicloRaw === 'SEMESTRAL' || cicloRaw === 'ANUAL') {
+    patch.ciclo = cicloRaw;
+  }
+  if (modoRaw === 'TRIAL' || modoRaw === 'IMEDIATO') {
+    patch.modoInicio = modoRaw;
+  }
+  return patch;
+}
 
 function resolveRouteFromBrowser(): {
   view: AppView;
@@ -138,9 +157,10 @@ function AppRouter() {
     initialRoute.dossierToken
   );
 
-  const [checkoutSelection, setCheckoutSelection] = useState<CheckoutSelection>(
-    DEFAULT_CHECKOUT_SELECTION
-  );
+  const [checkoutSelection, setCheckoutSelection] = useState<CheckoutSelection>(() => ({
+    ...DEFAULT_CHECKOUT_SELECTION,
+    ...parseCheckoutSelectionFromQuery(),
+  }));
 
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);

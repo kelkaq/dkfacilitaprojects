@@ -109,13 +109,12 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
 
   const emittedAtFormatted = certificado.emitidoEm?.toDate
     ? certificado.emitidoEm.toDate().toLocaleString('pt-BR')
-    : `${certificado.dataRealizacaoIso} 17:00`;
+    : 'Horário não registrado';
 
-  const cartaCode = linkedCarta
-    ? buildCartaCode(linkedCarta.id)
-    : buildCartaCode(`${certificado.id}_${certificado.nrCodigo}`);
+  const cartaCode = linkedCarta ? buildCartaCode(linkedCarta.id) : null;
 
   const buildCartaPayload = () => {
+    if (!linkedCarta || !cartaCode) return null;
     const sigEmpresa = assinaturas.find((a) => a.tipo === 'EMPRESA' && a.ativa);
     const sigInstrutor = assinaturas.find((a) => a.tipo === 'INSTRUTOR' && a.ativa);
     const sigRt = assinaturas.find((a) => a.tipo === 'RT' && a.ativa);
@@ -139,28 +138,25 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
         assinaturaDataUrl: certificado.snapshotColaborador.assinaturaDataUrl || null,
       },
       carta: {
-        titulo:
-          linkedCarta?.titulo ||
-          `Autorização Formal para Atividades sob ${certificado.nrCodigo}`,
-        nrReferencia: linkedCarta?.nrReferencia || certificado.nrCodigo,
-        textoLegal:
-          linkedCarta?.textoLegal ||
-          `Declaramos, para os devidos fins legais e de fiscalização trabalhista, que o(a) colaborador(a) ${certificado.snapshotColaborador.nome}, portador(a) do CPF ${certificado.snapshotColaborador.cpf}, exercendo a função de ${certificado.snapshotColaborador.funcao}, concluiu com aproveitamento a capacitação normativa ${certificado.nrCodigo} (${certificado.treinamentoTitulo}), com carga horária de ${certificado.cargaHorariaHoras} horas, estando formalmente autorizado(a) pela empresa ${certificado.snapshotEmpresa.razaoSocial} a executar atividades inerentes à referida Norma Regulamentadora, observadas todas as medidas de controle e procedimentos internos de Segurança e Saúde no Trabalho.`,
+        titulo: linkedCarta.titulo,
+        nrReferencia: linkedCarta.nrReferencia,
+        textoLegal: linkedCarta.textoLegal,
         periodoRealizacao: certificado.dataRealizacaoIso,
         localRealizacao:
           turma?.localRealizacao ||
           certificado.contratoObraNome ||
           certificado.snapshotEmpresa.cidade ||
           'Unidade Operacional',
-        validadeIso: linkedCarta?.validadeIso || certificado.dataValidadeIso,
+        validadeIso: linkedCarta.validadeIso || certificado.dataValidadeIso,
         tstNome: certificado.snapshotEmpresa.instrutorNome || sigInstrutor?.nomeSignatario,
-        tstRegistro: certificado.snapshotEmpresa.instrutorRegistro || sigInstrutor?.registro || undefined,
+        tstRegistro:
+          certificado.snapshotEmpresa.instrutorRegistro || sigInstrutor?.registro || undefined,
         tstAssinaturaUrl:
           certificado.snapshotEmpresa.instrutorAssinaturaUrl || sigInstrutor?.imagemDataUrl || null,
         prepostoNome:
-          linkedCarta?.responsavelNome || sigEmpresa?.nomeSignatario || empresa.razaoSocial,
+          linkedCarta.responsavelNome || sigEmpresa?.nomeSignatario || empresa.razaoSocial,
         prepostoAssinaturaUrl:
-          linkedCarta?.assinaturaRespUrl || sigEmpresa?.imagemDataUrl || null,
+          linkedCarta.assinaturaRespUrl || sigEmpresa?.imagemDataUrl || null,
         rtNome: certificado.snapshotEmpresa.rtNome || sigRt?.nomeSignatario,
         rtRegistro: certificado.snapshotEmpresa.rtRegistro || sigRt?.registro || undefined,
         rtAssinaturaUrl:
@@ -170,13 +166,12 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
   };
 
   const handleOpenCarta = async () => {
+    const payload = buildCartaPayload();
+    if (!payload || !cartaCode) return;
     setBusyAction('carta');
     setActionError(null);
     try {
-      const res = await renderDocumentVectorHtml(
-        '/api/documents/render-carta-anuencia',
-        buildCartaPayload()
-      );
+      const res = await renderDocumentVectorHtml('/api/documents/render-carta-anuencia', payload);
       onOpenVectorDocument({
         title: `Carta de Anuência — ${cartaCode}`,
         subtitle: `${certificado.snapshotColaborador.nome} · ${certificado.nrCodigo}`,
@@ -218,7 +213,6 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
             nrCodigo: certificado.nrCodigo,
             cargaHorariaHoras: certificado.cargaHorariaHoras,
             dataRealizacaoIso: certificado.dataRealizacaoIso,
-            horarioOficial: '08:00 às 17:00',
             contratoObraNome: turma.contratoObraNome || certificado.contratoObraNome || 'Geral',
             localRealizacao: turma.localRealizacao || undefined,
             instrutorNome: certificado.snapshotEmpresa.instrutorNome,
@@ -239,7 +233,7 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
             totalQuestoes: linkedAttempt.totalQuestoes ?? questoes.length,
             dataHoraConclusao: linkedAttempt.concluidaEm?.toDate
               ? linkedAttempt.concluidaEm.toDate().toLocaleString('pt-BR')
-              : emittedAtFormatted,
+              : 'Horário não registrado',
             assinaturaDataUrl: linkedAttempt.assinaturaDataUrl || null,
             selfieDataUrl: linkedAttempt.selfieDataUrl || null,
           },
@@ -260,6 +254,7 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
         };
       }
 
+      const cartaPayload = buildCartaPayload();
       const res = await renderDocumentVectorHtml('/api/documents/render-pacote-auditoria', {
         certificado: {
           numeroCertificado: certificado.numeroCertificado,
@@ -276,12 +271,16 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
           snapshotConteudoLinhas: certificado.snapshotConteudoLinhas,
         },
         comprovante: comprovantePayload,
-        cartaAnuencia: buildCartaPayload(),
+        cartaAnuencia: cartaPayload,
       });
+
+      const parts = ['Certificado'];
+      if (comprovantePayload) parts.push('Comprovante EVD');
+      if (cartaPayload && cartaCode) parts.push(`Carta de Anuência ${cartaCode}`);
 
       onOpenVectorDocument({
         title: `Pacote Completo de Auditoria — ${certificado.numeroCertificado}`,
-        subtitle: `Certificado + ${comprovantePayload ? 'Comprovante EVD + ' : ''}Carta de Anuência ${cartaCode}`,
+        subtitle: parts.join(' + '),
         code: certificado.numeroCertificado,
         html: res.html,
       });
@@ -437,24 +436,29 @@ export const CertificateDetailsModal: React.FC<CertificateDetailsModalProps> = (
                 <div className="flex items-center gap-2">
                   <FileCheck2 className="w-4 h-4 text-[#3B82F6]" />
                   <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Carta de Anuência vinculada ({cartaCode})
+                    {linkedCarta && cartaCode
+                      ? `Carta de Anuência vinculada (${cartaCode})`
+                      : 'Pacote de Auditoria & Carta de Anuência'}
                   </h4>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Autorização formal com texto legal da {certificado.nrCodigo} e bloco de 4
-                  assinaturas (Funcionário Autorizado, TST, Preposto da Empresa e RT).
+                  {linkedCarta
+                    ? `Autorização formal emitida (${linkedCarta.nrReferencia}) vinculada ao colaborador com bloco de 4 assinaturas.`
+                    : 'Nenhuma Carta de Anuência emitida e vinculada a este certificado. Emita uma Carta no módulo "Cartas de Anuência" para incluí-la no pacote.'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={busyAction !== null}
-                  onClick={() => void handleOpenCarta()}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 dark:border-white/15 bg-white dark:bg-white/[0.05] text-xs font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-white/10 cursor-pointer disabled:opacity-50"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  {busyAction === 'carta' ? 'Gerando...' : 'Visualizar carta'}
-                </button>
+                {linkedCarta && (
+                  <button
+                    type="button"
+                    disabled={busyAction !== null}
+                    onClick={() => void handleOpenCarta()}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-slate-200 dark:border-white/15 bg-white dark:bg-white/[0.05] text-xs font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-white/10 cursor-pointer disabled:opacity-50"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    {busyAction === 'carta' ? 'Gerando...' : 'Visualizar carta'}
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={busyAction !== null}
