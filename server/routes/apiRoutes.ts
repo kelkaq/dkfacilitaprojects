@@ -29,7 +29,6 @@ import {
 import {
   generateSecureCode,
   hashPassword,
-  signJwtToken,
   verifyPassword,
 } from '../lib/security.ts';
 import { evaluateTenantAccess, type TenantPlanState } from '../middleware/tenantGuard.ts';
@@ -55,21 +54,8 @@ apiRouter.get('/api/health', (_req: Request, res: Response) => {
 // ----------------------------------------------------------------------------
 // 2. AUTENTICAÇÃO CRIPTOGRÁFICA (HASH SCRYPT + JWT MULTIEMPRESA)
 // ----------------------------------------------------------------------------
-apiRouter.post('/api/auth/session-token', (req: Request, res: Response) => {
-  const { userId, email, perfil, empresaId } = req.body ?? {};
-  if (!userId || !email || !perfil) {
-    res.status(400).json({ error: 'userId, email e perfil são obrigatórios.' });
-    return;
-  }
-
-  const token = signJwtToken({
-    userId: String(userId),
-    email: String(email),
-    perfil,
-    empresaId: empresaId ? String(empresaId) : null,
-  });
-
-  res.json({ token, tokenType: 'Bearer', expiresInSeconds: 60 * 60 * 24 * 7 });
+apiRouter.post('/api/auth/session-token', (_req: Request, res: Response) => {
+  res.status(410).json({ error: 'Emissão de sessão desativada até a autenticação ser verificada no servidor.' });
 });
 
 apiRouter.post('/api/auth/hash-password', (req: Request, res: Response) => {

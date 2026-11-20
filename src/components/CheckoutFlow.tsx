@@ -134,7 +134,6 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
 
   const [createdEmpresa, setCreatedEmpresa] = useState<EmpresaDoc | null>(null);
   const [createdFatura, setCreatedFatura] = useState<FaturaDoc | null>(null);
-  const [sessionTokenIssued, setSessionTokenIssued] = useState(false);
 
   const selectedPlano = useMemo(() => {
     if (!catalog || catalog.planos.length === 0) return null;
@@ -376,20 +375,6 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
 
       if (appliedCupom) {
         await incrementCupomUso(appliedCupom.id);
-      }
-
-      const jwtRes = await fetch('/api/auth/session-token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: currentUser.uid,
-          email: email || currentUser.email,
-          perfil: 'ADMIN_EMPRESA',
-          empresaId: empresa.id,
-        }),
-      });
-      if (jwtRes.ok) {
-        setSessionTokenIssued(true);
       }
 
       setCreatedEmpresa(empresa);
@@ -1386,12 +1371,6 @@ export const CheckoutFlow: React.FC<CheckoutFlowProps> = ({
                 <dt className="text-slate-500 dark:text-slate-400">Status</dt>
                 <dd className="font-semibold text-emerald-700 dark:text-emerald-400">
                   {createdEmpresa.status}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500 dark:text-slate-400">Sessão Autenticada</dt>
-                <dd className="text-slate-900 dark:text-slate-200">
-                  {sessionTokenIssued ? 'Ativa (JWT + Administrador)' : 'Ativa'}
                 </dd>
               </div>
             </dl>
