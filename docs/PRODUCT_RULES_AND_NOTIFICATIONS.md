@@ -158,4 +158,6 @@ A API de usuários da empresa agora lista membros e convites pendentes, reserva 
 
 O login PostgreSQL agora limita dez tentativas inválidas por par IP/e-mail a cada quinze minutos. A proteção atual fica em memória de um processo; antes de escalar horizontalmente, mover a contagem para armazenamento compartilhado e incluir proteção de borda. Na VPS, o Apache deverá encaminhar o IP real somente a partir do proxy local confiável.
 
+`GET /api/tenant/access` agora deriva bloqueio e limites da empresa, assinatura, plano e contagens reais no PostgreSQL usando a empresa da sessão autenticada. A rota antiga, que aceitava estado de plano arbitrário do navegador, segue fechada. Esta consulta ainda não substituiu os guards da interface e das operações legadas do Firebase.
+
 Referências oficiais consultadas: https://www.mercadopago.com.br/developers/pt/reference/online-payments/subscriptions/create-preapproval/post ; https://www.mercadopago.com.br/developers/pt/docs/subscriptions/subscription-management ; https://www.mercadopago.com.br/developers/pt/docs/subscriptions/additional-content/your-integrations/notifications/webhooks ; https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/websites/pix .

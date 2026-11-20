@@ -38,6 +38,7 @@ import { orderRouter } from './orderRoutes.ts';
 import { mercadoPagoWebhookRouter } from './mercadoPagoWebhookRoutes.ts';
 import { passwordResetRouter } from './passwordResetRoutes.ts';
 import { tenantUsersRouter } from './tenantUsersRoutes.ts';
+import { tenantAccessRouter } from './tenantAccessRoutes.ts';
 
 export const apiRouter = Router();
 const loginAttempts = new Map<string, { count: number; until: number }>();
@@ -45,6 +46,7 @@ apiRouter.use(orderRouter);
 apiRouter.use(mercadoPagoWebhookRouter);
 apiRouter.use(passwordResetRouter);
 apiRouter.use(tenantUsersRouter);
+apiRouter.use(tenantAccessRouter);
 
 // ----------------------------------------------------------------------------
 // 1. HEALTH CHECK & RUNTIME CAPABILITIES

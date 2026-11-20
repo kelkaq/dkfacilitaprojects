@@ -81,6 +81,9 @@ try {
   const { token } = await login.json() as { token: string };
   const me = () => fetch(`${base}/api/auth/me`, { headers: { authorization: `Bearer ${token}` } });
   assert.equal((await me()).status, 200);
+  const noSubscription = await fetch(`${base}/api/tenant/access`, { headers: { authorization: `Bearer ${token}` } });
+  assert.equal(noSubscription.status, 200);
+  assert.equal((await noSubscription.json() as { permitido: boolean }).permitido, false);
 
   const mediaAsTenant = await fetch(`${base}/api/cms/upload-media`, {
     method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },

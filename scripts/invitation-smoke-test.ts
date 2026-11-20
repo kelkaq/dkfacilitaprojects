@@ -63,7 +63,16 @@ try {
   const body = await list.json() as { users: unknown[]; limiteUsuarios: number };
   assert.equal(body.users.length, 2);
   assert.equal(body.limiteUsuarios, 2);
-  process.stdout.write('Convites passaram: cota com pendentes, aceite único e dois usuários da empresa.\n');
+  const access = () => fetch(`${base}/api/tenant/access`, { headers: { authorization: `Bearer ${jwt}` } });
+  const active = await access();
+  assert.equal(active.status, 200);
+  const activeBody = await active.json() as { permitido: boolean; limites: { usuariosAtuais: number; limiteUsuarios: number } };
+  assert.equal(activeBody.permitido, true);
+  assert.equal(activeBody.limites.usuariosAtuais, 2);
+  assert.equal(activeBody.limites.limiteUsuarios, 2);
+  await db.empresa.update({ where: { id: company.id }, data: { status: 'SUSPENSA' } });
+  assert.equal((await access().then((response) => response.json()) as { permitido: boolean }).permitido, false);
+  process.stdout.write('Convites e acesso passaram: cota, aceite único e bloqueio pela empresa no banco.\n');
 } finally {
   globalThis.fetch = nativeFetch;
   if (companyId) await db.empresa.delete({ where: { id: companyId } });
