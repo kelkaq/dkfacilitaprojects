@@ -123,6 +123,12 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 - `npm run lint`, `npm run build` e o smoke de pedido/reconciliação foram executados no staging; o serviço reiniciou, permaneceu ativo e a health API respondeu `200`. O checkout público em produção segue fechado (`/api/public/offers` = `503`); `csdk.service` e `dk-solucoes.service` seguem ativos. Nenhuma cobrança produtiva foi iniciada.
 - A auditoria de dependências foi repetida: ainda existem 9 vulnerabilidades altas em `@grpc/grpc-js` via Firebase, dependências de Prisma 6 e `xlsx`; `xlsx` não tem correção disponível no registry e as outras recomendações automáticas exigem versões principais incompatíveis. A substituição/atualização exige migração e testes próprios, não uma atualização forçada em produção.
 
+## Sincronização da versão validada na produção — 21/11/2026
+
+- O código validado no staging, até `c992ac6`, foi sincronizado para `/var/www/csdk-production`. Backup anterior salvo e validado em `/root/csdk-cutover-20261121T145855Z/csdk-production-before-38a9ca5.tar.gz` com modo `600`; `.env`, `node_modules` e `storage` foram preservados e não sobrescritos.
+- O banco `csdk_prod_db` já estava com as 9 migrations em dia. `npm run lint` e `npm run build` passaram no diretório de produção; `csdk.service` reiniciou e permanece ativo. `https://dkfacilita.com/api/health` respondeu `200`, `/api/public/offers` continua `503` e `dk-solucoes.service` continua ativo.
+- A implantação não abre vendas. A homologação de pagamento com comprador de teste e webhook recebido, a configuração da aplicação no painel Mercado Pago e o e-mail real de primeiro acesso ainda precisam ser concluídos antes de ativar a vitrine.
+
 ## Correção de texto da vitrine — 21/11/2026
 
 - Commit `29dd76c` troca a descrição técnica persistida no CMS da seção de preços por uma chamada comercial. O Super Admin continua editando os textos em “Site & Campanhas”; uma dica no campo orienta escrever benefícios para o cliente. Descrições antigas que falam de checkout ou de funções “em implantação” são substituídas visualmente pela chamada comercial.
