@@ -69,8 +69,13 @@ export async function provisionAuthorizedSubscription(input: {
         (order.mercadoPagoId && order.mercadoPagoId !== subscription.id)) throw new Error('MP_ORDER_STATE');
     const trial = order.modoInicio === 'TRIAL';
     const freeTrial = recurring.free_trial ?? plan?.auto_recurring?.free_trial;
+    if (order.oferta.trialDias !== (trial ? 7 : 0)) throw new Error('MP_TRIAL_CONFIG_MISMATCH');
     if (trial && (order.oferta.mercadoPagoPlanId !== subscription.preapproval_plan_id ||
         plan?.status !== 'active' || plan.id !== subscription.preapproval_plan_id ||
+        plan.auto_recurring?.frequency !== (order.ciclo === 'MENSAL' ? 1 : order.ciclo === 'SEMESTRAL' ? 6 : 12) ||
+        plan.auto_recurring.frequency_type !== 'months' || plan.auto_recurring.currency_id !== 'BRL' ||
+        Math.round((plan.auto_recurring.transaction_amount ?? 0) * 100) !== order.totalCentavos ||
+        plan.auto_recurring.free_trial?.frequency !== 7 || plan.auto_recurring.free_trial.frequency_type !== 'days' ||
         freeTrial?.frequency !== 7 || freeTrial.frequency_type !== 'days' || !subscription.card_id)) {
       throw new Error('MP_TRIAL_NOT_AUTHORIZED');
     }
