@@ -48,6 +48,8 @@ let orderCreated = false;
 let subscriptionId: string | null = null;
 let empresaId: string | null = null;
 let originalOfferActive = false;
+let planDbId: string | null = null;
+let originalPlanActive = false;
 const eventIds: string[] = [];
 let server: ReturnType<express.Application['listen']> | null = null;
 let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
@@ -66,11 +68,13 @@ function signedRequest(base: string, topic: string, resourceId: string, provider
 
 try {
   const offer = await db.planoOferta.findUnique({ where: { mercadoPagoPlanId: planId }, include: { plano: true } });
-  if (!offer || offer.ambiente !== 'TEST' || offer.trialDias !== 7 || !offer.plano.ativo || offer.totalCentavos < 100) {
+  if (!offer || offer.ambiente !== 'TEST' || offer.trialDias !== 7 || offer.totalCentavos < 100) {
     throw new Error('Oferta TEST de sete dias não corresponde ao plano privado esperado.');
   }
   offerId = offer.id;
   originalOfferActive = offer.ativa;
+  planDbId = offer.planoId;
+  originalPlanActive = offer.plano.ativo;
   if (await db.usuario.findUnique({ where: { email: buyerEmail } }) ||
       await db.empresa.findUnique({ where: { documento: documentNumber } }) ||
       await db.usoTrial.findUnique({ where: { documento: documentNumber } })) {
@@ -83,6 +87,7 @@ try {
   assert.equal(plan.auto_recurring?.free_trial?.frequency, 7);
   assert.equal(plan.auto_recurring?.free_trial?.frequency_type, 'days');
 
+  if (!originalPlanActive) await db.plano.update({ where: { id: offer.planoId }, data: { ativo: true } });
   await db.planoOferta.update({ where: { id: offer.id }, data: { ativa: true } });
   await db.pedido.create({ data: {
     id: orderId, planoId: offer.planoId, ofertaId: offer.id, tipoDocumento: 'PF', documento: documentNumber,
@@ -201,5 +206,6 @@ try {
   }
   if (orderCreated) await db.pedido.deleteMany({ where: { id: orderId } });
   if (offerId) await db.planoOferta.update({ where: { id: offerId }, data: { ativa: originalOfferActive } });
+  if (planDbId) await db.plano.update({ where: { id: planDbId }, data: { ativo: originalPlanActive } });
   await db.$disconnect();
 }
