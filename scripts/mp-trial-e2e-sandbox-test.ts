@@ -138,19 +138,18 @@ try {
   await page.waitForFunction(() => (window as unknown as { mpReady?: boolean }).mpReady === true, { timeout: 30_000 });
 
   await page.waitForFunction(() => document.querySelector('#form-checkout__cardNumber iframe') !== null, { timeout: 20_000 });
-  const secureFrame = page.frames().find((frame) => frame.name() === 'cardNumber') ??
-    (() => { throw new Error('Campos seguros do cartão indisponíveis.'); })();
-  async function enterSecureField(name: string, value: string) {
-    const input = await secureFrame.waitForSelector(`input[name="${name}"]`, { timeout: 10_000 });
+  async function enterSecureField(frameName: string, inputName: string, value: string) {
+    const secureFrame = page.frames().find((frame) => frame.name() === frameName);
+    if (!secureFrame) throw new Error('Campo seguro do cartão indisponível.');
+    const input = await secureFrame.waitForSelector(`input[name="${inputName}"]`, { timeout: 10_000 });
     if (!input) throw new Error('Campo seguro do cartão ausente.');
     await input.type(value, { delay: 15 });
     return await input.evaluate((element) => element.value.length);
   }
   const fieldLengths = {
-    cardNumber: await enterSecureField('cardNumber', '4235647728025682'),
-    expirationMonth: await enterSecureField('expirationMonth', '11'),
-    expirationYear: await enterSecureField('expirationYear', '30'),
-    securityCode: await enterSecureField('securityCode', '123'),
+    cardNumber: await enterSecureField('cardNumber', 'cardNumber', '4235647728025682'),
+    expirationDate: await enterSecureField('expirationDate', 'expirationDate', '11/30'),
+    securityCode: await enterSecureField('securityCode', 'securityCode', '123'),
   };
   await page.type('#form-checkout__cardholderName', 'APRO');
   await page.select('#form-checkout__identificationType', 'CPF');
