@@ -127,7 +127,7 @@ try {
   let tokenResponse: { status: number; error?: string; message?: string; causes?: string[] } | null = null;
   page.on('response', async (response) => {
     try {
-      if (new URL(response.url()).pathname === '/v1/card_tokens') {
+      if (new URL(response.url()).pathname.includes('card_tokens')) {
         const body = await response.json() as { error?: unknown; message?: unknown; cause?: Array<{ code?: unknown }> };
         tokenResponse = { status: response.status(),
           error: typeof body.error === 'string' ? body.error : undefined,
@@ -202,7 +202,7 @@ try {
       amountCentavos: offer.totalCentavos,
     });
   } catch {
-    throw new Error(`Mercado Pago recusou a assinatura TEST: ${JSON.stringify(subscriptionResponse ?? {})}.`);
+    throw new Error(`Mercado Pago recusou a assinatura TEST: ${JSON.stringify(subscriptionResponse ?? {})}; tokenização:${JSON.stringify(tokenResponse ?? {})}.`);
   } finally {
     globalThis.fetch = originalFetch;
     originalFetch = null;
