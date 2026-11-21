@@ -69,6 +69,11 @@ export const EMPTY_SITE_CMS_CONFIG: SiteCmsConfigDoc = {
   },
   carrosselSlides: [],
   cardsPromocionais: [],
+  secaoPlanos: {
+    etiqueta: 'Planos para sua empresa',
+    titulo: 'A solução ideal para a sua equipe',
+    descricao: 'Organize treinamentos, avaliações e certificados da sua empresa em um só lugar. Escolha o plano que acompanha o tamanho da sua operação.',
+  },
 };
 
 export async function uploadCmsMediaFile(file: File): Promise<string> {
@@ -123,6 +128,10 @@ export async function fetchSiteCmsConfig(): Promise<SiteCmsConfigDoc> {
       cardsPromocionais: Array.isArray(data.cardsPromocionais)
         ? [...data.cardsPromocionais].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
         : [],
+      secaoPlanos: {
+        ...EMPTY_SITE_CMS_CONFIG.secaoPlanos,
+        ...(data.secaoPlanos || {}),
+      },
       updatedAt: data.updatedAt ?? null,
     };
   } catch (error) {
@@ -172,6 +181,11 @@ export async function saveSiteCmsConfig(config: SiteCmsConfigDoc): Promise<SiteC
       ativo: Boolean(c.ativo),
       ordem: idx + 1,
     })),
+    secaoPlanos: {
+      etiqueta: (config.secaoPlanos.etiqueta || '').trim().slice(0, 80),
+      titulo: (config.secaoPlanos.titulo || '').trim().slice(0, 140),
+      descricao: (config.secaoPlanos.descricao || '').trim().slice(0, 320),
+    },
     updatedAt: serverTimestamp(),
   };
 

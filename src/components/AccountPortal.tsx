@@ -120,6 +120,18 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
     setBusy(false);
   };
 
+  const cancelTrial = async () => {
+    if (!window.confirm('Cancelar o período de teste agora? O Mercado Pago deixará de cobrar e o acesso desta empresa será encerrado.')) return;
+    setBusy(true); setError(''); setNotice('');
+    try {
+      const response = await api('/api/tenant/access/cancel-trial', { method: 'POST', body: JSON.stringify({}) });
+      if (!response.ok) throw new Error(await message(response));
+      setNotice('Período de teste cancelado. Não haverá cobrança após o teste.');
+      await loadTeam();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível cancelar o período de teste.'); }
+    finally { setBusy(false); }
+  };
+
   const saveSettings = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!settings) return;
@@ -203,6 +215,10 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{access?.permitido ?
               `${access.limites?.usuariosAtuais ?? 0} de ${access.limites?.limiteUsuarios ?? 0} usuários ativos` :
               access?.motivo ?? 'Acesso em verificação.'}</p>
+            {me?.perfil === 'ADMIN_EMPRESA' && access?.status === 'TRIAL' && <div className="mt-4 border-t border-slate-200 pt-4 dark:border-white/10">
+              <p className="text-sm text-slate-600 dark:text-slate-300">Seu teste está vinculado ao Mercado Pago. Você pode cancelar aqui antes da primeira cobrança.</p>
+              <button type="button" disabled={busy} onClick={() => void cancelTrial()} className="mt-3 rounded-xl border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-400/30 dark:text-red-300 dark:hover:bg-red-500/10">{busy ? 'Processando...' : 'Cancelar período de teste'}</button>
+            </div>}
           </div>
           {settings && <section className="rounded-2xl border border-slate-200 dark:border-white/10 p-5 sm:p-6">
             <div className="mb-5 flex flex-wrap items-start justify-between gap-3">

@@ -821,14 +821,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="max-w-xl">
             <p className="text-xs font-semibold uppercase tracking-wider text-[#1D4ED8] dark:text-blue-400">
-              Planos Certifica Software - DK
+              {cms.secaoPlanos.etiqueta}
             </p>
             <h2 className="mt-1.5 text-2xl sm:text-3xl font-bold tracking-tight dk-gradient-title">
-              Preços transparentes por porte da sua operação
+              {cms.secaoPlanos.titulo}
             </h2>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Preços e disponibilidade vêm do checkout do Mercado Pago. O pagamento recorrente é feito
-              com cartão; Pix e múltiplos cartões ainda estão em implantação.
+              {cms.secaoPlanos.descricao}
             </p>
           </div>
 

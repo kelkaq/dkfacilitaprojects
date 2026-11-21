@@ -440,6 +440,7 @@ export interface SiteCmsConfigDoc {
   faixaTopo: CmsTopBarConfig;
   carrosselSlides: CmsHeroSlide[];
   cardsPromocionais: CmsPromoCard[];
+  secaoPlanos: { etiqueta: string; titulo: string; descricao: string };
   updatedAt?: Timestamp | null;
 }
 

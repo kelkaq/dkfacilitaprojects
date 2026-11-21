@@ -3,8 +3,42 @@ import { getPrisma } from '../lib/prisma.ts';
 import { requireDatabaseAuth } from '../middleware/databaseAuth.ts';
 import { evaluateTenantAccess } from '../middleware/tenantGuard.ts';
 import { effectiveTenantLimits } from '../lib/tenantLimits.ts';
+import { MercadoPagoSubscriptions } from '../services/mercadoPagoSubscriptions.ts';
+import { syncSubscriptionStatus } from '../services/mercadoPagoReconciliation.ts';
 
 export const tenantAccessRouter = Router();
+
+tenantAccessRouter.post('/api/tenant/access/cancel-trial', requireDatabaseAuth, async (_req: Request, res: Response) => {
+  const user = res.locals.authUser;
+  if (user?.perfil !== 'ADMIN_EMPRESA' || !user.empresaId) {
+    res.status(403).json({ error: 'Somente o administrador da empresa pode cancelar o período de teste.' });
+    return;
+  }
+  const environment = process.env.CSDK_PAYMENT_ENVIRONMENT;
+  const token = environment === 'TEST' ? process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN :
+    environment === 'PRODUCTION' ? process.env.MERCADO_PAGO_ACCESS_TOKEN : undefined;
+  if (!token) { res.status(503).json({ error: 'Cancelamento temporariamente indisponível.' }); return; }
+  try {
+    const db = getPrisma();
+    const subscription = await db.assinatura.findFirst({
+      where: { empresaId: user.empresaId, status: 'TRIAL' }, orderBy: { createdAt: 'desc' },
+    });
+    if (!subscription?.mercadoPagoId) {
+      res.status(409).json({ error: 'Não há um período de teste ativo para cancelar.' });
+      return;
+    }
+    const cancelled = await new MercadoPagoSubscriptions(token).cancelSubscription(subscription.mercadoPagoId);
+    if (cancelled.status !== 'cancelled' && cancelled.status !== 'canceled') {
+      res.status(502).json({ error: 'O Mercado Pago não confirmou o cancelamento.' });
+      return;
+    }
+    await syncSubscriptionStatus({ db, subscription: cancelled });
+    res.json({ status: 'CANCELADA', mensagem: 'Período de teste cancelado. Não haverá cobrança após o teste.' });
+  } catch (error) {
+    console.error('Falha ao cancelar período de teste:', error instanceof Error ? error.message : 'erro desconhecido');
+    res.status(503).json({ error: 'Não foi possível cancelar agora. Tente novamente ou contate o suporte.' });
+  }
+});
 
 tenantAccessRouter.get('/api/tenant/access', requireDatabaseAuth, async (_req: Request, res: Response) => {
   const empresaId = res.locals.authUser?.empresaId;

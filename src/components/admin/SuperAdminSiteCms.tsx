@@ -550,7 +550,7 @@ export const SuperAdminSiteCms: React.FC<SuperAdminSiteCmsProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-bold text-slate-900 dark:text-white">
-                    4. Planos, Preços Promocionais ("De/Por") & Selos
+                    4. Texto da seção e ofertas dos planos
                   </span>
                   <StatusPill state={activePromosCount > 0 ? 'ATIVO' : 'INATIVO'} />
                 </div>
@@ -1369,11 +1369,34 @@ export const SuperAdminSiteCms: React.FC<SuperAdminSiteCmsProps> = ({
               <div className="pb-3 border-b border-slate-200 dark:border-white/10">
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Tag className="w-4 h-4 text-blue-500" />
-                  Preços Promocionais ("De / Por") e Selos nos Planos
+                  Texto comercial, preços e selos dos planos
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                  Deixe o Preço Promocional em branco para exibir apenas o preço normal.
+                  Edite aqui a chamada que aparece acima dos planos e, abaixo, configure ofertas específicas.
                 </p>
+              </div>
+
+              <div className="rounded-xl border border-blue-200 dark:border-blue-400/20 bg-blue-50/60 dark:bg-blue-400/[0.04] p-4 space-y-3">
+                <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100">Chamada exibida na página inicial</h4>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">Texto pequeno acima do título
+                  <input maxLength={80} value={cms.secaoPlanos.etiqueta} onChange={(event) => setCms((current) => ({ ...current,
+                    secaoPlanos: { ...current.secaoPlanos, etiqueta: event.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-sm text-slate-900 dark:text-white" />
+                </label>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">Título
+                  <input maxLength={140} value={cms.secaoPlanos.titulo} onChange={(event) => setCms((current) => ({ ...current,
+                    secaoPlanos: { ...current.secaoPlanos, titulo: event.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-sm text-slate-900 dark:text-white" />
+                </label>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">Descrição comercial
+                  <textarea rows={3} maxLength={320} value={cms.secaoPlanos.descricao} onChange={(event) => setCms((current) => ({ ...current,
+                    secaoPlanos: { ...current.secaoPlanos, descricao: event.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-sm text-slate-900 dark:text-white" />
+                </label>
+                <button type="button" disabled={saving} onClick={() => void handleSaveCms()}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#3B82F6] text-white text-xs font-semibold disabled:opacity-50">
+                  <Save className="w-4 h-4" />{saving ? 'Salvando...' : 'Salvar textos da página inicial'}
+                </button>
               </div>
 
               <div className="space-y-4 max-h-[540px] overflow-y-auto pr-1">
