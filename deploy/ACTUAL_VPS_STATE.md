@@ -129,6 +129,13 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 - O banco `csdk_prod_db` já estava com as 9 migrations em dia. `npm run lint` e `npm run build` passaram no diretório de produção; `csdk.service` reiniciou e permanece ativo. `https://dkfacilita.com/api/health` respondeu `200`, `/api/public/offers` continua `503` e `dk-solucoes.service` continua ativo.
 - A implantação não abre vendas. A homologação de pagamento com comprador de teste e webhook recebido, a configuração da aplicação no painel Mercado Pago e o e-mail real de primeiro acesso ainda precisam ser concluídos antes de ativar a vitrine.
 
+## Correção de dependências e planilhas — 21/11/2026
+
+- O commit `5fd575d` foi sincronizado para staging e produção. `xlsx` foi removido por não haver importação com essa biblioteca; as duas exportações simples agora geram `.xlsx` a partir do JSZip já utilizado, e o CSV protege fórmulas iniciadas por `=`, `+`, `-` ou `@`. O lockfile Bun e o lockfile npm foram atualizados.
+- `@grpc/grpc-js` ficou fixado em `1.13.6`, versão corrigida e compatível com a dependência Firebase atual. `npm audit --omit=dev` caiu de 8 para 4 vulnerabilidades altas; as quatro restantes vêm de `deepmerge-ts`/`effect` em Prisma 6 e requerem a migração testada para Prisma 7. Nenhuma atualização forçada foi aplicada.
+- Passaram lint, build, contrato XLSX/CSV, contrato Mercado Pago e smoke de pedido com trial/reconciliação no staging. O banco de produção manteve as 9 migrations em dia. `dkfacilita.com` responde `200`, `/api/admin/commerce` sem sessão responde `401`, `/api/public/offers` segue `503`; os serviços CSDK, staging e DK Soluções permanecem ativos.
+- Backup de produção anterior a esse deploy: `/root/csdk-cutover-20261121T145855Z/csdk-production-before-5fd575d.tar.gz` (`600`). As vendas públicas continuam fechadas até homologar uma compra TEST real, webhook e e-mail de primeiro acesso.
+
 ## Correção de texto da vitrine — 21/11/2026
 
 - Commit `29dd76c` troca a descrição técnica persistida no CMS da seção de preços por uma chamada comercial. O Super Admin continua editando os textos em “Site & Campanhas”; uma dica no campo orienta escrever benefícios para o cliente. Descrições antigas que falam de checkout ou de funções “em implantação” são substituídas visualmente pela chamada comercial.
