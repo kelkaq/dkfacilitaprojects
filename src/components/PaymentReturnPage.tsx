@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, LoaderCircle, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle2, CreditCard, LoaderCircle, RefreshCw, XCircle } from 'lucide-react';
 import { ThemeToggleButton } from './ThemeProvider.tsx';
 
 type OrderStatus = 'CARRINHO' | 'AGUARDANDO_DADOS' | 'AGUARDANDO_CARTAO' | 'AGUARDANDO_PAGAMENTO' |
@@ -16,7 +16,27 @@ export const PaymentReturnPage: React.FC = () => {
   })[0];
   const [status, setStatus] = useState<OrderStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState('');
+
+  const retryPayment = useCallback(async () => {
+    if (!orderId || !/^[0-9a-f-]{36}$/i.test(orderId)) return;
+    setRetrying(true);
+    setError('');
+    try {
+      const response = await fetch(`/api/public/orders/${encodeURIComponent(orderId)}/checkout`, { method: 'POST', cache: 'no-store' });
+      const body = await response.json().catch(() => ({})) as { checkoutUrl?: string; error?: string; processing?: boolean };
+      if (!response.ok) throw new Error(body.error || 'Não foi possível reabrir o pagamento.');
+      if (!body.checkoutUrl || !/^https:\/\/(www\.)?mercadopago\.com(\.br|\.ar)?\//.test(body.checkoutUrl)) {
+        throw new Error(body.processing ? 'O pagamento está sendo preparado. Aguarde um instante e consulte novamente.' : 'Não foi possível reabrir o pagamento.');
+      }
+      window.location.assign(body.checkoutUrl);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Não foi possível reabrir o pagamento.');
+    } finally {
+      setRetrying(false);
+    }
+  }, [orderId]);
 
   const refreshStatus = useCallback(async (signal?: AbortSignal): Promise<OrderStatus | null> => {
     if (!orderId) { setError(''); setLoading(false); return null; }
@@ -77,6 +97,7 @@ export const PaymentReturnPage: React.FC = () => {
             : 'O Mercado Pago ainda está confirmando o pagamento. Esta página atualiza o status automaticamente; o acesso só será liberado depois da confirmação.'}
         </p>
         {status && !succeeded && !failed && <button type="button" onClick={() => { setLoading(true); void refreshStatus(); }} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold dark:border-white/10"><RefreshCw className="h-4 w-4" /> Consultar novamente</button>}
+        {status && !succeeded && !failed && <button type="button" disabled={retrying} onClick={() => void retryPayment()} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"><CreditCard className="h-4 w-4" />{retrying ? 'Abrindo pagamento...' : 'Voltar ao pagamento'}</button>}
         <div className="mt-8 flex flex-wrap gap-3"><a href="/acesso" className="rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800">Ir para o acesso</a><a href="/" className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold dark:border-white/10">Voltar ao site</a></div>
       </section>
     </main>
