@@ -11,6 +11,7 @@ async function startServer() {
   const app = express();
   app.set('trust proxy', 'loopback');
   const port = Number(process.env.PORT) || 3000;
+  const host = process.env.HOST || '0.0.0.0';
 
   app.use(express.json({ limit: '25mb' }));
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));
@@ -33,8 +34,8 @@ async function startServer() {
     });
   }
 
-  app.listen(port, '0.0.0.0', () => {
-    console.log(`DK Facilita API & App rodando em http://0.0.0.0:${port}`);
+  app.listen(port, host, () => {
+    console.log(`DK Facilita API & App rodando em http://${host}:${port}`);
   });
 }
 

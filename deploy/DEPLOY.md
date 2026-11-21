@@ -25,6 +25,8 @@ sudo -u dkapp npm run lint
 sudo -u dkapp npm run build
 ```
 
+O serviço de homologação roda exclusivamente em `127.0.0.1:3010` atrás de eventual proxy configurado à parte. O serviço público deve usar seu próprio unit, `HOST=127.0.0.1`, porta local distinta e um virtual host HTTPS explicitamente validado.
+
 O editor de modelos próprios usa o mesmo fluxo visual do CertificaNR: o PowerPoint da empresa é renderizado como fundo, os campos variáveis são posicionados num editor por tenant, e o certificado final é montado em HTML/CSS e impresso em PDF por Chromium headless. Na VPS, a importação precisa de `libreoffice-impress` e `poppler-utils`; a prévia e a emissão precisam do Google Chrome estável. O pacote Chromium do Ubuntu instala um snap que não pode ser iniciado pelo usuário `dkapp`, por isso o caminho configurado é `/usr/bin/google-chrome`. Configure também `CSDK_LIBREOFFICE_PATH` e `CSDK_PDFTOPPM_PATH` no ambiente protegido do CSDK. O desenho do PPTX fica preservado como fundo rasterizado; os campos de dados são configurados por cima, sem prometer edição automática dos vetores do arquivo.
 
 Para preparar uma VPS nova, instale os componentes do sistema antes de iniciar o serviço:
