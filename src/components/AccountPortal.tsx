@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, ImageUp, LockKeyhole, Mail, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { ThemeToggleButton } from './ThemeProvider.tsx';
 
-type PortalView = 'login' | 'reset' | 'invite' | 'team';
+type PortalView = 'login' | 'reset' | 'invite' | 'team' | 'workspace';
 type User = { id: string; nome: string; email: string; perfil: string; ativo: boolean };
 type Invite = { id: string; email: string; perfil: string; expiraEm: string };
 type Team = { users: User[]; invites: Invite[]; limiteUsuarios: number };
@@ -77,7 +77,7 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
         if (!response.ok) throw new Error(await message(response));
         const result = await response.json() as { authenticated?: boolean };
         if (!result.authenticated) throw new Error('O acesso pelo navegador ainda não está configurado neste ambiente.');
-        window.location.assign('/minha-conta');
+        window.location.assign('/workspace');
       } else if (view === 'reset') {
         if (token) {
           const response = await api('/api/auth/password-reset/confirm', { method: 'POST',
@@ -182,7 +182,7 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
     <header className="border-b border-slate-200 dark:border-white/10 bg-white/80 dark:bg-slate-950/80 px-6 py-4">
       <div className="mx-auto max-w-5xl flex items-center justify-between">
         <a href="/" className="flex items-center gap-2 text-sm font-bold"><ShieldCheck className="h-5 w-5 text-blue-600" /> Certifica Software - DK</a>
-        <ThemeToggleButton compact />
+        <div className="flex items-center gap-3">{view === 'team' && <a href="/workspace" className="text-sm font-semibold text-blue-700 dark:text-blue-400">Abrir painel</a>}<ThemeToggleButton compact /></div>
       </div>
     </header>
     <main className={`mx-auto px-5 py-12 ${view === 'team' ? 'max-w-5xl' : 'max-w-md'}`}>

@@ -25,6 +25,7 @@ import { PublicExamPortal } from './components/client/PublicExamPortal.tsx';
 import { PublicDossierView } from './components/client/PublicDossierView.tsx';
 import { SuperAdminApp } from './components/admin/SuperAdminApp.tsx';
 import { AccountPortal } from './components/AccountPortal.tsx';
+import { PostgresWorkspaceApp } from './components/PostgresWorkspaceApp.tsx';
 
 type AppView =
   | 'SITE'
@@ -555,11 +556,11 @@ function AppRouter() {
 
 export default function App() {
   const accountPaths = { '/acesso': 'login', '/entrar': 'login', '/login': 'login', '/resetar-senha': 'reset',
-    '/aceitar-convite': 'invite', '/minha-conta': 'team' } as const;
+    '/aceitar-convite': 'invite', '/minha-conta': 'team', '/workspace': 'workspace' } as const;
   const portalView = accountPaths[window.location.pathname as keyof typeof accountPaths];
   return (
     <ThemeProvider>
-      {portalView ? <AccountPortal view={portalView} /> : <AppRouter />}
+      {portalView === 'workspace' ? <PostgresWorkspaceApp /> : portalView ? <AccountPortal view={portalView} /> : <AppRouter />}
     </ThemeProvider>
   );
 }

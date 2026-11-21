@@ -4,6 +4,7 @@ import type { PerfilUsuario } from '@prisma/client';
 import { getPrisma } from '../lib/prisma.ts';
 import { hashPassword } from '../lib/security.ts';
 import { requireDatabaseAuth } from '../middleware/databaseAuth.ts';
+import { effectiveTenantLimits } from '../lib/tenantLimits.ts';
 
 export const tenantUsersRouter = Router();
 const INVITABLE_ROLES: PerfilUsuario[] = ['ADMIN_EMPRESA', 'RT', 'INSTRUTOR_TST'];
@@ -22,10 +23,16 @@ tenantUsersRouter.get('/api/tenant/users', requireDatabaseAuth, async (_req: Req
       db.usuario.findMany({ where: { empresaId }, select: { id: true, nome: true, email: true, perfil: true, ativo: true }, orderBy: { createdAt: 'asc' } }),
       db.conviteUsuario.findMany({ where: { empresaId, aceitoEm: null, expiraEm: { gt: new Date() } },
         select: { id: true, email: true, perfil: true, expiraEm: true }, orderBy: { createdAt: 'desc' } }),
-      db.assinatura.findFirst({ where: { empresaId, status: { in: ['TRIAL', 'ATIVA'] } },
-        orderBy: { createdAt: 'desc' }, include: { plano: { select: { limiteUsuarios: true } } } }),
+      db.assinatura.findFirst({
+        where: { empresaId, status: { in: ['TRIAL', 'ATIVA'] } },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          plano: { select: { limiteUsuarios: true, limiteColaboradores: true, limiteObras: true } },
+          adicionais: { where: { ativo: true }, include: { adicional: { select: { recursoChave: true, incrementoQtd: true } } } },
+        },
+      }),
     ]);
-    res.json({ users, invites, limiteUsuarios: subscription?.plano.limiteUsuarios ?? 0 });
+    res.json({ users, invites, limiteUsuarios: subscription ? effectiveTenantLimits({ ...subscription.plano, adicionais: subscription.adicionais }).limiteUsuarios : 0 });
   } catch { res.status(503).json({ error: 'Não foi possível consultar os usuários.' }); }
 });
 
@@ -64,7 +71,8 @@ tenantUsersRouter.post('/api/tenant/users/invitations', requireDatabaseAuth, asy
         throw new Error('ACCOUNT_BLOCKED');
       }
       const subscription = await tx.assinatura.findFirst({ where: { empresaId, status: { in: ['TRIAL', 'ATIVA'] } },
-        orderBy: { createdAt: 'desc' }, include: { plano: true } });
+        orderBy: { createdAt: 'desc' }, include: { plano: true,
+          adicionais: { where: { ativo: true }, include: { adicional: { select: { recursoChave: true, incrementoQtd: true } } } } } });
       if (!subscription) throw new Error('ACCOUNT_BLOCKED');
       const [users, pending, existingUser, existingInvite] = await Promise.all([
         tx.usuario.count({ where: { empresaId, ativo: true } }),
@@ -73,7 +81,7 @@ tenantUsersRouter.post('/api/tenant/users/invitations', requireDatabaseAuth, asy
         tx.conviteUsuario.findFirst({ where: { empresaId, email, aceitoEm: null, expiraEm: { gt: new Date() } } }),
       ]);
       if (existingUser || existingInvite) throw new Error('EMAIL_UNAVAILABLE');
-      if (users + pending >= subscription.plano.limiteUsuarios) throw new Error('USER_LIMIT');
+      if (users + pending >= effectiveTenantLimits({ ...subscription.plano, adicionais: subscription.adicionais }).limiteUsuarios) throw new Error('USER_LIMIT');
       return tx.conviteUsuario.create({ data: {
         empresaId, email, perfil, tokenHash,
         criadoPorId: res.locals.authUser.id,
@@ -133,8 +141,9 @@ tenantUsersRouter.post('/api/auth/invitations/accept', async (req: Request, res:
         throw new Error('ACCOUNT_BLOCKED');
       }
       const subscription = await tx.assinatura.findFirst({ where: { empresaId: invite.empresaId, status: { in: ['TRIAL', 'ATIVA'] } },
-        orderBy: { createdAt: 'desc' }, include: { plano: true } });
-      if (!subscription || await tx.usuario.count({ where: { empresaId: invite.empresaId, ativo: true } }) >= subscription.plano.limiteUsuarios) {
+        orderBy: { createdAt: 'desc' }, include: { plano: true,
+          adicionais: { where: { ativo: true }, include: { adicional: { select: { recursoChave: true, incrementoQtd: true } } } } } });
+      if (!subscription || await tx.usuario.count({ where: { empresaId: invite.empresaId, ativo: true } }) >= effectiveTenantLimits({ ...subscription.plano, adicionais: subscription.adicionais }).limiteUsuarios) {
         throw new Error('USER_LIMIT');
       }
       if (await tx.usuario.findUnique({ where: { email: invite.email } })) throw new Error('EMAIL_UNAVAILABLE');
@@ -190,12 +199,13 @@ tenantUsersRouter.patch('/api/tenant/users/:id', requireDatabaseAuth, async (req
       if (ativo) {
         const company = await tx.empresa.findUnique({ where: { id: empresaId } });
         const subscription = await tx.assinatura.findFirst({ where: { empresaId, status: { in: ['TRIAL', 'ATIVA'] } },
-          orderBy: { createdAt: 'desc' }, include: { plano: true } });
+          orderBy: { createdAt: 'desc' }, include: { plano: true,
+            adicionais: { where: { ativo: true }, include: { adicional: { select: { recursoChave: true, incrementoQtd: true } } } } } });
         if (!company || !['TRIAL', 'ATIVA'].includes(company.status) || !subscription ||
             (company.status === 'TRIAL' && (!company.trialExpiraEm || company.trialExpiraEm <= new Date()))) {
           throw new Error('ACCOUNT_BLOCKED');
         }
-        if (await tx.usuario.count({ where: { empresaId, ativo: true } }) >= subscription.plano.limiteUsuarios) {
+        if (await tx.usuario.count({ where: { empresaId, ativo: true } }) >= effectiveTenantLimits({ ...subscription.plano, adicionais: subscription.adicionais }).limiteUsuarios) {
           throw new Error('USER_LIMIT');
         }
       }
