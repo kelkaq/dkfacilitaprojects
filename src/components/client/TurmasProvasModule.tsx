@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
 import {
   Check,
   ClipboardList,
@@ -37,6 +36,7 @@ import type {
   TreinamentoEmpresaDoc,
   TurmaDoc,
 } from '../../types/domain.ts';
+import { downloadXlsx, escapeCsvCell } from '../../services/xlsxExport.ts';
 import {
   buildDossierProvaCode,
   buildEvidenceCode,
@@ -670,10 +670,9 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
         Certificado: existingCert?.numeroCertificado || '—',
       };
     });
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Participantes');
-    XLSX.writeFile(wb, `lista_${activeTurma.codigoTurma}.xlsx`);
+    void downloadXlsx(rows, 'Participantes', `lista_${activeTurma.codigoTurma}.xlsx`).catch(() => {
+      setFeedback({ type: 'err', text: 'Não foi possível gerar a planilha de participantes.' });
+    });
   };
 
   const handleDownloadAcessos = (format: 'csv' | 'xlsx') => {
@@ -690,10 +689,9 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
     });
 
     if (format === 'xlsx') {
-      const ws = XLSX.utils.json_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Acessos');
-      XLSX.writeFile(wb, `acessos_${activeTurma.codigoTurma}.xlsx`);
+      void downloadXlsx(rows, 'Acessos', `acessos_${activeTurma.codigoTurma}.xlsx`).catch(() => {
+        setFeedback({ type: 'err', text: 'Não foi possível gerar a planilha de acessos.' });
+      });
       return;
     }
 
@@ -702,7 +700,7 @@ export const TurmasProvasModule: React.FC<TurmasProvasModuleProps> = ({
       header.join(';'),
       ...rows.map((r) =>
         [r.Colaborador, r.CPF_Mascarado, r.Funcao, r.PIN, r.Link_Individual]
-          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .map(escapeCsvCell)
           .join(';')
       ),
     ];
