@@ -168,3 +168,5 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 ### Bloqueio atual para venda
 
 A homologação pode continuar assim que as credenciais privadas da aplicação do vendedor de teste forem instaladas no VPS. O preparo necessário está em [MERCADO_PAGO_TEST_SETUP.md](../docs/MERCADO_PAGO_TEST_SETUP.md). O recebimento real de e-mail de primeiro acesso também permanece pendente.
+
+- Depois do commit `ca532b4`, o smoke de pedidos voltou a passar com os três cenários de URL do plano TEST (sandbox, link normal do vendedor TEST e nenhum link). Foi criado o drop-in `/etc/systemd/system/csdk-staging.service.d/20-mp-test-seller.conf`, que carrega opcionalmente `/etc/dk/csdk/mp-test-seller.env` somente em staging. O arquivo de credenciais ainda não existe; a produção não lê esse caminho. Após `daemon-reload` e reinício, o staging permaneceu ativo e `/api/health` respondeu `200`.
