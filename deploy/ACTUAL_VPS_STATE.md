@@ -117,6 +117,12 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 - A produção e o domínio não foram atualizados nesta onda. `CSDK_PUBLIC_COMMERCE_ENABLED` continua desativado, ofertas públicas continuam indisponíveis e não foi usada credencial produtiva.
 - Continuam pendentes a compra ponta a ponta com comprador/cartão TEST e webhook recebido, a confirmação de configuração de webhook da aplicação Mercado Pago em produção, e-mail real de primeiro acesso, cadastro/revisão de ofertas de produção, meios de pagamento adicionais, validação do ambiente PostgreSQL do cliente e do fluxo real de importação de modelos de PowerPoint de clientes distintos.
 
+## Continuidade da compra e revisão de textos — 21/11/2026
+
+- Os commits `b0b2b19` e `38a9ca5` foram atualizados no staging. O checkout foi revisado para usar mensagens comerciais claras sobre disponibilidade e extras não incluídos no valor, e a tela de retorno ganhou a opção de reabrir o pagamento do mesmo pedido quando ele continua pendente.
+- `npm run lint`, `npm run build` e o smoke de pedido/reconciliação foram executados no staging; o serviço reiniciou, permaneceu ativo e a health API respondeu `200`. O checkout público em produção segue fechado (`/api/public/offers` = `503`); `csdk.service` e `dk-solucoes.service` seguem ativos. Nenhuma cobrança produtiva foi iniciada.
+- A auditoria de dependências foi repetida: ainda existem 9 vulnerabilidades altas em `@grpc/grpc-js` via Firebase, dependências de Prisma 6 e `xlsx`; `xlsx` não tem correção disponível no registry e as outras recomendações automáticas exigem versões principais incompatíveis. A substituição/atualização exige migração e testes próprios, não uma atualização forçada em produção.
+
 ## Correção de texto da vitrine — 21/11/2026
 
 - Commit `29dd76c` troca a descrição técnica persistida no CMS da seção de preços por uma chamada comercial. O Super Admin continua editando os textos em “Site & Campanhas”; uma dica no campo orienta escrever benefícios para o cliente. Descrições antigas que falam de checkout ou de funções “em implantação” são substituídas visualmente pela chamada comercial.
