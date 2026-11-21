@@ -107,8 +107,11 @@ try {
   assert.equal((await post({ ...body, modoInicio: 'IMEDIATO' }, crypto.randomUUID())).status, 409);
   const catalog = await fetch(url.replace('/orders', '/offers'));
   assert.equal(catalog.status, 200);
-  const offers = (await catalog.json() as { offers: Array<{ planoSlug: string; totalCentavos: number; trialDias: number }> }).offers;
-  assert.ok(offers.some((item) => item.planoSlug === slug && item.totalCentavos === 54000 && item.trialDias === 7));
+  const offers = (await catalog.json() as { offers: Array<{ planoSlug: string; planoNome: string; totalCentavos: number; trialDias: number; limiteUsuarios: number }> }).offers;
+  const publicOffer = offers.find((item) => item.planoSlug === slug && item.totalCentavos === 54000 && item.trialDias === 7);
+  assert.ok(publicOffer);
+  assert.equal(publicOffer.planoNome, 'Teste');
+  assert.equal(publicOffer.limiteUsuarios, 1);
   const parallelKey = crypto.randomUUID();
   const parallel = await Promise.all([post(body, parallelKey), post(body, parallelKey)]);
   assert.deepEqual(parallel.map((item) => item.status).sort(), [200, 201]);

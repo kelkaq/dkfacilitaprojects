@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, CheckCircle2, LockKeyhole, Mail, ShieldCheck, Users } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ImageUp, LockKeyhole, Mail, Plus, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { ThemeToggleButton } from './ThemeProvider.tsx';
 
 type PortalView = 'login' | 'reset' | 'invite' | 'team';
@@ -8,6 +8,14 @@ type Invite = { id: string; email: string; perfil: string; expiraEm: string };
 type Team = { users: User[]; invites: Invite[]; limiteUsuarios: number };
 type Access = { permitido: boolean; motivo?: string; status?: string; plano?: { nome: string };
   limites?: { usuariosAtuais: number; limiteUsuarios: number } };
+type SignerType = 'COLABORADOR' | 'RESPONSAVEL_TECNICO' | 'INSTRUTOR' | 'EMPRESA' | 'PERSONALIZADO';
+type CertificateSigner = { tipo: SignerType; rotulo: string; obrigatoria: boolean };
+type CertificateTemplate = { id: string; slug: string; nome: string; descricao: string; categoria: string; previewCssToken: string };
+type TenantSettings = { tipoDocumento: 'PF' | 'PJ'; documento: string; razaoSocial: string; nomeFantasia: string | null;
+  emailFinanceiro: string; whatsapp: string; endereco: string | null; cidade: string | null; uf: string | null;
+  corPrimaria: string; corSecundaria: string; prefixoCertificado: string; modeloCertificadoId: string | null;
+  assinaturasCertificado: CertificateSigner[]; onboardingConcluido: boolean; temLogo: boolean; editavel: boolean;
+  templates: CertificateTemplate[] };
 
 async function api(path: string, init?: RequestInit): Promise<Response> {
   return fetch(path, { credentials: 'same-origin', ...init,
@@ -33,20 +41,29 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
   const [me, setMe] = useState<User | null>(null);
   const [team, setTeam] = useState<Team | null>(null);
   const [access, setAccess] = useState<Access | null>(null);
+  const [settings, setSettings] = useState<TenantSettings | null>(null);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoVersion, setLogoVersion] = useState(Date.now());
   const token = new URLSearchParams(window.location.search).get('token') ?? '';
 
   const loadTeam = async () => {
-    const [meResponse, accessResponse, teamResponse] = await Promise.all([
-      api('/api/auth/me'), api('/api/tenant/access'), api('/api/tenant/users'),
+    const [meResponse, accessResponse, teamResponse, settingsResponse] = await Promise.all([
+      api('/api/auth/me'), api('/api/tenant/access'), api('/api/tenant/users'), api('/api/tenant/settings'),
     ]);
     if (meResponse.status === 401) { window.location.assign('/acesso'); return; }
-    if (!meResponse.ok || !accessResponse.ok || (!teamResponse.ok && teamResponse.status !== 403)) {
+    if (!meResponse.ok || !accessResponse.ok || !settingsResponse.ok || (!teamResponse.ok && teamResponse.status !== 403)) {
       setError('Não foi possível carregar a conta. Tente novamente.'); return;
     }
     const current = await meResponse.json() as User;
     setMe(current);
     setAccess(await accessResponse.json() as Access);
     setTeam(teamResponse.ok ? await teamResponse.json() as Team : { users: [], invites: [], limiteUsuarios: 0 });
+    const tenantSettings = await settingsResponse.json() as TenantSettings;
+    if (!tenantSettings.assinaturasCertificado.length) {
+      tenantSettings.assinaturasCertificado = [{ tipo: 'COLABORADOR', rotulo: 'Colaborador', obrigatoria: true }];
+    }
+    setSettings(tenantSettings);
   };
 
   useEffect(() => { if (view === 'team') void loadTeam(); }, [view]);
@@ -103,6 +120,56 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
     setBusy(false);
   };
 
+  const saveSettings = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!settings) return;
+    setSavingSettings(true); setError(''); setNotice('');
+    try {
+      const response = await api('/api/tenant/settings', { method: 'PATCH', body: JSON.stringify({
+        nomeFantasia: settings.nomeFantasia ?? '', emailFinanceiro: settings.emailFinanceiro,
+        whatsapp: settings.whatsapp, endereco: settings.endereco ?? '', cidade: settings.cidade ?? '', uf: settings.uf ?? '',
+        corPrimaria: settings.corPrimaria, corSecundaria: settings.corSecundaria,
+        prefixoCertificado: settings.prefixoCertificado, modeloCertificadoId: settings.modeloCertificadoId,
+        assinaturasCertificado: settings.assinaturasCertificado,
+      }) });
+      if (!response.ok) throw new Error(await message(response));
+      const updated = await response.json() as Partial<TenantSettings>;
+      setSettings({ ...settings, ...updated });
+      setNotice('Configuração da empresa salva.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível salvar a configuração.'); }
+    finally { setSavingSettings(false); }
+  };
+
+  const uploadLogo = async (file?: File) => {
+    if (!file || !settings?.editavel) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 1_572_864) {
+      setError('Escolha um logo PNG, JPG ou WebP de até 1,5 MB.'); return;
+    }
+    setUploadingLogo(true); setError(''); setNotice('');
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Falha ao ler imagem.'));
+        reader.onerror = () => reject(new Error('Falha ao ler imagem.'));
+        reader.readAsDataURL(file);
+      });
+      const response = await api('/api/tenant/settings/logo', { method: 'POST', body: JSON.stringify({ dataUrl }) });
+      if (!response.ok) throw new Error(await message(response));
+      setSettings({ ...settings, temLogo: true }); setLogoVersion(Date.now()); setNotice('Logo da empresa atualizado.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível enviar o logo.'); }
+    finally { setUploadingLogo(false); }
+  };
+
+  const updateSigner = (index: number, patch: Partial<CertificateSigner>) => setSettings((current) => current ? ({
+    ...current,
+    assinaturasCertificado: current.assinaturasCertificado.map((signer, signerIndex) => signerIndex === index ? { ...signer, ...patch } : signer),
+  }) : current);
+
+  const addSigner = () => setSettings((current) => current && current.assinaturasCertificado.length < 6 ? ({
+    ...current,
+    assinaturasCertificado: [...current.assinaturasCertificado, { tipo: 'PERSONALIZADO', rotulo: 'Responsável', obrigatoria: false }],
+  }) : current);
+
   const logout = async () => {
     await api('/api/auth/logout', { method: 'POST' });
     window.location.assign('/acesso');
@@ -137,6 +204,46 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
               `${access.limites?.usuariosAtuais ?? 0} de ${access.limites?.limiteUsuarios ?? 0} usuários ativos` :
               access?.motivo ?? 'Acesso em verificação.'}</p>
           </div>
+          {settings && <section className="rounded-2xl border border-slate-200 dark:border-white/10 p-5 sm:p-6">
+            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+              <div><h2 className="text-lg font-bold">Identidade da empresa e certificados</h2><p className="mt-1 text-sm text-slate-500">Estas opções pertencem somente a esta empresa e podem ser alteradas pelo administrador.</p></div>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${settings.onboardingConcluido ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200'}`}>{settings.onboardingConcluido ? 'Configuração salva' : 'Configure seu primeiro acesso'}</span>
+            </div>
+            <div className="mb-5 grid gap-4 rounded-xl bg-slate-50 p-4 text-sm dark:bg-white/[0.04] sm:grid-cols-2">
+              <div><span className="text-slate-500">Titular</span><p className="font-semibold">{settings.razaoSocial}</p></div>
+              <div><span className="text-slate-500">Documento</span><p className="font-semibold">{settings.tipoDocumento} · {settings.documento}</p></div>
+            </div>
+            <div className="mb-6 flex flex-wrap items-center gap-4">
+              {settings.temLogo ? <img src={`/api/tenant/settings/logo?v=${logoVersion}`} alt="Logo da empresa" className="h-20 w-32 rounded-xl border border-slate-200 bg-white object-contain p-2 dark:border-white/10" /> : <div className="grid h-20 w-32 place-items-center rounded-xl border border-dashed border-slate-300 text-xs text-slate-500 dark:border-white/20">Sem logo</div>}
+              <label className={`inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold dark:border-white/10 ${!settings.editavel || uploadingLogo ? 'pointer-events-none opacity-50' : ''}`}><ImageUp className="h-4 w-4" />{uploadingLogo ? 'Enviando...' : settings.temLogo ? 'Trocar logo' : 'Enviar logo'}<input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" disabled={!settings.editavel || uploadingLogo} onChange={(event) => { void uploadLogo(event.target.files?.[0]); event.target.value = ''; }} /></label>
+              <p className="max-w-sm text-xs text-slate-500">PNG, JPG ou WebP · até 1,5 MB. O arquivo fica armazenado na área privada desta empresa.</p>
+            </div>
+            <form onSubmit={(event) => void saveSettings(event)} className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium">Nome fantasia<input className={`${field} mt-1`} maxLength={180} value={settings.nomeFantasia ?? ''} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, nomeFantasia: event.target.value })} /></label>
+                <label className="block text-sm font-medium">E-mail financeiro<input className={`${field} mt-1`} type="email" required maxLength={160} value={settings.emailFinanceiro} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, emailFinanceiro: event.target.value })} /></label>
+                <label className="block text-sm font-medium">WhatsApp<input className={`${field} mt-1`} inputMode="tel" required value={settings.whatsapp} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, whatsapp: event.target.value })} /></label>
+                <label className="block text-sm font-medium">Prefixo dos certificados<input className={`${field} mt-1 uppercase`} required minLength={2} maxLength={12} value={settings.prefixoCertificado} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, prefixoCertificado: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') })} /></label>
+                <label className="block text-sm font-medium">Endereço<input className={`${field} mt-1`} maxLength={240} value={settings.endereco ?? ''} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, endereco: event.target.value })} /></label>
+                <div className="grid grid-cols-[1fr_90px] gap-3"><label className="block text-sm font-medium">Cidade<input className={`${field} mt-1`} maxLength={120} value={settings.cidade ?? ''} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, cidade: event.target.value })} /></label><label className="block text-sm font-medium">UF<input className={`${field} mt-1 uppercase`} maxLength={2} value={settings.uf ?? ''} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, uf: event.target.value.toUpperCase().slice(0, 2) })} /></label></div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm font-medium dark:border-white/10">Cor principal<input type="color" value={settings.corPrimaria} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, corPrimaria: event.target.value })} className="ml-auto h-9 w-14 cursor-pointer rounded border-0 bg-transparent disabled:cursor-not-allowed" /></label>
+                <label className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-sm font-medium dark:border-white/10">Cor secundária<input type="color" value={settings.corSecundaria} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, corSecundaria: event.target.value })} className="ml-auto h-9 w-14 cursor-pointer rounded border-0 bg-transparent disabled:cursor-not-allowed" /></label>
+              </div>
+              <label className="block text-sm font-medium">Modelo de certificado<select className={`${field} mt-1`} value={settings.modeloCertificadoId ?? ''} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, modeloCertificadoId: event.target.value || null })}><option value="">Escolher depois</option>{settings.templates.map((template) => <option key={template.id} value={template.id}>{template.nome} · {template.categoria}</option>)}</select></label>
+              <section className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">Assinaturas que aparecem no certificado</h3><p className="mt-1 text-xs text-slate-500">Escolha os papéis desta empresa. Cada cliente define sua própria combinação.</p></div><button type="button" onClick={addSigner} disabled={!settings.editavel || settings.assinaturasCertificado.length >= 6} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-white/10"><Plus className="h-4 w-4" /> Adicionar campo</button></div>
+                <div className="space-y-3">{settings.assinaturasCertificado.map((signer, index) => <div key={`${signer.tipo}-${index}`} className="grid gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/[0.04] sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+                  <label className="block text-xs font-semibold">Papel<select className={`${field} mt-1`} value={signer.tipo} disabled={!settings.editavel} onChange={(event) => { const tipo = event.target.value as SignerType; const defaultLabel: Record<SignerType, string> = { COLABORADOR: 'Colaborador', RESPONSAVEL_TECNICO: 'Responsável técnico', INSTRUTOR: 'Instrutor', EMPRESA: 'Empresa', PERSONALIZADO: 'Assinante' }; updateSigner(index, { tipo, rotulo: defaultLabel[tipo] }); }}><option value="COLABORADOR">Colaborador</option><option value="RESPONSAVEL_TECNICO">Responsável técnico</option><option value="INSTRUTOR">Instrutor / TST</option><option value="EMPRESA">Empresa</option><option value="PERSONALIZADO">Outro papel</option></select></label>
+                  <label className="block text-xs font-semibold">Rótulo exibido<input className={`${field} mt-1`} required minLength={2} maxLength={80} value={signer.rotulo} disabled={!settings.editavel} onChange={(event) => updateSigner(index, { rotulo: event.target.value })} /></label>
+                  <label className="flex items-center gap-2 pb-3 text-xs font-medium"><input type="checkbox" checked={signer.obrigatoria} disabled={!settings.editavel} onChange={(event) => updateSigner(index, { obrigatoria: event.target.checked })} />Obrigatória</label>
+                  <button type="button" aria-label="Remover campo de assinatura" disabled={!settings.editavel || settings.assinaturasCertificado.length <= 1} onClick={() => setSettings({ ...settings, assinaturasCertificado: settings.assinaturasCertificado.filter((_item, itemIndex) => itemIndex !== index) })} className="mb-2 rounded p-2 text-red-600 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
+                </div>)}</div>
+              </section>
+              {settings.editavel && <button type="submit" disabled={savingSettings} className={`${primary} sm:w-auto sm:px-6`}>{savingSettings ? 'Salvando...' : 'Salvar configuração da empresa'}</button>}
+            </form>
+          </section>}
           {me?.perfil === 'ADMIN_EMPRESA' && <section><h2 className="mb-3 flex items-center gap-2 text-lg font-bold"><Users className="h-5 w-5" /> Usuários</h2>
             <div className="space-y-2">{team?.users.map((user) => <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-white/10 p-3 text-sm">
               <div><strong>{user.nome}</strong><p className="text-slate-500">{user.email} · {user.perfil} · {user.ativo ? 'Ativo' : 'Inativo'}</p></div>

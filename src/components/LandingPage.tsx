@@ -12,7 +12,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import type { GlobalCatalogSnapshot } from '../services/catalogService.ts';
-import { formatarMoedaBRL } from '../data/globalCatalogSeed.ts';
+import { formatarMoedaBRL, type PlanoCatalogo } from '../data/globalCatalogSeed.ts';
 import type { PublicOffer } from '../services/orderService.ts';
 import type {
   CertificadoPublicoDoc,
@@ -322,7 +322,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   const hasCatalog = Boolean(catalog && catalog.planos.length > 0);
-  const plansForSale = catalog?.planos.filter((plan) => offers.some((offer) => offer.planoSlug === plan.slug)) ?? [];
+  const plansForSale = useMemo(() => {
+    const uniquePlans = new Map<string, PublicOffer>();
+    for (const offer of offers) if (!uniquePlans.has(offer.planoSlug)) uniquePlans.set(offer.planoSlug, offer);
+    return Array.from(uniquePlans.values()).map((offer): PlanoCatalogo => ({
+      id: offer.planoSlug,
+      slug: offer.planoSlug,
+      nome: offer.planoNome,
+      subtitulo: offer.planoSubtitulo,
+      descricao: offer.planoDescricao,
+      precoMensalCentavos: offer.precoMensalCentavos,
+      precoPromocionalCentavos: null,
+      seloPromocional: null,
+      descontoSemestral: offer.descontoSemestral,
+      descontoAnual: offer.descontoAnual,
+      limiteColaboradores: offer.limiteColaboradores,
+      limiteUsuarios: offer.limiteUsuarios,
+      limiteObras: offer.limiteObras,
+      incluiCartaAnuencia: offer.incluiCartaAnuencia,
+      incluiDossieLink: offer.incluiDossieLink,
+      incluiAlertasWpp: offer.incluiAlertasWpp,
+      incluiDominioProprio: offer.incluiDominioProprio,
+      destaque: offer.destaque,
+      ativo: true,
+      ordem: offer.ordem,
+    }));
+  }, [offers]);
   const topBarClasses = getTopBarThemeClasses(cms.faixaTopo.corTema);
   const activeSlide =
     activeCarouselSlides.length > 0
@@ -833,31 +858,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        {loadingCatalog || loadingOffers ? (
+        {loadingOffers || (loadingCatalog && offers.length === 0) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {[1, 2, 3, 4].map((n) => (
               <div key={n} className="h-96 dk-glass-card rounded-2xl animate-pulse" />
             ))}
-          </div>
-        ) : !hasCatalog ? (
-          <div className="dk-glass-card rounded-2xl p-8 text-center max-w-xl mx-auto">
-            <Database className="w-8 h-8 text-slate-400 mx-auto" />
-            <h3 className="mt-3 text-base font-semibold text-slate-900 dark:text-white">
-              Planos em atualização comercial
-            </h3>
-            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">
-              Nosso catálogo comercial está sendo sincronizado em tempo real. Atualize a página em
-              instantes ou acesse sua conta existente.
-            </p>
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={onGoLogin}
-                className="px-4 py-2.5 rounded-xl bg-[#1D4ED8] text-white text-xs font-semibold hover:bg-[#1E40AF] cursor-pointer"
-              >
-                Entrar na minha conta
-              </button>
-            </div>
           </div>
         ) : offers.length === 0 || plansForSale.length === 0 ? (
           <div className="dk-glass-card mx-auto max-w-xl rounded-2xl p-8 text-center">

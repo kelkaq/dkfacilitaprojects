@@ -59,12 +59,24 @@ orderRouter.get('/api/public/offers', async (_req: Request, res: Response) => {
     ).map((offer) => ({
       planoSlug: offer.plano.slug,
       planoNome: offer.plano.nome,
+      planoSubtitulo: offer.plano.subtitulo,
+      planoDescricao: offer.plano.descricao,
+      precoMensalCentavos: offer.plano.precoMensalCentavos,
+      descontoSemestral: offer.plano.descontoSemestral,
+      descontoAnual: offer.plano.descontoAnual,
       ciclo: offer.ciclo,
       modoInicio: offer.trialDias === 7 ? 'TRIAL' : 'IMEDIATO',
       trialDias: offer.trialDias,
       totalCentavos: offer.totalCentavos,
       limiteUsuarios: offer.plano.limiteUsuarios,
       limiteColaboradores: offer.plano.limiteColaboradores,
+      limiteObras: offer.plano.limiteObras,
+      incluiCartaAnuencia: offer.plano.incluiCartaAnuencia,
+      incluiDossieLink: offer.plano.incluiDossieLink,
+      incluiAlertasWpp: offer.plano.incluiAlertasWpp,
+      incluiDominioProprio: offer.plano.incluiDominioProprio,
+      destaque: offer.plano.destaque,
+      ordem: offer.plano.ordem,
     })) });
   } catch {
     res.status(503).json({ error: 'Catálogo temporariamente indisponível.' });

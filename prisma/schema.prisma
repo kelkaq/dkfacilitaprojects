@@ -280,6 +280,7 @@ model Empresa {
   modeloCertificadoId    String?       @map("modelo_certificado_id")
   modeloProprioUrl       String?       @map("modelo_proprio_url")
   modeloProprioConfig    Json?         @map("modelo_proprio_config")
+  assinaturasCertificado Json          @default("[]") @map("assinaturas_certificado")
   dominioProprio         String?       @unique @map("dominio_proprio")
   status                 StatusEmpresa @default(TRIAL)
   trialExpiraEm          DateTime?     @map("trial_expira_em")
