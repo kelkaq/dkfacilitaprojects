@@ -20,10 +20,12 @@ assert.equal(requests[0].url, 'https://api.mercadopago.com/preapproval_plan');
 const planBody = JSON.parse(String(requests[0].init.body));
 assert.deepEqual(planBody.auto_recurring.free_trial, { frequency: 7, frequency_type: 'days' });
 assert.equal(planBody.auto_recurring.transaction_amount, 149);
-await mp.createSubscription({ planId: 'plan_123', payerEmail: 'teste@example.invalid', cardTokenId: 'card_token_123', externalReference: 'CSDK-123', backUrl: 'https://dkfacilita.com/checkout' });
+await mp.createSubscription({ planId: 'plan_123', payerEmail: 'teste@example.invalid', cardTokenId: 'card_token_123', externalReference: 'CSDK-123', backUrl: 'https://dkfacilita.com/checkout', reason: 'CSDK teste', cycleMonths: 1, amountCentavos: 14900 });
 assert.equal(requests[1].url, 'https://api.mercadopago.com/preapproval');
 const subscriptionBody = JSON.parse(String(requests[1].init.body));
 assert.equal(subscriptionBody.card_token_id, 'card_token_123');
+assert.equal(subscriptionBody.reason, 'CSDK teste');
+assert.deepEqual(subscriptionBody.auto_recurring, { frequency: 1, frequency_type: 'months', transaction_amount: 149, currency_id: 'BRL' });
 assert.equal(subscriptionBody.status, 'authorized');
 assert.equal(subscriptionBody.external_reference, 'CSDK-123');
 await mp.createHostedSubscription({ reason: 'Teste CSDK', payerEmail: 'teste@example.invalid',

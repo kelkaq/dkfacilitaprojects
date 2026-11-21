@@ -197,6 +197,9 @@ try {
     subscription = await instrumentedProvider.createSubscription({
       planId, payerEmail: buyerEmail, cardTokenId: tokenResult.token,
       externalReference, backUrl: 'https://dkfacilita.com/pagamento-retorno',
+      reason: `Certifica Software - DK · ${offer.plano.nome}`,
+      cycleMonths: offer.ciclo === 'MENSAL' ? 1 : offer.ciclo === 'SEMESTRAL' ? 6 : 12,
+      amountCentavos: offer.totalCentavos,
     });
   } catch {
     throw new Error(`Mercado Pago recusou a assinatura TEST: ${JSON.stringify(subscriptionResponse ?? {})}.`);

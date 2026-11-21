@@ -71,17 +71,26 @@ export class MercadoPagoSubscriptions {
 
   createSubscription(input: {
     planId: string; payerEmail: string; cardTokenId: string;
-    externalReference: string; backUrl: string;
+    externalReference: string; backUrl: string; reason: string;
+    cycleMonths: 1 | 6 | 12; amountCentavos: number;
   }): Promise<MercadoPagoSubscription> {
     if (!input.planId || !input.cardTokenId || !input.externalReference ||
-        !/^https:\/\//.test(input.backUrl) || !input.payerEmail.includes('@')) {
+        !/^https:\/\//.test(input.backUrl) || !input.payerEmail.includes('@') ||
+        input.reason.trim().length < 3 || !Number.isInteger(input.amountCentavos) || input.amountCentavos < 100) {
       throw new Error('Dados da assinatura inválidos.');
     }
     return this.request<MercadoPagoSubscription>('/preapproval', 'POST', {
       preapproval_plan_id: input.planId,
+      reason: input.reason.trim(),
       payer_email: input.payerEmail,
       card_token_id: input.cardTokenId,
       external_reference: input.externalReference,
+      auto_recurring: {
+        frequency: input.cycleMonths,
+        frequency_type: 'months',
+        transaction_amount: input.amountCentavos / 100,
+        currency_id: 'BRL',
+      },
       back_url: input.backUrl,
       status: 'authorized',
     });
