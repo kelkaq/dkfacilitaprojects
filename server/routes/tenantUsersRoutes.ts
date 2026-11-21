@@ -5,6 +5,7 @@ import { getPrisma } from '../lib/prisma.ts';
 import { hashPassword } from '../lib/security.ts';
 import { requireDatabaseAuth } from '../middleware/databaseAuth.ts';
 import { effectiveTenantLimits } from '../lib/tenantLimits.ts';
+import { sendTransactionalEmail, transactionalEmailConfigured } from '../services/transactionalEmail.ts';
 
 export const tenantUsersRouter = Router();
 const INVITABLE_ROLES: PerfilUsuario[] = ['ADMIN_EMPRESA', 'RT', 'INSTRUTOR_TST'];
@@ -44,8 +45,6 @@ tenantUsersRouter.post('/api/tenant/users/invitations', requireDatabaseAuth, asy
   if (email.length > 160 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !INVITABLE_ROLES.includes(perfil)) {
     res.status(400).json({ error: 'E-mail ou perfil inválido.' }); return;
   }
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
   const appUrl = process.env.APP_URL;
   let origin: string;
   try {
@@ -56,7 +55,7 @@ tenantUsersRouter.post('/api/tenant/users/invitations', requireDatabaseAuth, asy
   } catch {
     res.status(503).json({ error: 'Envio de convites indisponível.' }); return;
   }
-  if (!apiKey || !from) {
+  if (!transactionalEmailConfigured()) {
     res.status(503).json({ error: 'Envio de convites indisponível.' }); return;
   }
   const token = crypto.randomBytes(32).toString('base64url');
@@ -91,14 +90,9 @@ tenantUsersRouter.post('/api/tenant/users/invitations', requireDatabaseAuth, asy
     const link = new URL('/aceitar-convite', origin);
     link.searchParams.set('token', token);
     try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST', signal: AbortSignal.timeout(12000),
-        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json',
-          'Idempotency-Key': `user-invite/${invite.id}` },
-        body: JSON.stringify({ from, to: [email], subject: 'Convite para o Certifica Software - DK',
-          text: `Você recebeu um convite para acessar o Certifica Software - DK. Abra este link em até 48 horas: ${link.toString()}\n\nSe não esperava este convite, ignore a mensagem.` }),
-      });
-      if (!response.ok) throw new Error(`Resend HTTP ${response.status}`);
+      await sendTransactionalEmail({ to: email, subject: 'Convite para o Certifica Software - DK',
+        text: `Você recebeu um convite para acessar o Certifica Software - DK. Abra este link em até 48 horas: ${link.toString()}\n\nSe não esperava este convite, ignore a mensagem.`,
+        idempotencyKey: `user-invite/${invite.id}` });
     } catch (error) {
       await db.conviteUsuario.delete({ where: { id: invite.id } });
       console.error('Falha no envio do convite:', error instanceof Error ? error.message : 'erro desconhecido');

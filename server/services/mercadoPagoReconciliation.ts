@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { Prisma, PrismaClient, StatusAssinatura } from '@prisma/client';
 import { hashPassword } from '../lib/security.ts';
 import type { MercadoPagoAuthorizedPayment, MercadoPagoSubscription } from './mercadoPagoSubscriptions.ts';
+import { sendTransactionalEmail, transactionalEmailConfigured } from './transactionalEmail.ts';
 
 function cents(amount: string | number | undefined): number | null {
   if (amount == null) return null;
@@ -10,24 +11,17 @@ function cents(amount: string | number | undefined): number | null {
 }
 
 async function sendFirstAccessEmail(email: string, token: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
   let origin = '';
   try {
     const url = new URL(process.env.APP_URL ?? '');
     if (url.protocol === 'https:') origin = url.origin;
   } catch { /* remetente indisponível */ }
-  if (!apiKey || !from || !origin) return;
+  if (!transactionalEmailConfigured() || !origin) return;
   const link = new URL('/resetar-senha', origin);
   link.searchParams.set('token', token);
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST', signal: AbortSignal.timeout(12000),
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json',
-      'Idempotency-Key': `first-access/${crypto.createHash('sha256').update(email).digest('hex')}/${token.slice(0, 12)}` },
-    body: JSON.stringify({ from, to: [email], subject: 'Seu acesso ao Certifica Software - DK está pronto',
-      text: `Sua conta foi criada. Defina sua senha neste link em até 30 minutos: ${link.toString()}\n\nDepois, entre em ${origin}/acesso.` }),
-  });
-  if (!response.ok) throw new Error(`Resend HTTP ${response.status}`);
+  await sendTransactionalEmail({ to: email, subject: 'Seu acesso ao Certifica Software - DK está pronto',
+    text: `Sua conta foi criada. Defina sua senha neste link em até 30 minutos: ${link.toString()}\n\nDepois, entre em ${origin}/acesso.`,
+    idempotencyKey: `first-access/${crypto.createHash('sha256').update(email).digest('hex')}/${token.slice(0, 12)}` });
 }
 
 export async function provisionAuthorizedSubscription(input: {

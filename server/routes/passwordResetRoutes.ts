@@ -2,19 +2,18 @@ import crypto from 'node:crypto';
 import { Router, type Request, type Response } from 'express';
 import { getPrisma } from '../lib/prisma.ts';
 import { hashPassword } from '../lib/security.ts';
+import { sendTransactionalEmail, transactionalEmailConfigured } from '../services/transactionalEmail.ts';
 
 export const passwordResetRouter = Router();
 const recentRequests = new Map<string, number>();
 
-function resetConfig(): { apiKey: string; from: string; appUrl: string } | null {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM;
+function resetConfig(): { appUrl: string } | null {
   const appUrl = process.env.APP_URL;
-  if (!apiKey || !from || !appUrl) return null;
+  if (!transactionalEmailConfigured() || !appUrl) return null;
   try {
     const url = new URL(appUrl);
     if (url.protocol !== 'https:') return null;
-    return { apiKey, from, appUrl: url.origin };
+    return { appUrl: url.origin };
   } catch {
     return null;
   }
@@ -53,22 +52,9 @@ passwordResetRouter.post('/api/auth/password-reset/request', async (req: Request
       const link = new URL('/resetar-senha', config.appUrl);
       link.searchParams.set('token', token);
       try {
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          signal: AbortSignal.timeout(12000),
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            'Content-Type': 'application/json',
-            'Idempotency-Key': `password-reset/${record.id}`,
-          },
-          body: JSON.stringify({
-            from: config.from,
-            to: [user.email],
-            subject: 'Redefinir senha do Certifica Software - DK',
-            text: `Use este link para redefinir sua senha em até 30 minutos: ${link.toString()}\n\nSe você não solicitou, ignore esta mensagem.`,
-          }),
-        });
-        if (!response.ok) throw new Error(`Resend HTTP ${response.status}`);
+        await sendTransactionalEmail({ to: user.email, subject: 'Redefinir senha do Certifica Software - DK',
+          text: `Use este link para redefinir sua senha em até 30 minutos: ${link.toString()}\n\nSe você não solicitou, ignore esta mensagem.`,
+          idempotencyKey: `password-reset/${record.id}` });
       } catch (error) {
         await db.recuperacaoSenha.delete({ where: { id: record.id } });
         console.error('Falha no envio da recuperação:', error instanceof Error ? error.message : 'erro desconhecido');
