@@ -546,8 +546,7 @@ function AppRouter() {
       isAuthenticated={Boolean(user)}
       onStartCheckout={handleStartCheckout}
       onGoLogin={() => {
-        setPostLoginTarget('CLIENT_APP');
-        navigate('LOGIN');
+        window.location.assign('/acesso');
       }}
       onGoPanel={handleGoPanelFromLanding}
     />
@@ -555,7 +554,7 @@ function AppRouter() {
 }
 
 export default function App() {
-  const accountPaths = { '/acesso': 'login', '/resetar-senha': 'reset',
+  const accountPaths = { '/acesso': 'login', '/entrar': 'login', '/login': 'login', '/resetar-senha': 'reset',
     '/aceitar-convite': 'invite', '/minha-conta': 'team' } as const;
   const portalView = accountPaths[window.location.pathname as keyof typeof accountPaths];
   return (

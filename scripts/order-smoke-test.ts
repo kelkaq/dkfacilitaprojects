@@ -11,8 +11,10 @@ const suffix = crypto.randomBytes(6).toString('hex');
 const slug = `smoke-${suffix}`;
 const oldMpToken = process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN;
 const oldAppUrl = process.env.APP_URL;
+const oldCommerceEnabled = process.env.CSDK_PUBLIC_COMMERCE_ENABLED;
 process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN = 'TEST-placeholder';
 process.env.APP_URL = 'https://example.invalid';
+process.env.CSDK_PUBLIC_COMMERCE_ENABLED = 'true';
 const nativeFetch = globalThis.fetch;
 let providerCreates = 0;
 const providerBody: { [key: string]: unknown }[] = [];
@@ -49,6 +51,9 @@ const url = `http://127.0.0.1:${address.port}/api/public/orders`;
 
 let planId: string | null = null;
 try {
+  process.env.CSDK_PUBLIC_COMMERCE_ENABLED = 'false';
+  assert.equal((await fetch(url.replace('/orders', '/offers'))).status, 503);
+  process.env.CSDK_PUBLIC_COMMERCE_ENABLED = 'true';
   const plan = await db.plano.create({ data: {
     slug, nome: 'Teste', subtitulo: 'Teste', descricao: 'Somente teste',
     precoMensalCentavos: 10000, descontoSemestral: 10, descontoAnual: 20,
@@ -78,6 +83,9 @@ try {
   assert.equal(((await (await fetch(statusUrl)).json()) as { status: string }).status, 'CARRINHO');
   const checkoutUrl = `${url}/${created.id}/checkout`;
   const startCheckout = () => fetch(checkoutUrl, { method: 'POST' });
+  process.env.CSDK_PUBLIC_COMMERCE_ENABLED = 'false';
+  assert.equal((await startCheckout()).status, 503);
+  process.env.CSDK_PUBLIC_COMMERCE_ENABLED = 'true';
   const start = await startCheckout();
   assert.equal(start.status, 200);
   const startBody = await start.json() as { checkoutUrl: string; status: string };
@@ -115,6 +123,7 @@ try {
   globalThis.fetch = nativeFetch;
   if (oldMpToken === undefined) delete process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN; else process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN = oldMpToken;
   if (oldAppUrl === undefined) delete process.env.APP_URL; else process.env.APP_URL = oldAppUrl;
+  if (oldCommerceEnabled === undefined) delete process.env.CSDK_PUBLIC_COMMERCE_ENABLED; else process.env.CSDK_PUBLIC_COMMERCE_ENABLED = oldCommerceEnabled;
   if (planId) {
     await db.pedido.deleteMany({ where: { planoId: planId } });
     await db.planoOferta.deleteMany({ where: { planoId: planId } });

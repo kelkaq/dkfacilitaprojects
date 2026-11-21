@@ -14,6 +14,10 @@ function paymentEnvironment(): AmbientePagamento | null {
   return value === 'TEST' || value === 'PRODUCTION' ? value : null;
 }
 
+function publicCommerceEnabled(): boolean {
+  return process.env.CSDK_PUBLIC_COMMERCE_ENABLED === 'true';
+}
+
 function expectedPrice(precoMensalCentavos: number, descontoSemestral: number, descontoAnual: number, ciclo: CicloCobranca): number {
   const discount = ciclo === 'SEMESTRAL' ? descontoSemestral : ciclo === 'ANUAL' ? descontoAnual : 0;
   if (!Number.isInteger(precoMensalCentavos) || precoMensalCentavos <= 0 ||
@@ -34,6 +38,10 @@ function appOrigin(): string | null {
 }
 
 orderRouter.get('/api/public/offers', async (_req: Request, res: Response) => {
+  if (!publicCommerceEnabled()) {
+    res.status(503).json({ error: 'As compras estão temporariamente indisponíveis.' });
+    return;
+  }
   const ambiente = paymentEnvironment();
   if (!ambiente) {
     res.status(503).json({ error: 'Catálogo de pagamentos indisponível.' });
@@ -64,6 +72,10 @@ orderRouter.get('/api/public/offers', async (_req: Request, res: Response) => {
 });
 
 orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
+  if (!publicCommerceEnabled()) {
+    res.status(503).json({ error: 'As compras estão temporariamente indisponíveis.' });
+    return;
+  }
   const key = req.header('x-idempotency-key')?.trim() ?? '';
   const { tipoDocumento, documento, emailComprador, planoSlug, ciclo, modoInicio,
     razaoSocial, nomeAdministrador, whatsapp } = req.body ?? {};
@@ -186,6 +198,10 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
 });
 
 orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Response) => {
+  if (!publicCommerceEnabled()) {
+    res.status(503).json({ error: 'As compras estão temporariamente indisponíveis.' });
+    return;
+  }
   const id = String(req.params.id ?? '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) { res.status(400).json({ error: 'Pedido inválido.' }); return; }
   const ambiente = paymentEnvironment();
