@@ -50,6 +50,8 @@ let empresaId: string | null = null;
 let originalOfferActive = false;
 let planDbId: string | null = null;
 let originalPlanActive = false;
+let originalFetch: typeof fetch | null = null;
+let subscriptionResponse: { status: number; error?: string; message?: string; causes?: string[] } | null = null;
 const eventIds: string[] = [];
 let server: ReturnType<express.Application['listen']> | null = null;
 let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
@@ -175,10 +177,32 @@ try {
   }));
   if (!tokenResult.token) throw new Error(`Tokenização TEST recusada (${tokenResult.error ?? 'sem token'}; campos:${JSON.stringify(fieldLengths)}; formulário:${JSON.stringify(tokenResult.submitted ?? {})}; frames:${JSON.stringify(frameInfo).slice(0,8000)}; provedor:${JSON.stringify(tokenResponse ?? {})}).`);
 
-  const subscription = await provider.createSubscription({
-    planId, payerEmail: buyerEmail, cardTokenId: tokenResult.token,
-    externalReference, backUrl: 'https://dkfacilita.com/pagamento-retorno',
-  });
+  originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const response = await originalFetch!(input, init);
+    if (String(input).endsWith('/preapproval') && init?.method === 'POST') {
+      try {
+        const body = await response.clone().json() as { error?: unknown; message?: unknown; cause?: Array<{ code?: unknown }> };
+        subscriptionResponse = { status: response.status,
+          error: typeof body.error === 'string' ? body.error : undefined,
+          message: typeof body.message === 'string' ? body.message.slice(0, 120) : undefined,
+          causes: Array.isArray(body.cause) ? body.cause.map((cause) => String(cause.code ?? '')).slice(0, 5) : undefined };
+      } catch { subscriptionResponse = { status: response.status }; }
+    }
+    return response;
+  }) as typeof fetch;
+  let subscription;
+  try {
+    subscription = await provider.createSubscription({
+      planId, payerEmail: buyerEmail, cardTokenId: tokenResult.token,
+      externalReference, backUrl: 'https://dkfacilita.com/pagamento-retorno',
+    });
+  } catch {
+    throw new Error(`Mercado Pago recusou a assinatura TEST: ${JSON.stringify(subscriptionResponse ?? {})}.`);
+  } finally {
+    globalThis.fetch = originalFetch;
+    originalFetch = null;
+  }
   subscriptionId = subscription.id;
   assert.equal(subscription.status, 'authorized');
   assert.equal(subscription.preapproval_plan_id, planId);
@@ -212,6 +236,7 @@ try {
   assert.equal((await db.empresa.findUniqueOrThrow({ where: { id: empresaId } })).status, 'CANCELADA');
   process.stdout.write('Mercado Pago TEST passou: cartão tokenizado, trial autorizado, conta provisionada uma vez, cancelamento confirmado; e-mails externos desativados e dados locais removidos.\n');
 } finally {
+  if (originalFetch) globalThis.fetch = originalFetch;
   if (browser) await browser.close().catch(() => undefined);
   if (server) await new Promise<void>((resolve) => server!.close(() => resolve()));
   if (subscriptionId) await provider.cancelSubscription(subscriptionId).catch(() => undefined);
