@@ -12,12 +12,14 @@ const slug = `smoke-${suffix}`;
 const oldMpToken = process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN;
 const oldAppUrl = process.env.APP_URL;
 const oldCommerceEnabled = process.env.CSDK_PUBLIC_COMMERCE_ENABLED;
+const oldEmailProvider = process.env.EMAIL_PROVIDER;
 process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN = 'TEST-placeholder';
 process.env.APP_URL = 'https://example.invalid';
 process.env.CSDK_PUBLIC_COMMERCE_ENABLED = 'true';
 const nativeFetch = globalThis.fetch;
 let providerCreates = 0;
 let providerPlanReads = 0;
+let trialAuthorized = false;
 const providerPlanId = `smoke-plan-${suffix}`;
 const providerBody: { [key: string]: unknown }[] = [];
 globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
@@ -32,7 +34,13 @@ globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit)
         currency_id: 'BRL', free_trial: { frequency: 7, frequency_type: 'days' } } }), { status: 200 });
   }
   if (target.startsWith('https://api.mercadopago.com/preapproval/search?')) {
-    return new Response(JSON.stringify({ paging: { total: 0 }, results: [] }), { status: 200 });
+    const results = trialAuthorized ? [{ id: 'test_trial_authorized_123', status: 'authorized', preapproval_plan_id: providerPlanId }] : [];
+    return new Response(JSON.stringify({ paging: { total: results.length }, results }), { status: 200 });
+  }
+  if (target === 'https://api.mercadopago.com/preapproval/test_trial_authorized_123') {
+    return new Response(JSON.stringify({ id: 'test_trial_authorized_123', status: 'authorized',
+      payer_email: `smoke-${suffix}@example.invalid`, preapproval_plan_id: providerPlanId, card_id: 'mock-card',
+      next_payment_date: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString() }), { status: 200 });
   }
   if (target === 'https://api.mercadopago.com/preapproval' && init?.method === 'POST') {
     providerCreates++;
@@ -132,14 +140,26 @@ try {
   assert.equal((await post(body, crypto.randomUUID())).status, 409);
   await db.planoOferta.update({ where: { id: offer.id }, data: { totalCentavos: 54000 } });
   assert.equal(await db.usoTrial.count({ where: { documento: '52998224725' } }), 0);
-  process.stdout.write('Pedido passou: preço, CPF, idempotência, checkout de plano MP com trial e pedido duplicado evitado.\n');
+  trialAuthorized = true;
+  process.env.EMAIL_PROVIDER = 'TEST_DISABLED';
+  const confirmed = await fetch(statusUrl);
+  assert.equal(confirmed.status, 200);
+  assert.equal(((await confirmed.json()) as { status: string }).status, 'TRIAL_ATIVO');
+  assert.equal(await db.usoTrial.count({ where: { documento: '52998224725' } }), 1);
+  assert.equal(await db.empresa.count({ where: { documento: '52998224725' } }), 1);
+  assert.equal(await db.assinatura.count({ where: { mercadoPagoId: 'test_trial_authorized_123' } }), 1);
+  assert.equal(((await (await fetch(statusUrl)).json()) as { status: string }).status, 'TRIAL_ATIVO');
+  process.stdout.write('Pedido passou: preço, CPF, idempotência, checkout de trial e reconciliação autorizada idempotente.\n');
 } finally {
   globalThis.fetch = nativeFetch;
   if (oldMpToken === undefined) delete process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN; else process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN = oldMpToken;
   if (oldAppUrl === undefined) delete process.env.APP_URL; else process.env.APP_URL = oldAppUrl;
   if (oldCommerceEnabled === undefined) delete process.env.CSDK_PUBLIC_COMMERCE_ENABLED; else process.env.CSDK_PUBLIC_COMMERCE_ENABLED = oldCommerceEnabled;
+  if (oldEmailProvider === undefined) delete process.env.EMAIL_PROVIDER; else process.env.EMAIL_PROVIDER = oldEmailProvider;
   if (planId) {
     await db.pedido.deleteMany({ where: { planoId: planId } });
+    await db.usoTrial.deleteMany({ where: { documento: '52998224725' } });
+    await db.empresa.deleteMany({ where: { documento: '52998224725' } });
     await db.planoOferta.deleteMany({ where: { planoId: planId } });
     await db.plano.delete({ where: { id: planId } });
   }
