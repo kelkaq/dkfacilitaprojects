@@ -39,6 +39,6 @@ Depois dos critérios, criar serviço systemd CSDK próprio, ambiente protegido 
 
 ## Integração financeira atual
 
-O provedor escolhido é Mercado Pago. Rotas Asaas devolvem 410. A oferta TEST de homologação está inativa; o webhook Mercado Pago apenas registra notificações verificadas e ainda não ativa contas. O checkout antigo continua dependente de Firebase e Asaas, por isso não deve ser anunciado como compra funcional.
+O provedor escolhido é Mercado Pago. Rotas Asaas devolvem 410. O checkout novo cria pedido e assinatura hospedada por cartão; o webhook busca a assinatura/fatura no provedor, valida estado, titular, referência, moeda e valor, e só então cria a conta ou atualiza a cobrança. A homologação local com respostas simuladas cobre trial, pagamento recorrente, cancelamento e idempotência. Ainda falta transação real de comprador TEST, ativação de ofertas comerciais e configuração do webhook/e-mail no CSDK. O checkout antigo Firebase/Asaas não está ligado à API nova.
 
 As páginas novas de conta estão isoladas em `/acesso`, `/resetar-senha`, `/aceitar-convite` e `/minha-conta`. Para testá-las num host HTTPS de homologação, configurar `APP_URL` com a origem exata e `CSDK_COOKIE_AUTH=1` no ambiente protegido. O painel operacional `/app` ainda é legado.

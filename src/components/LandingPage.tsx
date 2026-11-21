@@ -12,10 +12,8 @@ import {
   Smartphone,
 } from 'lucide-react';
 import type { GlobalCatalogSnapshot } from '../services/catalogService.ts';
-import {
-  calcularPrecoCicloCentavos,
-  formatarMoedaBRL,
-} from '../data/globalCatalogSeed.ts';
+import { formatarMoedaBRL } from '../data/globalCatalogSeed.ts';
+import type { PublicOffer } from '../services/orderService.ts';
 import type {
   CertificadoPublicoDoc,
   CicloCobranca,
@@ -48,6 +46,8 @@ export interface CheckoutSelection {
 interface LandingPageProps {
   catalog: GlobalCatalogSnapshot | null;
   loadingCatalog: boolean;
+  offers: PublicOffer[];
+  loadingOffers: boolean;
   isAuthenticated: boolean;
   onStartCheckout: (selection: CheckoutSelection) => void;
   onGoLogin: () => void;
@@ -122,6 +122,8 @@ function getTopBarThemeClasses(theme: CmsTopBarTheme): { bar: string; btn: strin
 export const LandingPage: React.FC<LandingPageProps> = ({
   catalog,
   loadingCatalog,
+  offers,
+  loadingOffers,
   isAuthenticated,
   onStartCheckout,
   onGoLogin,
@@ -131,6 +133,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [heroImgFailed, setHeroImgFailed] = useState(false);
   const [mobileImgFailed, setMobileImgFailed] = useState(false);
+
+  useEffect(() => {
+    if (offers.some((offer) => offer.ciclo === ciclo) || offers.length === 0) return;
+    setCiclo(offers[0].ciclo);
+  }, [offers, ciclo]);
 
   // CMS dinâmico do Super Admin
   const [cms, setCms] = useState<SiteCmsConfigDoc>(EMPTY_SITE_CMS_CONFIG);
@@ -315,6 +322,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   const hasCatalog = Boolean(catalog && catalog.planos.length > 0);
+  const plansForSale = catalog?.planos.filter((plan) => offers.some((offer) => offer.planoSlug === plan.slug)) ?? [];
   const topBarClasses = getTopBarThemeClasses(cms.faixaTopo.corTema);
   const activeSlide =
     activeCarouselSlides.length > 0
@@ -794,8 +802,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Preços transparentes por porte da sua operação
             </h2>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Todos os planos oferecem teste grátis de 7 dias com liberação imediata ou contratação
-              direta via Pix e Cartão Recorrente.
+              Preços e disponibilidade vêm do checkout do Mercado Pago. O pagamento recorrente é feito
+              com cartão; Pix e múltiplos cartões ainda estão em implantação.
             </p>
           </div>
 
@@ -811,8 +819,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <button
                 key={opt.id}
                 type="button"
+                disabled={offers.length > 0 && !offers.some((offer) => offer.ciclo === opt.id)}
                 onClick={() => setCiclo(opt.id)}
-                className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
+                className={`px-3.5 py-2 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 ${
                   ciclo === opt.id
                     ? 'bg-white dark:bg-[#1D4ED8] text-slate-900 dark:text-white shadow-xs'
                     : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -824,7 +833,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        {loadingCatalog ? (
+        {loadingCatalog || loadingOffers ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
             {[1, 2, 3, 4].map((n) => (
               <div key={n} className="h-96 dk-glass-card rounded-2xl animate-pulse" />
@@ -850,62 +859,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </button>
             </div>
           </div>
+        ) : offers.length === 0 || plansForSale.length === 0 ? (
+          <div className="dk-glass-card mx-auto max-w-xl rounded-2xl p-8 text-center">
+            <Database className="mx-auto h-8 w-8 text-slate-400" />
+            <h3 className="mt-3 text-base font-semibold text-slate-900 dark:text-white">Checkout em preparação</h3>
+            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">Não há ofertas ativas para compra agora. Acesse sua conta existente ou volte mais tarde.</p>
+            <button type="button" onClick={onGoLogin} className="mt-5 cursor-pointer rounded-xl bg-[#1D4ED8] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#1E40AF]">Entrar na minha conta</button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-3">
-            {catalog!.planos.map((plano, idx) => {
-              const hasPromo =
-                typeof plano.precoPromocionalCentavos === 'number' &&
-                plano.precoPromocionalCentavos > 0 &&
-                plano.precoPromocionalCentavos < plano.precoMensalCentavos;
-
-              const precoNormal = calcularPrecoCicloCentavos(
-                plano.precoMensalCentavos,
-                ciclo,
-                plano.descontoSemestral,
-                plano.descontoAnual
-              );
-
-              const precoFinal = calcularPrecoCicloCentavos(
-                hasPromo ? plano.precoPromocionalCentavos! : plano.precoMensalCentavos,
-                ciclo,
-                plano.descontoSemestral,
-                plano.descontoAnual
-              );
-
-              const isAmberCard = idx === catalog!.planos.length - 1;
-
+            {plansForSale.map((plano) => {
+              const trialOffer = offers.find((offer) => offer.planoSlug === plano.slug && offer.ciclo === ciclo && offer.modoInicio === 'TRIAL');
+              const immediateOffer = offers.find((offer) => offer.planoSlug === plano.slug && offer.ciclo === ciclo && offer.modoInicio === 'IMEDIATO');
+              const displayOffer = immediateOffer ?? trialOffer;
+              const cycleMonths = ciclo === 'ANUAL' ? 12 : ciclo === 'SEMESTRAL' ? 6 : 1;
+              const monthlyEquivalent = displayOffer ? Math.round(displayOffer.totalCentavos / cycleMonths) : null;
               return (
                 <div
                   key={plano.id}
                   className={`relative dk-glass-card rounded-2xl p-6 flex flex-col justify-between ${
                     plano.destaque
                       ? '!border-[#3B82F6] dark:!border-blue-500/75 ring-1 ring-blue-500/25 shadow-xl shadow-blue-950/20'
-                      : isAmberCard && hasPromo
-                        ? '!border-amber-500/70 ring-1 ring-amber-500/20'
-                        : ''
+                    : ''
                   }`}
                 >
-                  {/* Selo Flutuante Promocional (ex.: OFERTA BLACK FRIDAY) */}
-                  {plano.seloPromocional && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                      <span
-                        className={`px-3.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider text-white shadow-lg ${
-                          isAmberCard
-                            ? 'bg-gradient-to-r from-red-600 to-amber-500 shadow-red-600/30'
-                            : 'bg-gradient-to-r from-[#F97316] to-[#FB923C] shadow-orange-500/30'
-                        }`}
-                      >
-                        {plano.seloPromocional}
-                      </span>
-                    </div>
-                  )}
-
                   <div>
                     <div className="flex items-baseline justify-between gap-2 pt-1">
                       <h3 className="text-base font-bold text-slate-900 dark:text-white">
                         {plano.nome}
                       </h3>
-                      {plano.destaque && !plano.seloPromocional && (
+                      {plano.destaque && (
                         <span className="text-[11px] font-semibold text-[#1D4ED8] dark:text-blue-400">
                           Recomendado
                         </span>
@@ -916,34 +899,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     </p>
 
                     <div className="mt-5 pt-5 border-t border-slate-200/80 dark:border-white/10">
-                      {hasPromo && (
-                        <p className="text-xs font-mono text-slate-400 line-through">
-                          de {formatarMoedaBRL(precoNormal.mensalEquivalenteCentavos)}
-                        </p>
-                      )}
                       <div className="flex items-baseline gap-1 mt-0.5">
-                        {hasPromo && (
-                          <span className="text-xs font-medium text-blue-500 dark:text-blue-400 mr-0.5">
-                            por
-                          </span>
-                        )}
                         <span
-                          className={`text-3xl font-bold font-mono tabular-nums ${
-                            hasPromo
-                              ? isAmberCard
-                                ? 'text-amber-500 dark:text-amber-400'
-                                : 'text-[#2563EB] dark:text-blue-400'
-                              : 'text-slate-900 dark:text-white'
-                          }`}
+                          className={`text-3xl font-bold font-mono tabular-nums ${plano.destaque ? 'text-[#2563EB] dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}
                         >
-                          {formatarMoedaBRL(precoFinal.mensalEquivalenteCentavos)}
+                          {monthlyEquivalent === null ? 'Indisponível' : formatarMoedaBRL(monthlyEquivalent)}
                         </span>
-                        <span className="text-xs text-slate-500 dark:text-slate-400">/mês</span>
+                        {monthlyEquivalent !== null && <span className="text-xs text-slate-500 dark:text-slate-400">/mês equivalente</span>}
                       </div>
                       <p className="mt-1 text-xs font-mono tabular-nums text-slate-500 dark:text-slate-400">
-                        {ciclo === 'MENSAL'
-                          ? 'Sem fidelidade · cobrança mensal'
-                          : `${formatarMoedaBRL(precoFinal.totalPeriodoCentavos)} no plano ${ciclo.toLowerCase()}`}
+                        {displayOffer ? `${formatarMoedaBRL(displayOffer.totalCentavos)} no ciclo ${ciclo.toLowerCase()}` : 'Sem oferta neste ciclo'}
                       </p>
                     </div>
 
@@ -990,6 +955,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <div className="mt-6 pt-5 border-t border-slate-200/80 dark:border-white/10 space-y-2">
                     <button
                       type="button"
+                      disabled={!trialOffer}
                       onClick={() =>
                         onStartCheckout({
                           planoSlug: plano.slug,
@@ -998,18 +964,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           adicionaisSlugs: selectedAddons,
                         })
                       }
-                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                        isAmberCard && hasPromo
-                          ? 'bg-gradient-to-r from-[#F97316] to-[#FB923C] text-white hover:from-[#EA580C] hover:to-[#F97316] shadow-md shadow-orange-600/25'
-                          : plano.destaque
-                            ? 'bg-gradient-to-r from-[#1D4ED8] to-[#3B82F6] text-white hover:from-[#1E40AF] hover:to-[#2563EB] shadow-md shadow-blue-600/25'
-                            : 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'
-                      }`}
+                      className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${plano.destaque ? 'bg-gradient-to-r from-[#1D4ED8] to-[#3B82F6] text-white hover:from-[#1E40AF] hover:to-[#2563EB] shadow-md shadow-blue-600/25' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'}`}
                     >
-                      Testar Grátis por 7 Dias
+                      {trialOffer ? `Testar Grátis por ${trialOffer.trialDias} Dias` : 'Teste indisponível neste ciclo'}
                     </button>
                     <button
                       type="button"
+                      disabled={!immediateOffer}
                       onClick={() =>
                         onStartCheckout({
                           planoSlug: plano.slug,
@@ -1018,9 +979,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           adicionaisSlugs: selectedAddons,
                         })
                       }
-                      className="w-full py-2 px-4 rounded-xl border border-slate-200 dark:border-white/15 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                      className="w-full py-2 px-4 rounded-xl border border-slate-200 dark:border-white/15 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Assinar Agora
+                      {immediateOffer ? 'Assinar Agora' : 'Assinatura indisponível neste ciclo'}
                     </button>
                   </div>
                 </div>

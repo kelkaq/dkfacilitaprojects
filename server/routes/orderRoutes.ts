@@ -245,7 +245,7 @@ orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Re
       cycleMonths: CYCLES[order.ciclo] as 1 | 6 | 12,
       amountCentavos: order.totalCentavos,
       trialDays: order.modoInicio === 'TRIAL' ? 7 : 0,
-      backUrl: `${origin}/pagamento-retorno`,
+      backUrl: `${origin}/pagamento-retorno?pedido=${encodeURIComponent(order.id)}`,
     });
     if (!subscription.id || subscription.external_reference !== order.externalReference ||
         (subscription.auto_recurring?.transaction_amount != null &&
@@ -270,5 +270,18 @@ orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Re
   } catch (error) {
     console.error('Falha ao preparar checkout Mercado Pago:', error instanceof Error ? error.message : 'erro desconhecido');
     res.status(503).json({ error: 'Não foi possível abrir o pagamento agora. Tente novamente em instantes.' });
+  }
+});
+
+orderRouter.get('/api/public/orders/:id/status', async (req: Request, res: Response) => {
+  const id = String(req.params.id ?? '');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) { res.status(400).json({ error: 'Pedido inválido.' }); return; }
+  try {
+    const order = await getPrisma().pedido.findUnique({ where: { id }, select: { id: true, status: true, modoInicio: true } });
+    if (!order) { res.status(404).json({ error: 'Pedido não encontrado.' }); return; }
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(order);
+  } catch {
+    res.status(503).json({ error: 'Não foi possível consultar este pagamento agora.' });
   }
 });

@@ -27,3 +27,11 @@ Atualizado em 20/11/2026. Este arquivo descreve o ambiente observado, não autor
 6. Apenas então alterar Apache/systemd, executar smoke test público e monitorar erros.
 
 Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
+
+## Continuação verificada em 20/11/2026
+
+- Staging atualizado até o commit `93ed193` na branch `feature/csdk-production-waves`; migrations Prisma aplicadas e `migrate status` confirmou schema atualizado.
+- `npm run lint` e `npm run build` passaram no clone da VPS. Testes de pedido/checkout, webhook (trial, fatura, cancelamento e repetição), autenticação/recuperação e equipe/convites passaram no banco `csdk_db`.
+- As rotas usam respostas Mercado Pago simuladas nos testes; nenhuma cobrança real ou assinatura de comprador foi criada. O checkout ainda depende de ofertas ativas no PostgreSQL e de variáveis/serviços CSDK configurados.
+- Após limpeza dos smoke tests, `empresas`, `usuarios`, `pedidos` e `pagamento_eventos` ficaram vazios. Não foram criados registros de cliente.
+- `dk-solucoes.service` permaneceu ativo. Não foi criado ou iniciado serviço CSDK, nem alterados Apache, DNS, Wix, `dkfacilita.com` ou o banco `dk_db`.

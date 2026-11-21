@@ -10,12 +10,14 @@ import {
   seedGlobalCatalogToFirestore,
   type GlobalCatalogSnapshot,
 } from './services/catalogService.ts';
+import { fetchPublicOffers, type PublicOffer } from './services/orderService.ts';
 import { sendAnalyticsHeartbeat } from './services/analyticsService.ts';
 import { getEmpresaById, listMyEmpresas } from './services/tenantAuthService.ts';
 import type { EmpresaDoc } from './types/domain.ts';
 import { ThemeProvider } from './components/ThemeProvider.tsx';
 import { LandingPage, type CheckoutSelection } from './components/LandingPage.tsx';
-import { CheckoutFlow } from './components/CheckoutFlow.tsx';
+import { HostedCheckoutFlow } from './components/HostedCheckoutFlow.tsx';
+import { PaymentReturnPage } from './components/PaymentReturnPage.tsx';
 import { OnboardingWizard } from './components/OnboardingWizard.tsx';
 import { LoginView } from './components/LoginView.tsx';
 import { ClientSaasApp } from './components/client/ClientSaasApp.tsx';
@@ -27,6 +29,7 @@ import { AccountPortal } from './components/AccountPortal.tsx';
 type AppView =
   | 'SITE'
   | 'CHECKOUT'
+  | 'PAYMENT_RETURN'
   | 'LOGIN'
   | 'ONBOARDING'
   | 'CLIENT_APP'
@@ -111,6 +114,9 @@ function resolveRouteFromBrowser(): {
   if (pathname === '/checkout') {
     return { view: 'CHECKOUT', examParams: null, dossierToken: null };
   }
+  if (pathname === '/pagamento-retorno') {
+    return { view: 'PAYMENT_RETURN', examParams: null, dossierToken: null };
+  }
   if (pathname === '/primeiro-acesso') {
     return { view: 'ONBOARDING', examParams: null, dossierToken: null };
   }
@@ -138,6 +144,8 @@ function pathForView(view: AppView): string {
       return '/entrar';
     case 'CHECKOUT':
       return '/checkout';
+    case 'PAYMENT_RETURN':
+      return '/pagamento-retorno';
     case 'ONBOARDING':
       return '/primeiro-acesso';
     default:
@@ -171,6 +179,8 @@ function AppRouter() {
 
   const [catalog, setCatalog] = useState<GlobalCatalogSnapshot | null>(null);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
+  const [publicOffers, setPublicOffers] = useState<PublicOffer[]>([]);
+  const [loadingPublicOffers, setLoadingPublicOffers] = useState(true);
 
   const isSuperAdmin =
     Boolean(user?.emailVerified) && user?.email?.toLowerCase() === SUPER_ADMIN_EMAIL;
@@ -252,6 +262,15 @@ function AppRouter() {
     void loadCatalog();
   }, [loadCatalog]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchPublicOffers(controller.signal)
+      .then(setPublicOffers)
+      .catch(() => setPublicOffers([]))
+      .finally(() => { if (!controller.signal.aborted) setLoadingPublicOffers(false); });
+    return () => controller.abort();
+  }, []);
+
   // Guarda de rotas autenticadas / acesso administrativo exclusivamente via /admin
   useEffect(() => {
     if (!authReady) return;
@@ -273,7 +292,7 @@ function AppRouter() {
   // Heartbeat real de analytics (a cada 30 segundos + mudança de tela)
   useEffect(() => {
     const origem =
-      view === 'SITE' || view === 'CHECKOUT' || view === 'LOGIN'
+      view === 'SITE' || view === 'CHECKOUT' || view === 'PAYMENT_RETURN' || view === 'LOGIN'
         ? 'SITE'
         : view === 'PUBLIC_EXAM'
           ? 'PROVA_PUBLICA'
@@ -427,14 +446,14 @@ function AppRouter() {
   // 3. CHECKOUT + TRIAL AUTOMÁTICO (/checkout)
   if (view === 'CHECKOUT') {
     return (
-      <CheckoutFlow
-        catalog={catalog}
+      <HostedCheckoutFlow
         initialSelection={checkoutSelection}
         onBackToSite={() => navigate('SITE')}
-        onEnterPanel={handleEnterPanelFromCheckout}
       />
     );
   }
+
+  if (view === 'PAYMENT_RETURN') return <PaymentReturnPage />;
 
   // 4. LOGIN (/entrar)
   if (view === 'LOGIN') {
@@ -522,6 +541,8 @@ function AppRouter() {
     <LandingPage
       catalog={catalog}
       loadingCatalog={loadingCatalog}
+      offers={publicOffers}
+      loadingOffers={loadingPublicOffers}
       isAuthenticated={Boolean(user)}
       onStartCheckout={handleStartCheckout}
       onGoLogin={() => {

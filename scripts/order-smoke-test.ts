@@ -74,6 +74,8 @@ try {
   assert.equal(stored.modoInicio, 'TRIAL');
   assert.equal(created.totalCentavos, 54000);
   assert.equal(created.status, 'CARRINHO');
+  const statusUrl = `${url}/${created.id}/status`;
+  assert.equal(((await (await fetch(statusUrl)).json()) as { status: string }).status, 'CARRINHO');
   const checkoutUrl = `${url}/${created.id}/checkout`;
   const startCheckout = () => fetch(checkoutUrl, { method: 'POST' });
   const start = await startCheckout();
@@ -84,6 +86,8 @@ try {
   const sentRecurring = providerBody[0].auto_recurring as { free_trial: { frequency: number; frequency_type: string }; transaction_amount: number };
   assert.deepEqual(sentRecurring.free_trial, { frequency: 7, frequency_type: 'days' });
   assert.equal(sentRecurring.transaction_amount, 540);
+  assert.ok(String(providerBody[0].back_url).includes(`/pagamento-retorno?pedido=${created.id}`));
+  assert.equal(((await (await fetch(statusUrl)).json()) as { status: string }).status, 'AGUARDANDO_CARTAO');
   const repeatedCheckout = await startCheckout();
   assert.equal(repeatedCheckout.status, 200);
   assert.equal(providerCreates, 1);

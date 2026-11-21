@@ -93,6 +93,9 @@ try {
   assert.equal((await signedRequest('subscription_preapproval', subscriptionId, `event-sub-${suffix}`)).status, 200);
   const activatedOrder = await db.pedido.findUniqueOrThrow({ where: { id: order.id } });
   assert.equal(activatedOrder.status, 'TRIAL_ATIVO');
+  const publicStatus = await fetch(`${base}/api/public/orders/${order.id}/status`);
+  assert.equal(publicStatus.status, 200);
+  assert.equal(((await publicStatus.json()) as { status: string }).status, 'TRIAL_ATIVO');
   companyId = activatedOrder.empresaId;
   assert.ok(companyId);
   assert.equal(await db.usuario.count({ where: { empresaId: companyId } }), 1);

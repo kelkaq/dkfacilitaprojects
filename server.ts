@@ -15,7 +15,7 @@ async function startServer() {
   app.use(express.json({ limit: '25mb' }));
   app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-  // Rotas da API Backend & Webhooks Asaas
+  // Rotas da API Backend & Webhooks Mercado Pago
   app.use(apiRouter);
 
   if (process.env.NODE_ENV !== 'production') {
