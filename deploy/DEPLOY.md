@@ -25,13 +25,15 @@ sudo -u dkapp npm run lint
 sudo -u dkapp npm run build
 ```
 
-O editor de modelos próprios usa o mesmo fluxo visual do CertificaNR: o PowerPoint da empresa é renderizado como fundo, os campos variáveis são posicionados num editor por tenant, e o certificado final é montado em HTML/CSS e impresso em PDF por Chromium headless. Na VPS, a importação precisa de `libreoffice-impress` e `poppler-utils`; a prévia e a emissão precisam de `chromium`. Configure os caminhos `CSDK_LIBREOFFICE_PATH`, `CSDK_PDFTOPPM_PATH` e `CSDK_CHROMIUM_PATH` no ambiente protegido do CSDK. O desenho do PPTX fica preservado como fundo rasterizado; os campos de dados são configurados por cima, sem prometer edição automática dos vetores do arquivo.
+O editor de modelos próprios usa o mesmo fluxo visual do CertificaNR: o PowerPoint da empresa é renderizado como fundo, os campos variáveis são posicionados num editor por tenant, e o certificado final é montado em HTML/CSS e impresso em PDF por Chromium headless. Na VPS, a importação precisa de `libreoffice-impress` e `poppler-utils`; a prévia e a emissão precisam do Google Chrome estável. O pacote Chromium do Ubuntu instala um snap que não pode ser iniciado pelo usuário `dkapp`, por isso o caminho configurado é `/usr/bin/google-chrome`. Configure também `CSDK_LIBREOFFICE_PATH` e `CSDK_PDFTOPPM_PATH` no ambiente protegido do CSDK. O desenho do PPTX fica preservado como fundo rasterizado; os campos de dados são configurados por cima, sem prometer edição automática dos vetores do arquivo.
 
 Para preparar uma VPS nova, instale os componentes do sistema antes de iniciar o serviço:
 
 ```bash
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y libreoffice-impress poppler-utils chromium
+DEBIAN_FRONTEND=noninteractive apt-get install -y libreoffice-impress poppler-utils
+wget -O /tmp/google-chrome-stable.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+apt-get install -y /tmp/google-chrome-stable.deb
 ```
 
 Cada versão ativa guarda, em diretório privado da empresa, as páginas PNG, os hashes e o layout JSON. A reimpressão usa a versão imutável registrada no certificado. Inclua `storage/certificate_layouts` nos backups/restaurações do banco; sem esses arquivos as versões antigas não podem ser reimpressas.
