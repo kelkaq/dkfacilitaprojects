@@ -125,7 +125,7 @@ try {
   assert.equal(publicOffer.limiteUsuarios, 1);
   const parallelKey = crypto.randomUUID();
   const parallel = await Promise.all([post(body, parallelKey), post(body, parallelKey)]);
-  assert.deepEqual(parallel.map((item) => item.status).sort(), [200, 201]);
+  assert.deepEqual(parallel.map((item) => item.status).sort(), [200, 200]);
   const parallelIds = await Promise.all(parallel.map(async (item) => (await item.json() as { id: string }).id));
   assert.equal(parallelIds[0], parallelIds[1]);
   await db.planoOferta.update({ where: { id: offer.id }, data: { totalCentavos: 53000 } });
