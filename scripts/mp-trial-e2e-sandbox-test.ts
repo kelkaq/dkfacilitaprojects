@@ -102,9 +102,12 @@ try {
   const app = express();
   app.use(express.json());
   app.use(apiRouter);
-  app.get('/token-test', (_req, res) => res.type('html').send(`<!doctype html><html><body>
+  app.get('/token-test', (_req, res) => res.type('html').send(`<!doctype html><html><head><style>
+    #form-checkout{display:flex;flex-direction:column;gap:8px;max-width:600px}
+    #form-checkout .secure-field{height:24px;display:inline-block;width:280px;border:1px solid #777;border-radius:4px;padding:2px}
+    </style></head><body>
     <form id="form-checkout">
-      <div id="form-checkout__cardNumber"></div><div id="form-checkout__expirationDate"></div><div id="form-checkout__securityCode"></div>
+      <div id="form-checkout__cardNumber" class="secure-field"></div><div id="form-checkout__expirationDate" class="secure-field"></div><div id="form-checkout__securityCode" class="secure-field"></div>
       <input id="form-checkout__cardholderName"><select id="form-checkout__issuer"></select><select id="form-checkout__installments"></select>
       <select id="form-checkout__identificationType"><option value="CPF">CPF</option></select>
       <input id="form-checkout__identificationNumber"><input id="form-checkout__cardholderEmail" type="email"><button id="submit" type="submit">Continuar</button>
