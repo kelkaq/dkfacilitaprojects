@@ -38,7 +38,9 @@ mercadoPagoWebhookRouter.post('/webhooks/mercado-pago', async (req: Request, res
     if (topic === 'subscription_preapproval') {
       const subscription = await mp.getSubscription(dataId);
       if (subscription.id !== dataId) throw new Error('ID de assinatura divergente.');
-      const provisioned = await provisionAuthorizedSubscription({ db, subscription });
+      const plan = subscription.preapproval_plan_id ? await mp.getPlan(subscription.preapproval_plan_id) : undefined;
+      if (plan && plan.id !== subscription.preapproval_plan_id) throw new Error('ID de plano divergente.');
+      const provisioned = await provisionAuthorizedSubscription({ db, subscription, plan });
       if (provisioned) await deliverFirstAccessEmail(provisioned.email, provisioned.resetToken);
       await syncSubscriptionStatus({ db, subscription });
     } else if (topic === 'subscription_authorized_payment') {

@@ -25,9 +25,10 @@ delete process.env.RESEND_API_KEY;
 delete process.env.EMAIL_FROM;
 const nativeFetch = globalThis.fetch;
 const subscriptionId = `test_sub_${suffix}`;
+const mercadoPagoPlanId = `mp-hook-${suffix}`;
 const eventIds = [`mp:event-sub-${suffix}`, `mp:event-invoice-${suffix}`, `mp:event-cancel-${suffix}`, `mp:event-dup-${suffix}`];
 const subscription = {
-  id: subscriptionId, status: 'authorized', external_reference: `CSDK-${suffix}`,
+  id: subscriptionId, status: 'authorized', preapproval_plan_id: mercadoPagoPlanId,
   payer_email: `owner-${suffix}@example.invalid`, card_id: 'test-card',
   auto_recurring: { transaction_amount: 100, currency_id: 'BRL', free_trial: { frequency: 7, frequency_type: 'days' } },
   next_payment_date: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
@@ -36,12 +37,17 @@ let invoiceStatus = 'approved';
 let providerSubscriptionStatus = 'authorized';
 globalThis.fetch = ((url: Parameters<typeof fetch>[0], init?: RequestInit) => {
   const target = String(url);
+  if (target === `https://api.mercadopago.com/preapproval_plan/${mercadoPagoPlanId}`) {
+    return Promise.resolve(new Response(JSON.stringify({ id: mercadoPagoPlanId, status: 'active',
+      auto_recurring: { frequency: 1, frequency_type: 'months', transaction_amount: 100,
+        currency_id: 'BRL', free_trial: { frequency: 7, frequency_type: 'days' } } }), { status: 200 }));
+  }
   if (target === `https://api.mercadopago.com/preapproval/${subscriptionId}`) {
     return Promise.resolve(new Response(JSON.stringify({ ...subscription, status: providerSubscriptionStatus }), { status: 200 }));
   }
   if (target === 'https://api.mercadopago.com/authorized_payments/123456789') {
     return Promise.resolve(new Response(JSON.stringify({ id: 123456789, preapproval_id: subscriptionId,
-      external_reference: subscription.external_reference, transaction_amount: '100.00', currency_id: 'BRL',
+      external_reference: `CSDK-${suffix}`, transaction_amount: '100.00', currency_id: 'BRL',
       debit_date: new Date().toISOString(), status: 'processed', payment: { id: 987654321, status: invoiceStatus } }), { status: 200 }));
   }
   return nativeFetch(url, init);
@@ -75,14 +81,14 @@ try {
     precoMensalCentavos: 10000, limiteColaboradores: 5, limiteUsuarios: 2, limiteObras: 1 } });
   planId = plan.id;
   const offer = await db.planoOferta.create({ data: { planoId: plan.id, ciclo: 'MENSAL', ambiente: 'TEST', trialDias: 7,
-    totalCentavos: 10000, mercadoPagoPlanId: `mp-hook-${suffix}`, ativa: true } });
+    totalCentavos: 10000, mercadoPagoPlanId, ativa: true } });
   offerId = offer.id;
   const order = await db.pedido.create({ data: { planoId: plan.id, ofertaId: offer.id, tipoDocumento: 'PF',
     documento: '52998224725', emailComprador: subscription.payer_email, razaoSocial: 'Titular de teste',
     nomeAdministrador: 'Administrador de teste', whatsapp: '11999999999', ciclo: 'MENSAL', modoInicio: 'TRIAL',
     status: 'AGUARDANDO_CARTAO', precoSnapshot: { planoId: plan.id, ambiente: 'TEST', trialDias: 7, totalCentavos: 10000 },
-    totalCentavos: 10000, idempotencyKey: `hook-${suffix}`, externalReference: subscription.external_reference,
-    mercadoPagoId: subscriptionId, expiraEm: new Date(Date.now() + 60 * 60_000) } });
+    totalCentavos: 10000, idempotencyKey: `hook-${suffix}`, externalReference: `CSDK-${suffix}`,
+    mercadoPagoId: null, expiraEm: new Date(Date.now() + 60 * 60_000) } });
   orderId = order.id;
 
   const invalid = await fetch(`${base}/webhooks/mercado-pago?data.id=${subscriptionId}`, {
@@ -117,7 +123,7 @@ try {
   assert.equal(activeCompany.status, 'CANCELADA');
 
   assert.equal((await signedRequest('subscription_preapproval', subscriptionId, `event-dup-${suffix}`)).status, 200);
-  process.stdout.write('Webhook passou: assinatura verificada cria trial e usuário, fatura aprovada ativa, cancelamento bloqueia e evento repetido é idempotente.\n');
+  process.stdout.write('Webhook passou: plano trial vincula pedido por e-mail, cria usuário, fatura aprovada ativa, cancelamento bloqueia e evento repetido é idempotente.\n');
 } finally {
   globalThis.fetch = nativeFetch;
   if (orderId) await db.pedido.deleteMany({ where: { id: orderId } });

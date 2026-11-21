@@ -28,10 +28,10 @@ assert.equal(subscriptionBody.status, 'authorized');
 assert.equal(subscriptionBody.external_reference, 'CSDK-123');
 await mp.createHostedSubscription({ reason: 'Teste CSDK', payerEmail: 'teste@example.invalid',
   externalReference: 'CSDK-456', cycleMonths: 1, amountCentavos: 1000,
-  trialDays: 7, backUrl: 'https://dkfacilita.com/checkout' });
+  trialDays: 0, backUrl: 'https://dkfacilita.com/pagamento-retorno' });
 const hostedBody = JSON.parse(String(requests[2].init.body));
 assert.equal(hostedBody.status, 'pending');
-assert.deepEqual(hostedBody.auto_recurring.free_trial, { frequency: 7, frequency_type: 'days' });
+assert.equal(hostedBody.auto_recurring.free_trial, undefined);
 const matches = await mp.findByOrder({ payerEmail: 'teste@example.invalid', planId: 'plan_123', externalReference: 'CSDK-123' });
 assert.equal(matches.length, 1);
 assert.equal(matches[0].id, 'test_subscription_123');
@@ -39,6 +39,6 @@ assert.ok(requests[3].url.startsWith('https://api.mercadopago.com/preapproval/se
 await mp.cancelSubscription('test_subscription_123');
 assert.equal(requests[4].url, 'https://api.mercadopago.com/preapproval/test_subscription_123');
 assert.equal(requests[4].init.method, 'PUT');
-assert.deepEqual(JSON.parse(String(requests[4].init.body)), { status: 'canceled' });
+assert.deepEqual(JSON.parse(String(requests[4].init.body)), { status: 'cancelled' });
 assert.equal(JSON.stringify(requests).includes('1234567890123456'), false);
 process.stdout.write('Contrato Mercado Pago passou: plano trial e assinatura com token de cartão.\n');

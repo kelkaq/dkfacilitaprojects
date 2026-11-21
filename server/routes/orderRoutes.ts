@@ -37,6 +37,14 @@ function appOrigin(): string | null {
   } catch { return null; }
 }
 
+function isMercadoPagoCheckoutUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && /(^|\.)mercadopago\.com(\.br|\.ar)?$/.test(url.hostname);
+  } catch { return false; }
+}
+
 orderRouter.get('/api/public/offers', async (_req: Request, res: Response) => {
   if (!publicCommerceEnabled()) {
     res.status(503).json({ error: 'As compras estão temporariamente indisponíveis.' });
@@ -171,6 +179,17 @@ orderRouter.post('/api/public/orders', async (req: Request, res: Response) => {
       res.status(409).json({ error: 'Esta modalidade ainda não está disponível para compra.' });
       return;
     }
+    const existingOpenOrder = await db.pedido.findFirst({
+      where: { ofertaId: offers[0].id, documento: cleanDocument, emailComprador: email,
+        status: { in: ['CARRINHO', 'AGUARDANDO_CARTAO', 'AGUARDANDO_PAGAMENTO'] },
+        expiraEm: { gt: new Date() } },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (existingOpenOrder) {
+      res.json({ id: existingOpenOrder.id, status: existingOpenOrder.status,
+        totalCentavos: existingOpenOrder.totalCentavos });
+      return;
+    }
     const order = await db.pedido.create({
       data: {
         planoId: plano.id,
@@ -238,7 +257,7 @@ orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Re
     }
     if (order.mercadoPagoId) {
       const existing = await client.getSubscription(order.mercadoPagoId);
-      if (existing.init_point && /^https:\/\/(www\.)?mercadopago\.com(\.br|\.ar)?\//.test(existing.init_point)) {
+      if (isMercadoPagoCheckoutUrl(existing.init_point)) {
         res.json({ id: order.id, status: order.status, checkoutUrl: existing.init_point }); return;
       }
       res.status(202).json({ id: order.id, status: order.status, processing: true }); return;
@@ -254,11 +273,29 @@ orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Re
       order = await db.pedido.findUnique({ where: { id }, include: { oferta: true, plano: true } });
       if (order?.mercadoPagoId) {
         const existing = await client.getSubscription(order.mercadoPagoId);
-        if (existing.init_point && /^https:\/\/(www\.)?mercadopago\.com(\.br|\.ar)?\//.test(existing.init_point)) {
+        if (isMercadoPagoCheckoutUrl(existing.init_point)) {
           res.json({ id, status: order.status, checkoutUrl: existing.init_point }); return;
         }
       }
       res.status(202).json({ id, status: order?.status ?? 'AGUARDANDO_CARTAO', processing: true }); return;
+    }
+
+    if (order.modoInicio === 'TRIAL') {
+      const plan = await client.getPlan(order.oferta.mercadoPagoPlanId);
+      const recurring = plan.auto_recurring;
+      if (plan.status !== 'active' || !recurring || recurring.frequency !== CYCLES[order.ciclo] ||
+          recurring.frequency_type !== 'months' || recurring.currency_id !== 'BRL' ||
+          Math.round((recurring.transaction_amount ?? 0) * 100) !== order.totalCentavos ||
+          recurring.free_trial?.frequency !== 7 || recurring.free_trial.frequency_type !== 'days') {
+        res.status(409).json({ error: 'O plano de teste no Mercado Pago não corresponde ao carrinho. Avise o suporte.' }); return;
+      }
+      const checkoutUrl = ambiente === 'TEST' ? plan.sandbox_init_point ?? plan.init_point : plan.init_point;
+      if (!isMercadoPagoCheckoutUrl(checkoutUrl)) {
+        res.status(502).json({ error: 'O Mercado Pago não retornou um link válido para o plano de teste.' }); return;
+      }
+      await db.pedido.update({ where: { id }, data: { checkoutLockUntil: null, status: 'AGUARDANDO_CARTAO' } });
+      res.status(200).json({ id, status: 'AGUARDANDO_CARTAO', checkoutUrl });
+      return;
     }
 
     // Recupera por referência única caso uma resposta de rede anterior tenha se perdido.
@@ -272,7 +309,7 @@ orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Re
       externalReference: order.externalReference,
       cycleMonths: CYCLES[order.ciclo] as 1 | 6 | 12,
       amountCentavos: order.totalCentavos,
-      trialDays: order.modoInicio === 'TRIAL' ? 7 : 0,
+      trialDays: 0,
       backUrl: `${origin}/pagamento-retorno?pedido=${encodeURIComponent(order.id)}`,
     });
     if (!subscription.id || subscription.external_reference !== order.externalReference ||
@@ -291,7 +328,7 @@ orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Re
         res.status(409).json({ error: 'Pedido já vinculado a outra assinatura.' }); return;
       }
     }
-    if (subscription.init_point && /^https:\/\/(www\.)?mercadopago\.com(\.br|\.ar)?\//.test(subscription.init_point)) {
+    if (isMercadoPagoCheckoutUrl(subscription.init_point)) {
       res.status(200).json({ id, status: 'AGUARDANDO_CARTAO', checkoutUrl: subscription.init_point }); return;
     }
     res.status(202).json({ id, status: 'AGUARDANDO_CARTAO', processing: true });

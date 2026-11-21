@@ -15,6 +15,7 @@ export const PaymentReturnPage: React.FC = () => {
   const [error, setError] = useState('');
 
   const refreshStatus = useCallback(async (signal?: AbortSignal): Promise<OrderStatus | null> => {
+    if (!orderId) { setError(''); setLoading(false); return null; }
     if (!/^[0-9a-f-]{36}$/i.test(orderId)) { setError('O link de retorno não contém um pedido válido.'); setLoading(false); return null; }
     setError('');
     try {
@@ -38,6 +39,7 @@ export const PaymentReturnPage: React.FC = () => {
     const controller = new AbortController();
     let cancelled = false;
     void (async () => {
+      if (!orderId) { setLoading(false); return; }
       for (let attempt = 0; attempt < 5 && !cancelled; attempt += 1) {
         const currentStatus = await refreshStatus(controller.signal);
         if (controller.signal.aborted || !currentStatus || SUCCESS.has(currentStatus) || FAILURE.has(currentStatus)) break;
@@ -63,7 +65,9 @@ export const PaymentReturnPage: React.FC = () => {
             ? 'O Mercado Pago confirmou a assinatura. O link seguro de primeiro acesso será enviado ao e-mail informado para você definir a senha.'
             : failed
               ? 'Não recebemos uma confirmação de pagamento para este pedido. Você pode voltar ao site e tentar novamente.'
-              : 'O Mercado Pago ainda está confirmando o pagamento. Esta página atualiza o status automaticamente; o acesso só será liberado depois da confirmação.'}
+          : !orderId
+            ? 'O Mercado Pago está confirmando sua assinatura. Quando a confirmação chegar, enviaremos ao e-mail informado um link seguro para criar sua senha. O acesso só será liberado depois da confirmação.'
+            : 'O Mercado Pago ainda está confirmando o pagamento. Esta página atualiza o status automaticamente; o acesso só será liberado depois da confirmação.'}
         </p>
         {status && !succeeded && !failed && <button type="button" onClick={() => { setLoading(true); void refreshStatus(); }} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold dark:border-white/10"><RefreshCw className="h-4 w-4" /> Consultar novamente</button>}
         <div className="mt-8 flex flex-wrap gap-3"><a href="/acesso" className="rounded-xl bg-blue-700 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800">Ir para o acesso</a><a href="/" className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold dark:border-white/10">Voltar ao site</a></div>

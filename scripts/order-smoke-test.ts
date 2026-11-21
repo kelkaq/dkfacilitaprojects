@@ -17,10 +17,18 @@ process.env.APP_URL = 'https://example.invalid';
 process.env.CSDK_PUBLIC_COMMERCE_ENABLED = 'true';
 const nativeFetch = globalThis.fetch;
 let providerCreates = 0;
+const providerPlanId = `smoke-plan-${suffix}`;
 const providerBody: { [key: string]: unknown }[] = [];
 globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
   const target = String(url);
   if (!target.startsWith('https://api.mercadopago.com/')) return nativeFetch(url, init);
+  if (target === `https://api.mercadopago.com/preapproval_plan/${providerPlanId}`) {
+    return new Response(JSON.stringify({ id: providerPlanId, status: 'active',
+      init_point: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=mock',
+      sandbox_init_point: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=mock-test',
+      auto_recurring: { frequency: 6, frequency_type: 'months', transaction_amount: 540,
+        currency_id: 'BRL', free_trial: { frequency: 7, frequency_type: 'days' } } }), { status: 200 });
+  }
   if (target.startsWith('https://api.mercadopago.com/preapproval/search?')) {
     return new Response(JSON.stringify({ paging: { total: 0 }, results: [] }), { status: 200 });
   }
@@ -62,7 +70,7 @@ try {
   planId = plan.id;
   const offer = await db.planoOferta.create({ data: {
     planoId: plan.id, ciclo: 'SEMESTRAL', ambiente: 'TEST', trialDias: 7,
-    totalCentavos: 54000, mercadoPagoPlanId: `smoke-${suffix}`, ativa: true,
+    totalCentavos: 54000, mercadoPagoPlanId: providerPlanId, ativa: true,
   } });
   const key = crypto.randomUUID();
   const body = { tipoDocumento: 'PF', documento: '529.982.247-25', emailComprador: `smoke-${suffix}@example.invalid`,
@@ -98,7 +106,10 @@ try {
   assert.equal(((await (await fetch(statusUrl)).json()) as { status: string }).status, 'AGUARDANDO_CARTAO');
   const repeatedCheckout = await startCheckout();
   assert.equal(repeatedCheckout.status, 200);
-  assert.equal(providerCreates, 1);
+  assert.equal(providerCreates, 0);
+  const separateKeyRetry = await post(body, crypto.randomUUID());
+  assert.equal(separateKeyRetry.status, 200);
+  assert.equal((await separateKeyRetry.json() as { id: string }).id, created.id);
   const repeated = await post(body, key);
   assert.equal(repeated.status, 200);
   assert.equal((await repeated.json() as { id: string }).id, created.id);
@@ -121,7 +132,7 @@ try {
   assert.equal((await post(body, crypto.randomUUID())).status, 409);
   await db.planoOferta.update({ where: { id: offer.id }, data: { totalCentavos: 54000 } });
   assert.equal(await db.usoTrial.count({ where: { documento: '52998224725' } }), 0);
-  process.stdout.write('Pedido passou: preço, CPF, idempotência, checkout MP com trial e assinatura duplicada evitada.\n');
+  process.stdout.write('Pedido passou: preço, CPF, idempotência, checkout de plano MP com trial e pedido duplicado evitado.\n');
 } finally {
   globalThis.fetch = nativeFetch;
   if (oldMpToken === undefined) delete process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN; else process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN = oldMpToken;

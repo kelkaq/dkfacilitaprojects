@@ -15,7 +15,9 @@ export interface MercadoPagoSubscription {
 export interface MercadoPagoPlan {
   id: string;
   status: string;
-  auto_recurring?: { transaction_amount?: number; currency_id?: string; free_trial?: { frequency: number; frequency_type: string } };
+  init_point?: string;
+  sandbox_init_point?: string;
+  auto_recurring?: { frequency?: number; frequency_type?: string; transaction_amount?: number; currency_id?: string; free_trial?: { frequency: number; frequency_type: string } };
 }
 
 export interface MercadoPagoAuthorizedPayment {
@@ -83,7 +85,7 @@ export class MercadoPagoSubscriptions {
 
   createHostedSubscription(input: {
     reason: string; payerEmail: string; externalReference: string;
-    cycleMonths: 1 | 6 | 12; amountCentavos: number; trialDays: 0 | 7; backUrl: string;
+    cycleMonths: 1 | 6 | 12; amountCentavos: number; trialDays: 0; backUrl: string;
   }): Promise<MercadoPagoSubscription> {
     if (input.reason.trim().length < 3 || !input.payerEmail.includes('@') ||
         !input.externalReference || !Number.isInteger(input.amountCentavos) || input.amountCentavos < 100 ||
@@ -109,6 +111,11 @@ export class MercadoPagoSubscriptions {
     return this.request<MercadoPagoSubscription>(`/preapproval/${encodeURIComponent(id)}`, 'GET');
   }
 
+  getPlan(id: string): Promise<MercadoPagoPlan> {
+    if (!/^[a-zA-Z0-9_-]{8,128}$/.test(id)) throw new Error('ID de plano inválido.');
+    return this.request<MercadoPagoPlan>(`/preapproval_plan/${encodeURIComponent(id)}`, 'GET');
+  }
+
   async findByOrder(input: { payerEmail: string; externalReference: string; planId?: string }): Promise<MercadoPagoSubscription[]> {
     if (!input.payerEmail.includes('@') || !input.externalReference) throw new Error('Busca de assinatura inválida.');
     const found: MercadoPagoSubscription[] = [];
@@ -127,7 +134,7 @@ export class MercadoPagoSubscriptions {
 
   cancelSubscription(id: string): Promise<MercadoPagoSubscription> {
     if (!/^[a-zA-Z0-9_-]{8,128}$/.test(id)) throw new Error('ID de assinatura inválido.');
-    return this.request<MercadoPagoSubscription>(`/preapproval/${encodeURIComponent(id)}`, 'PUT', { status: 'canceled' });
+    return this.request<MercadoPagoSubscription>(`/preapproval/${encodeURIComponent(id)}`, 'PUT', { status: 'cancelled' });
   }
 
   getAuthorizedPayment(id: string): Promise<MercadoPagoAuthorizedPayment> {

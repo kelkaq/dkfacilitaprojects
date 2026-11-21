@@ -73,3 +73,19 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 - CSDK agora envia primeiro acesso, reset e convites via BREVO ou Resend. Teste local do adaptador passou. A API BREVO autenticou a chave e confirmou o remetente configurado como ativo; nenhum e-mail de teste foi enviado.
 - O staging reiniciou e responde HTTP 200; `dk-solucoes.service` permaneceu ativo. Auth, convite e webhook smoke tests passaram após a mudança.
 - A URL canônica escolhida pelo proprietário é `https://dkfacilita.com`; esse valor foi configurado em `APP_URL` no ambiente privado do CSDK. O domínio ainda atende o site/serviço anterior e o CSDK está isolado no loopback; a troca pública para o CSDK e o envio de mensagens com esses links devem ocorrer juntos, após validar o release público. O staging segue sem vhost próprio.
+
+## Atualização de publicação do domínio — 21/11/2026
+
+- `https://dkfacilita.com` e `https://www.dkfacilita.com` agora passam pelo Apache para o CSDK em `127.0.0.1:3020`, servido por `csdk.service` em `/var/www/csdk-production`. O certificado HTTPS existente foi validado e está vigente até 12/01/2027.
+- A produção usa cópia isolada do banco `csdk_prod_db`, com as migrations e dados-base do ambiente CSDK; staging segue em `csdk_db`/`csdk-staging.service`. A conta `SUPER_ADMIN` já está preparada. Segredos de produção estão em `/etc/dk/csdk/production.env` (`600`, fora do repositório); o JWT de produção é próprio.
+- O serviço antigo `dk-solucoes.service`, o banco `dk_db` e os arquivos/releases anteriores foram preservados e continuam ativos para retorno. Antes do corte foram guardados dumps PostgreSQL de `dk_db` e `csdk_db`, configurações Apache/systemd e inventário dos virtual hosts em `/root/csdk-cutover-20261121T145855Z` (`700`). O retorno do domínio consiste em restaurar `dkfacilita.conf` dessa cópia, validar com `apache2ctl configtest` e recarregar o Apache.
+- Verificações após o corte: `apache2ctl configtest` passou; raiz HTTPS, `/acesso` e `/api/health` responderam HTTP 200; certificado validou sem erro TLS; `dk-solucoes.service`, `csdk-staging.service` e `csdk.service` estão ativos. `/api/public/offers` retorna 503 porque a vitrine/checkout permanece desabilitada.
+- `CSDK_PUBLIC_COMMERCE_ENABLED=false`; não há oferta comercial ativa no ambiente público. O domínio publica o sistema CSDK, mas isso não representa liberação de vendas/assinaturas.
+
+## Retomada de homologação Mercado Pago — 21/11/2026
+
+- Foram localizadas no ambiente privado da DK Soluções credenciais Mercado Pago TEST e produção e migradas para os arquivos CSDK protegidos. Ambas autenticaram na API. A configuração de produção permanece desativada para checkout público.
+- A primeira tentativa de checkout TEST mostrou que o Mercado Pago rejeita a criação de uma assinatura pendente sem plano com `free_trial`. O código local foi ajustado para consultar o plano recorrente de sete dias vinculado à oferta e devolver seu checkout hospedado. O webhook agora pode associar o retorno do plano ao único pedido pendente que corresponda ao e-mail e à oferta; pedidos abertos repetidos pelo mesmo titular são reutilizados.
+- Validações locais: `npm run lint`, `npm run build` e o contrato simulado do Mercado Pago passaram. Ainda falta executar os smoke tests no banco isolado da VPS com esta versão e concluir a homologação ponta a ponta com um comprador TEST. A versão corrigida ainda não foi declarada homologada.
+- O checkout de assinatura aceita cartão pelo fluxo hospedado do Mercado Pago. Pix recorrente e pagamento dividido em dois cartões não estão implementados nem homologados; não anunciar esses meios até definir integração compatível.
+- A produção e o staging continuam com `CSDK_PUBLIC_COMMERCE_ENABLED=false`; nenhuma compra ou cobrança real foi iniciada.

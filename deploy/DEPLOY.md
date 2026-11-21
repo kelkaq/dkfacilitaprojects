@@ -1,11 +1,12 @@
 # Implantação do Certifica Software - DK
 
-Estado verificado em 20/11/2026. A situação concreta da VPS está em [ACTUAL_VPS_STATE.md](./ACTUAL_VPS_STATE.md). Este projeto ainda não está pronto para substituir o serviço público de `dkfacilita.com`.
+Estado verificado em 21/11/2026. A situação concreta da VPS está em [ACTUAL_VPS_STATE.md](./ACTUAL_VPS_STATE.md). O CSDK já atende `dkfacilita.com`; checkout e ofertas públicas seguem desligados até a homologação financeira e operacional ser concluída.
 
 ## Ambientes existentes
 
-- Site atual: Apache encaminha `dkfacilita.com` para `dk-solucoes.service`, em `/var/www/dk-solucoes`, com banco `dk_db`.
-- CSDK isolado: `/var/www/csdk-staging`, branch `feature/csdk-production-waves`, banco `csdk_db` e usuário `csdk_app`.
+- Aplicação pública CSDK: Apache encaminha `dkfacilita.com` para `csdk.service`, em `/var/www/csdk-production`, banco `csdk_prod_db`.
+- Serviço anterior preservado para retorno: `dk-solucoes.service`, `/var/www/dk-solucoes`, banco `dk_db`.
+- CSDK isolado para homologação: `/var/www/csdk-staging`, branch `feature/csdk-production-waves`, banco `csdk_db` e usuário `csdk_app`.
 - Segredo do banco CSDK: `/etc/dk/csdk/database.env`, somente no servidor. Não copiar para o Git.
 - Backup anterior à troca: `/root/csdk-predeploy-20261120`.
 
@@ -45,7 +46,7 @@ Esses comandos atualizam apenas a homologação. Não alteram Apache, domínio, 
 ## Critérios antes da publicação
 
 1. Login, convite, recuperação de senha e limite de usuários ligados às telas e ao PostgreSQL.
-2. Checkout com preço calculado no servidor; tokenização do cartão Mercado Pago; trial de sete dias; Pix imediato; cancelamento, webhooks e conciliação testados em TEST e depois em PRODUCTION.
+2. Checkout com preço calculado no servidor; assinatura e trial de sete dias com cartão hospedado Mercado Pago; cancelamento, webhooks e conciliação testados em TEST. Pix e dois cartões são meios ainda não implementados para a assinatura recorrente e não devem ser anunciados.
 3. Turmas, provas, assinaturas, modelos próprios e emissão centralizados no servidor. Rotas que montam documentos apenas com dados enviados pelo navegador permanecem fechadas.
 4. Teste de isolamento entre pelo menos duas empresas fictícias distintas, incluindo um titular CPF e outro CNPJ.
 5. Backup e restauração do CSDK testados, procedimento de retorno do site atual documentado, monitoramento e alertas configurados.
@@ -54,7 +55,7 @@ Depois dos critérios, criar serviço systemd CSDK próprio, ambiente protegido 
 
 ## Integração financeira atual
 
-O provedor escolhido é Mercado Pago. Rotas Asaas devolvem 410. O checkout novo cria pedido e assinatura hospedada por cartão; o webhook busca a assinatura/fatura no provedor, valida estado, titular, referência, moeda e valor, e só então cria a conta ou atualiza a cobrança. A homologação local com respostas simuladas cobre trial, pagamento recorrente, cancelamento e idempotência. Ainda falta transação real de comprador TEST, ativação de ofertas comerciais e configuração do webhook/e-mail no CSDK. O checkout antigo Firebase/Asaas não está ligado à API nova.
+O provedor escolhido é Mercado Pago. Rotas Asaas devolvem 410. O checkout cria pedido e assinatura hospedada por cartão; o webhook busca a assinatura/fatura no provedor, valida estado, titular, referência/plano, moeda e valor, e só então cria a conta ou atualiza a cobrança. Os testes simulados cobrem contratos, preço, trial, recorrência, cancelamento e idempotência; eles não substituem o teste ponta a ponta de comprador TEST. O checkout Pix e pagamento com dois cartões não estão disponíveis para assinatura recorrente. O checkout antigo Firebase/Asaas não está ligado à API nova.
 
 `CSDK_PUBLIC_COMMERCE_ENABLED` vem como `false` no exemplo de ambiente e bloqueia listagem de ofertas, criação de pedidos e checkout. Mantenha-o desativado até o painel operacional PostgreSQL, e-mail de primeiro acesso, preços, ofertas e ciclo de compra estarem homologados.
 

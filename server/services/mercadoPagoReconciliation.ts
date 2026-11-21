@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
-import type { Prisma, PrismaClient, StatusAssinatura } from '@prisma/client';
+import type { AmbientePagamento, Prisma, PrismaClient, StatusAssinatura } from '@prisma/client';
 import { hashPassword } from '../lib/security.ts';
-import type { MercadoPagoAuthorizedPayment, MercadoPagoSubscription } from './mercadoPagoSubscriptions.ts';
+import type { MercadoPagoAuthorizedPayment, MercadoPagoPlan, MercadoPagoSubscription } from './mercadoPagoSubscriptions.ts';
 import { sendTransactionalEmail, transactionalEmailConfigured } from './transactionalEmail.ts';
 
 function cents(amount: string | number | undefined): number | null {
@@ -27,21 +27,39 @@ async function sendFirstAccessEmail(email: string, token: string): Promise<void>
 export async function provisionAuthorizedSubscription(input: {
   db: PrismaClient;
   subscription: MercadoPagoSubscription;
+  plan?: MercadoPagoPlan;
 }): Promise<{ email: string; resetToken: string } | null> {
-  const { subscription, db } = input;
-  if (subscription.status !== 'authorized' || !subscription.external_reference ||
-      !subscription.id || !subscription.payer_email || !subscription.auto_recurring ||
-      subscription.auto_recurring.currency_id !== 'BRL') return null;
+  const { subscription, db, plan } = input;
+  if (subscription.status !== 'authorized' || !subscription.id || !subscription.payer_email) return null;
+  const recurring = subscription.auto_recurring ?? plan?.auto_recurring;
+  if (!recurring || recurring.currency_id !== 'BRL') return null;
   const resetToken = crypto.randomBytes(32).toString('base64url');
   const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
   const payerEmail = subscription.payer_email.trim().toLowerCase();
   const now = new Date();
+  const environment = process.env.CSDK_PAYMENT_ENVIRONMENT;
+  if (environment !== 'TEST' && environment !== 'PRODUCTION') throw new Error('MP_ENVIRONMENT_INVALID');
   const result = await db.$transaction(async (tx) => {
-    const order = await tx.pedido.findUnique({ where: { externalReference: subscription.external_reference },
-      include: { oferta: true, plano: true } });
+    const referencedOrder = subscription.external_reference ? await tx.pedido.findUnique({
+      where: { externalReference: subscription.external_reference }, include: { oferta: true, plano: true },
+    }) : null;
+    let planMatches: Prisma.PedidoGetPayload<{ include: { oferta: true; plano: true } }>[] = [];
+    if (!referencedOrder && subscription.preapproval_plan_id && plan?.id === subscription.preapproval_plan_id) {
+      const matches = await tx.pedido.findMany({
+        where: { emailComprador: payerEmail, mercadoPagoId: null,
+          status: { in: ['AGUARDANDO_CARTAO', 'AGUARDANDO_PAGAMENTO'] },
+          OR: [{ expiraEm: null }, { expiraEm: { gt: now } }],
+          oferta: { mercadoPagoPlanId: subscription.preapproval_plan_id, ativa: true,
+            ambiente: environment as AmbientePagamento } },
+        include: { oferta: true, plano: true }, take: 2,
+      });
+      if (matches.length > 1) throw new Error('MP_ORDER_AMBIGUOUS');
+      planMatches = matches;
+    }
+    const order = referencedOrder ?? planMatches[0] ?? null;
     if (!order || !order.oferta || order.emailComprador !== payerEmail ||
-        order.totalCentavos !== cents(subscription.auto_recurring?.transaction_amount) ||
-        subscription.auto_recurring?.currency_id !== 'BRL' || order.oferta.ambiente !== (process.env.CSDK_PAYMENT_ENVIRONMENT ?? '') ||
+        order.totalCentavos !== cents(recurring.transaction_amount) ||
+        recurring.currency_id !== 'BRL' || order.oferta.ambiente !== environment ||
         order.oferta.totalCentavos !== order.totalCentavos) throw new Error('MP_ORDER_MISMATCH');
     if (order.status === 'TRIAL_ATIVO' || order.status === 'ASSINATURA_ATIVA') {
       if (order.mercadoPagoId !== subscription.id) throw new Error('MP_SUBSCRIPTION_MISMATCH');
@@ -50,8 +68,10 @@ export async function provisionAuthorizedSubscription(input: {
     if (!['AGUARDANDO_CARTAO', 'AGUARDANDO_PAGAMENTO'].includes(order.status) ||
         (order.mercadoPagoId && order.mercadoPagoId !== subscription.id)) throw new Error('MP_ORDER_STATE');
     const trial = order.modoInicio === 'TRIAL';
-    const freeTrial = subscription.auto_recurring?.free_trial;
-    if (trial && (freeTrial?.frequency !== 7 || freeTrial.frequency_type !== 'days' || !subscription.card_id)) {
+    const freeTrial = recurring.free_trial ?? plan?.auto_recurring?.free_trial;
+    if (trial && (order.oferta.mercadoPagoPlanId !== subscription.preapproval_plan_id ||
+        plan?.status !== 'active' || plan.id !== subscription.preapproval_plan_id ||
+        freeTrial?.frequency !== 7 || freeTrial.frequency_type !== 'days' || !subscription.card_id)) {
       throw new Error('MP_TRIAL_NOT_AUTHORIZED');
     }
     if (!trial && freeTrial && freeTrial.frequency > 0) throw new Error('MP_UNEXPECTED_TRIAL');

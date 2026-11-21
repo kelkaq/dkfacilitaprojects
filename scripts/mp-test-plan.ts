@@ -11,9 +11,9 @@ const plan = await mp.createTrialPlan({
   reason: `CSDK HOMOLOGACAO ${new Date().toISOString().slice(0, 10)}`,
   cycleMonths: 1,
   amountCentavos: 1000,
-  backUrl: 'https://dkfacilita.com/checkout',
+  backUrl: 'https://dkfacilita.com/pagamento-retorno',
 });
-if (!plan.id || plan.auto_recurring?.free_trial?.frequency !== 7 ||
+if (!plan.id || !plan.init_point || plan.auto_recurring?.free_trial?.frequency !== 7 ||
     plan.auto_recurring.free_trial.frequency_type !== 'days' ||
     plan.auto_recurring.currency_id !== 'BRL') {
   throw new Error('Plano retornado não comprovou sete dias gratuitos em BRL.');
