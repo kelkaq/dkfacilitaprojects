@@ -136,6 +136,13 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 - Passaram lint, build, contrato XLSX/CSV, contrato Mercado Pago e smoke de pedido com trial/reconciliação no staging. O banco de produção manteve as 9 migrations em dia. `dkfacilita.com` responde `200`, `/api/admin/commerce` sem sessão responde `401`, `/api/public/offers` segue `503`; os serviços CSDK, staging e DK Soluções permanecem ativos.
 - Backup de produção anterior a esse deploy: `/root/csdk-cutover-20261121T145855Z/csdk-production-before-5fd575d.tar.gz` (`600`). As vendas públicas continuam fechadas até homologar uma compra TEST real, webhook e e-mail de primeiro acesso.
 
+## Auditoria completa de dependências — 21/11/2026
+
+- O commit `40b7014` acrescenta overrides testados para `deepmerge-ts` `8.0.2`, `effect` `3.22.5` e `image-size` `2.1.0`, mantendo `@grpc/grpc-js` `1.13.6` e removendo a dependência vulnerável `xlsx`. `npm audit` completo agora retorna zero vulnerabilidades.
+- No staging foram atualizados os lockfiles e dependências, Prisma Client foi gerado e as nove migrations seguem em dia. Passaram lint/build e smoke de autenticação/recuperação, equipe/convites, avisos, operações multiempresa e limites, configuração/assinaturas do certificado, importação real de PPTX sintético com prévia e emissão PDF, pedido/trial/reconciliação idempotente, cancelamento, webhooks, exportação XLSX/CSV e renderização de template. Os dados de teste são limpos pelos scripts; os casos de e-mail usam mock.
+- O teste de PPTX foi executado com `/usr/bin/google-chrome`, `/usr/bin/libreoffice` e `/usr/bin/pdftoppm`, que correspondem aos binários configurados no serviço. Após reiniciar, `csdk-staging.service` está ativo e a health API responde `200`.
+- Os overrides são dependências transitivas de configuração e ferramentas de teste; lint, build e smoke das rotas que carregam Prisma 6 e `pptxgenjs` passaram com as versões corrigidas. O próximo deploy a produção deve repetir `npm ci`, gerar Prisma Client, lint/build, audit e health.
+
 ## Correção de texto da vitrine — 21/11/2026
 
 - Commit `29dd76c` troca a descrição técnica persistida no CMS da seção de preços por uma chamada comercial. O Super Admin continua editando os textos em “Site & Campanhas”; uma dica no campo orienta escrever benefícios para o cliente. Descrições antigas que falam de checkout ou de funções “em implantação” são substituídas visualmente pela chamada comercial.
