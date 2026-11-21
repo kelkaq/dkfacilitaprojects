@@ -9,22 +9,34 @@ import { getPrisma } from '../server/lib/prisma.ts';
 import { MercadoPagoSubscriptions } from '../server/services/mercadoPagoSubscriptions.ts';
 
 const dbUrl = process.env.DATABASE_URL ?? '';
-const mpToken = process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN ?? '';
-const webhookSecret = process.env.MERCADO_PAGO_TEST_WEBHOOK_SECRET ?? '';
 const planFile = process.env.CSDK_TEST_PLAN_OUTPUT ?? '';
 const chromiumPath = process.env.CSDK_CHROMIUM_PATH ?? '';
-if (!dbUrl.includes('csdk_db') || !mpToken.startsWith('TEST-') || !webhookSecret ||
+const sellerFile = '/etc/dk/csdk/mp-test-seller.env';
+if (!fs.existsSync(sellerFile)) throw new Error('Falta /etc/dk/csdk/mp-test-seller.env com as credenciais da aplicação do vendedor TEST.');
+const sellerEnv = dotenv.parse(fs.readFileSync(sellerFile));
+const mpToken = sellerEnv.MERCADO_PAGO_TEST_ACCESS_TOKEN ?? '';
+const publicKey = sellerEnv.MERCADO_PAGO_TEST_PUBLIC_KEY ?? '';
+const webhookSecret = sellerEnv.MERCADO_PAGO_TEST_WEBHOOK_SECRET ?? '';
+const sellerId = sellerEnv.MERCADO_PAGO_TEST_SELLER_ID?.trim() ?? '';
+if (!dbUrl.includes('csdk_db') || !mpToken.startsWith('APP_USR-') || !publicKey.startsWith('APP_USR-') || !webhookSecret ||
+    !/^\d+$/.test(sellerId) ||
     !planFile.startsWith('/etc/dk/csdk/') || !(/^\/usr\//.test(chromiumPath) || chromiumPath === '/snap/bin/chromium')) {
-  throw new Error('Este smoke exige somente banco csdk_db, credenciais TEST, plano privado e Chromium do staging.');
+  throw new Error('Este smoke exige banco csdk_db, credenciais do vendedor TEST, plano privado e Chromium do staging.');
 }
 
-const legacyEnv = dotenv.parse(fs.readFileSync('/etc/dk/dk-solucoes.env'));
-const publicKey = legacyEnv.MERCADO_PAGO_TEST_PUBLIC_KEY ?? '';
-const testBuyer = JSON.parse(fs.readFileSync('/etc/dk/csdk/mp-test-buyer.json', 'utf8')) as { id?: string | number };
+const testBuyer = JSON.parse(fs.readFileSync('/etc/dk/csdk/mp-test-buyer.json', 'utf8')) as { id?: string | number; site_id?: string };
 const buyerId = String(testBuyer.id ?? '');
 const payerEmail = `test_user_${buyerId}@testuser.com`;
-if (!publicKey.startsWith('TEST-') || !/^\d{6,18}$/.test(buyerId)) {
-  throw new Error('Credenciais TEST de tokenização/comprador ausentes.');
+if (!/^\d{6,18}$/.test(buyerId)) throw new Error('Comprador de teste inválido.');
+const legacyEnv = dotenv.parse(fs.readFileSync('/etc/dk/dk-solucoes.env'));
+if (legacyEnv.MERCADO_PAGO_TEST_SELLER_ID !== sellerId) {
+  throw new Error('O vendedor TEST protegido não corresponde ao ID de vendedor configurado pela DK Soluções.');
+}
+const identityResponse = await fetch('https://api.mercadopago.com/users/me', { headers: { Authorization: `Bearer ${mpToken}` } });
+if (!identityResponse.ok) throw new Error('Não foi possível validar o vendedor TEST no Mercado Pago.');
+const identity = await identityResponse.json() as { id?: string | number; nickname?: string; site_id?: string };
+if (String(identity.id) !== sellerId || !identity.nickname?.startsWith('TEST') || identity.site_id !== 'MLB' || testBuyer.site_id !== 'MLB') {
+  throw new Error('O vendedor e o comprador de teste precisam pertencer ao site MLB configurado.');
 }
 
 const planId = (JSON.parse(fs.readFileSync(planFile, 'utf8')) as { id?: string }).id;

@@ -290,7 +290,7 @@ orderRouter.post('/api/public/orders/:id/checkout', async (req: Request, res: Re
           recurring.free_trial?.frequency !== 7 || recurring.free_trial.frequency_type !== 'days') {
         res.status(409).json({ error: 'O plano de teste no Mercado Pago não corresponde ao carrinho. Avise o suporte.' }); return;
       }
-      const checkoutUrl = ambiente === 'TEST' ? plan.sandbox_init_point : plan.init_point;
+      const checkoutUrl = ambiente === 'TEST' ? plan.sandbox_init_point ?? plan.init_point : plan.init_point;
       if (!isMercadoPagoCheckoutUrl(checkoutUrl)) {
         await db.pedido.update({ where: { id }, data: { checkoutLockUntil: null, status: 'CARRINHO' } });
         res.status(502).json({ error: 'O Mercado Pago não retornou um link válido para o plano de teste.' }); return;

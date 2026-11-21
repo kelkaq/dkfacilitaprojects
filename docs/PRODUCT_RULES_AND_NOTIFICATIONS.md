@@ -261,4 +261,4 @@ Até os itens 1–4 serem comprovados em TEST e os itens 5–7 serem fechados pa
 
 ## Resultado do ensaio TEST do Mercado Pago — 21/11/2026
 
-O cartão de teste foi tokenizado (HTTP 201), mas a API recusou a assinatura associada ao plano (`HTTP 400 Resource not found`). O plano não oferece `sandbox_init_point`, e o `init_point` abre uma página de erro. No modo TEST, o checkout agora retorna erro controlado e libera o pedido para nova tentativa quando o link de sandbox não existe. A vitrine pública continua desativada. Os detalhes da verificação, limpeza dos dados e estado da produção estão em [ACTUAL_VPS_STATE.md](../deploy/ACTUAL_VPS_STATE.md).
+O cartão foi tokenizado (HTTP 201), mas a autorização falhou porque o ensaio usou a credencial da conta principal DK Soluções. A integração exige credenciais da aplicação criada dentro da conta vendedora de teste. O ID do vendedor TEST já está configurado e a conta existe; faltam a Public Key e o Access Token `APP_USR` dessa aplicação. A vitrine segue desativada. Consulte [preparo de credenciais TEST](MERCADO_PAGO_TEST_SETUP.md) e [estado do VPS](../deploy/ACTUAL_VPS_STATE.md).
