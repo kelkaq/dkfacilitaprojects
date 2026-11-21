@@ -1,6 +1,6 @@
 # Implantação do Certifica Software - DK
 
-Estado verificado em 21/11/2026. A situação concreta da VPS está em [ACTUAL_VPS_STATE.md](./ACTUAL_VPS_STATE.md). O CSDK já atende `dkfacilita.com`; checkout e ofertas públicas seguem desligados até a homologação financeira e operacional ser concluída.
+Estado verificado em 21/11/2026, commit `74bad3d`. A situação concreta da VPS está em [ACTUAL_VPS_STATE.md](./ACTUAL_VPS_STATE.md). O CSDK já atende `dkfacilita.com`; checkout e ofertas públicas seguem desligados até a homologação financeira e operacional ser concluída.
 
 ## Ambientes existentes
 
@@ -58,5 +58,7 @@ Depois dos critérios, criar serviço systemd CSDK próprio, ambiente protegido 
 O provedor escolhido é Mercado Pago. Rotas Asaas devolvem 410. O checkout cria pedido e assinatura hospedada por cartão; o webhook busca a assinatura/fatura no provedor, valida estado, titular, referência/plano, moeda e valor, e só então cria a conta ou atualiza a cobrança. Os testes simulados cobrem contratos, preço, trial, recorrência, cancelamento e idempotência; eles não substituem o teste ponta a ponta de comprador TEST. O checkout Pix e pagamento com dois cartões não estão disponíveis para assinatura recorrente. O checkout antigo Firebase/Asaas não está ligado à API nova.
 
 `CSDK_PUBLIC_COMMERCE_ENABLED` vem como `false` no exemplo de ambiente e bloqueia listagem de ofertas, criação de pedidos e checkout. Mantenha-o desativado até o painel operacional PostgreSQL, e-mail de primeiro acesso, preços, ofertas e ciclo de compra estarem homologados.
+
+O painel Super Admin sincroniza os planos editados no catálogo com o catálogo PostgreSQL consumido pelo checkout. Em “Ofertas & Cobrança”, o dono prepara ofertas para o ambiente de pagamento atual; elas nascem inativas e só podem ser ativadas depois que o preço e o período forem conferidos contra o plano hospedado no Mercado Pago. Desativar uma oferta impede novas compras sem apagar o histórico de pedidos. Isso não substitui a homologação de uma compra de ponta a ponta.
 
 As páginas novas de conta estão isoladas em `/acesso`, `/resetar-senha`, `/aceitar-convite` e `/minha-conta`. Para testá-las num host HTTPS de homologação, configurar `APP_URL` com a origem exata e `CSDK_COOKIE_AUTH=1` no ambiente protegido. O painel operacional `/app` ainda é legado.
