@@ -155,3 +155,15 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 - Somente o diretório web `/var/www/csdk-staging/dist` foi sincronizado para `/var/www/csdk-production/dist`. Cópia anterior: `/root/csdk-production-dist-before-3a6acae.tar.gz`, permissão `600`. Backend, banco de dados, credenciais, arquivos persistentes de clientes, Wix, DNS e DK Soluções não foram alterados nesta publicação.
 - `csdk.service` foi reiniciado. No Chrome headless, a página inicial, `/acesso` (login PostgreSQL) e `/checkout` (sem ofertas, pois a vitrine segue desligada) renderizaram sem erros JavaScript. HTTPS e `/api/health` responderam `200`; `/api/public/offers` respondeu `503`; chamadas sem sessão ao painel administrativo e ao cancelamento de trial responderam `401`.
 - O pacote principal caiu de `1,59 MB` para `839 KB` (`256 KB` comprimidos), mas ainda gera aviso do limite de `500 KB`; o build também mantém aviso de configuração futura do Vite. O login de compradores PostgreSQL continua em `/acesso`; as telas legadas Firebase permanecem disponíveis em seus fluxos existentes.
+
+## Atualização de homologação financeira — 21/11/2026
+
+- O formulário seguro tokenizou o cartão de teste (HTTP 201). A criação da assinatura associada ao plano foi recusada pelo Mercado Pago com HTTP 400 (`Resource not found`). A tentativa de usar `X-scope: stage` no POST de assinatura foi recusada com HTTP 403 (`At least one policy returned UNAUTHORIZED`); esse cabeçalho foi removido do fluxo de plano associado.
+- O plano TEST está ativo e declara sete dias gratuitos, mas não retorna `sandbox_init_point`. O `init_point` retornado abriu uma página de erro do Mercado Pago. O checkout TEST agora exige o link de sandbox e, se ausente, devolve erro controlado e libera o pedido para nova tentativa, sem redirecionar para a página inválida.
+- O ensaio foi executado no banco de staging com e-mails externos desativados. Não sobraram pedidos, usuários, empresas ou registros de uso de teste; oferta e plano locais foram restaurados ao estado inativo.
+- No commit `f3d3078`, lint, build, contrato Mercado Pago e smoke de pedidos passaram no VPS. Os serviços `csdk`, `csdk-staging` e `dk-solucoes` estão ativos. As APIs de saúde de staging e produção respondem HTTP 200; ofertas públicas respondem HTTP 503.
+- Os arquivos de rota de pedidos e serviço Mercado Pago foram copiados para produção após backup em `/root/csdk-before-f3d3078-server.tar.gz` (modo 600). O comércio público permanece desligado pelo systemd e pelo ambiente: `CSDK_PUBLIC_COMMERCE_ENABLED=false`.
+
+### Bloqueio atual para venda
+
+A autorização de assinatura e o checkout hospedado TEST ainda não foram comprovados. O Mercado Pago precisa fornecer/permitir um fluxo TEST que aceite criar assinatura associada ao plano e disponibilize um link de sandbox utilizável. Até isso ocorrer, não ativar ofertas públicas nem considerar a cobrança de trial homologada. O recebimento real de e-mail de primeiro acesso também permanece pendente.

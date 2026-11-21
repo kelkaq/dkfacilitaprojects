@@ -258,3 +258,7 @@ Esta seção substitui os estados antigos de auditoria e implantação descritos
 7. Fazer exercício documentado de backup/restauração do banco e dos arquivos de modelos, revisar monitoramento e continuar reduzindo o pacote JavaScript principal de 839 KB; remover também o aviso de configuração futura do Vite.
 
 Até os itens 1–4 serem comprovados em TEST e os itens 5–7 serem fechados para o escopo comercial escolhido, não declarar o sistema pronto para venda nem ativar a API pública de ofertas.
+
+## Resultado do ensaio TEST do Mercado Pago — 21/11/2026
+
+O cartão de teste foi tokenizado (HTTP 201), mas a API recusou a assinatura associada ao plano (`HTTP 400 Resource not found`). O plano não oferece `sandbox_init_point`, e o `init_point` abre uma página de erro. No modo TEST, o checkout agora retorna erro controlado e libera o pedido para nova tentativa quando o link de sandbox não existe. A vitrine pública continua desativada. Os detalhes da verificação, limpeza dos dados e estado da produção estão em [ACTUAL_VPS_STATE.md](../deploy/ACTUAL_VPS_STATE.md).
