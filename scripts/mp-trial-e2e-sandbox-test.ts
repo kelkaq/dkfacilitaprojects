@@ -193,7 +193,8 @@ try {
   }) as typeof fetch;
   let subscription;
   try {
-    subscription = await provider.createSubscription({
+    const instrumentedProvider = new MercadoPagoSubscriptions(mpToken, globalThis.fetch);
+    subscription = await instrumentedProvider.createSubscription({
       planId, payerEmail: buyerEmail, cardTokenId: tokenResult.token,
       externalReference, backUrl: 'https://dkfacilita.com/pagamento-retorno',
     });
