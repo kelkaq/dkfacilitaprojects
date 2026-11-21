@@ -143,6 +143,7 @@ export const HostedCheckoutFlow: React.FC<HostedCheckoutFlowProps> = ({ initialS
           ? 'O Mercado Pago está preparando o pagamento. Aguarde alguns segundos e tente novamente.'
           : 'Não recebemos um link de pagamento seguro. Tente novamente.');
       }
+      window.sessionStorage.setItem('csdk:pending-order', currentOrderId);
       window.location.assign(payload.checkoutUrl);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível abrir o pagamento. Tente novamente.');

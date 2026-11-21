@@ -9,7 +9,11 @@ const SUCCESS = new Set<OrderStatus>(['TRIAL_ATIVO', 'ASSINATURA_ATIVA']);
 const FAILURE = new Set<OrderStatus>(['PAGAMENTO_RECUSADO', 'CANCELADO', 'EXPIRADO']);
 
 export const PaymentReturnPage: React.FC = () => {
-  const orderId = new URLSearchParams(window.location.search).get('pedido') ?? '';
+  const orderId = useState(() => {
+    const fromReturnUrl = new URLSearchParams(window.location.search).get('pedido');
+    if (fromReturnUrl) return fromReturnUrl;
+    try { return window.sessionStorage.getItem('csdk:pending-order') ?? ''; } catch { return ''; }
+  })[0];
   const [status, setStatus] = useState<OrderStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,6 +30,9 @@ export const PaymentReturnPage: React.FC = () => {
       }
       const body = await response.json() as { status: OrderStatus };
       setStatus(body.status);
+      if (SUCCESS.has(body.status) || FAILURE.has(body.status)) {
+        try { window.sessionStorage.removeItem('csdk:pending-order'); } catch { /* armazenamento opcional */ }
+      }
       return body.status;
     } catch (cause) {
       if (!signal?.aborted) setError(cause instanceof Error ? cause.message : 'Consulta indisponível.');
@@ -42,7 +49,7 @@ export const PaymentReturnPage: React.FC = () => {
       if (!orderId) { setLoading(false); return; }
       for (let attempt = 0; attempt < 5 && !cancelled; attempt += 1) {
         const currentStatus = await refreshStatus(controller.signal);
-        if (controller.signal.aborted || !currentStatus || SUCCESS.has(currentStatus) || FAILURE.has(currentStatus)) break;
+        if (controller.signal.aborted || (currentStatus && (SUCCESS.has(currentStatus) || FAILURE.has(currentStatus)))) break;
         if (attempt < 4) await new Promise((resolve) => window.setTimeout(resolve, 2000));
       }
     })();

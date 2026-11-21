@@ -136,6 +136,22 @@ export class MercadoPagoSubscriptions {
     return found;
   }
 
+  async findByPayerAndPlan(input: { payerEmail: string; planId: string }): Promise<MercadoPagoSubscription[]> {
+    if (!input.payerEmail.includes('@') || !/^[a-zA-Z0-9_-]{8,128}$/.test(input.planId)) {
+      throw new Error('Busca de assinatura inválida.');
+    }
+    const found: MercadoPagoSubscription[] = [];
+    for (let offset = 0; offset < 100; offset += 20) {
+      const params = new URLSearchParams({ payer_email: input.payerEmail, preapproval_plan_id: input.planId, limit: '20', offset: String(offset) });
+      const page = await this.request<{ paging?: { total?: number }; results?: MercadoPagoSubscription[] }>(
+        `/preapproval/search?${params.toString()}`, 'GET');
+      const results = page.results ?? [];
+      found.push(...results.filter((item) => item.preapproval_plan_id === input.planId));
+      if (results.length < 20 || offset + 20 >= (page.paging?.total ?? 0)) break;
+    }
+    return found;
+  }
+
   cancelSubscription(id: string): Promise<MercadoPagoSubscription> {
     if (!/^[a-zA-Z0-9_-]{8,128}$/.test(id)) throw new Error('ID de assinatura inválido.');
     return this.request<MercadoPagoSubscription>(`/preapproval/${encodeURIComponent(id)}`, 'PUT', { status: 'cancelled' });

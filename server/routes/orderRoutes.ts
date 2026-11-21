@@ -4,6 +4,7 @@ import type { AmbientePagamento, CicloCobranca, ModoInicio, TipoDocumento } from
 import { getPrisma } from '../lib/prisma.ts';
 import { validateHolderDocument } from '../lib/brazilDocument.ts';
 import { MercadoPagoSubscriptions } from '../services/mercadoPagoSubscriptions.ts';
+import { deliverFirstAccessEmail, provisionAuthorizedSubscription } from '../services/mercadoPagoReconciliation.ts';
 
 export const orderRouter = Router();
 
@@ -342,10 +343,36 @@ orderRouter.get('/api/public/orders/:id/status', async (req: Request, res: Respo
   const id = String(req.params.id ?? '');
   if (!/^[0-9a-f-]{36}$/i.test(id)) { res.status(400).json({ error: 'Pedido inválido.' }); return; }
   try {
-    const order = await getPrisma().pedido.findUnique({ where: { id }, select: { id: true, status: true, modoInicio: true } });
+    const db = getPrisma();
+    let order = await db.pedido.findUnique({ where: { id }, include: { oferta: true } });
     if (!order) { res.status(404).json({ error: 'Pedido não encontrado.' }); return; }
+    const ambiente = paymentEnvironment();
+    const client = ambiente ? mercadoPagoClient(ambiente) : null;
+    if (order.modoInicio === 'TRIAL' && order.status === 'AGUARDANDO_CARTAO' && order.oferta && client &&
+        (!order.expiraEm || order.expiraEm > new Date()) &&
+        order.oferta.ambiente === ambiente && order.oferta.ativa && order.oferta.mercadoPagoPlanId) {
+      const subscriptions = await client.findByPayerAndPlan({
+        payerEmail: order.emailComprador,
+        planId: order.oferta.mercadoPagoPlanId,
+      });
+      const authorized = subscriptions.filter((subscription) => subscription.status === 'authorized' && subscription.id);
+      const matchingAuthorized = [];
+      for (const candidate of authorized) {
+        const full = await client.getSubscription(candidate.id);
+        if (full.payer_email?.trim().toLowerCase() === order.emailComprador &&
+            full.preapproval_plan_id === order.oferta.mercadoPagoPlanId) matchingAuthorized.push(full);
+      }
+      if (matchingAuthorized.length > 1) throw new Error('MP_TRIAL_SUBSCRIPTION_AMBIGUOUS');
+      if (matchingAuthorized.length === 1) {
+        const subscription = matchingAuthorized[0];
+        const plan = subscription.preapproval_plan_id ? await client.getPlan(subscription.preapproval_plan_id) : undefined;
+        const provisioned = await provisionAuthorizedSubscription({ db, subscription, plan });
+        if (provisioned) await deliverFirstAccessEmail(provisioned.email, provisioned.resetToken);
+        order = await db.pedido.findUnique({ where: { id }, include: { oferta: true } }) ?? order;
+      }
+    }
     res.setHeader('Cache-Control', 'no-store');
-    res.json(order);
+    res.json({ id: order.id, status: order.status, modoInicio: order.modoInicio });
   } catch {
     res.status(503).json({ error: 'Não foi possível consultar este pagamento agora.' });
   }

@@ -225,3 +225,9 @@ Pendências que impedem afirmar “100% pronto para vender”:
 6. **Segurança e operação:** resolver ou mitigar as vulnerabilidades do audit; validar backup e restauração de banco e arquivos; revisar limites/rate limit e observabilidade; confirmar política e processo de estorno, chargeback, correção/revogação de certificados e suporte ao cliente.
 
 Não tratar os testes de contrato ou o webhook simulado como transação de provedor. O endereço comercial serve a aplicação CSDK, mas a venda ao público continua bloqueada deliberadamente até os pontos acima serem demonstrados em staging e os preços/ofertas serem revisados.
+
+## Retorno do checkout de trial — 21/11/2026
+
+- O checkout hospedado do plano de trial usa um link genérico; o retorno do Mercado Pago pode não carregar o ID do pedido. O checkout agora guarda o pedido em `sessionStorage` antes do redirecionamento e a tela de retorno recupera esse ID quando a URL não traz `pedido`.
+- Enquanto um pedido de trial aguarda cartão, a consulta de status pode procurar a assinatura no Mercado Pago por e-mail e plano. Só tenta provisionar após consultar a assinatura completa e confirmar e-mail, plano e status autorizado; o serviço de reconciliação continua validando preço, moeda, ciclo, teste de sete dias e uso único do documento. A resposta pública mantém apenas ID, estado e modalidade do pedido.
+- Esse mecanismo é uma recuperação para o retorno do comprador; não substitui o webhook, nem comprova a entrega de e-mails ou uma transação real. O checkout público permanece fechado até a compra TEST ponta a ponta e o webhook serem demonstrados.
