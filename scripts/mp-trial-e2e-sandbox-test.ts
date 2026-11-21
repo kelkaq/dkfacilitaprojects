@@ -20,8 +20,10 @@ if (!dbUrl.includes('csdk_db') || !mpToken.startsWith('TEST-') || !webhookSecret
 
 const legacyEnv = dotenv.parse(fs.readFileSync('/etc/dk/dk-solucoes.env'));
 const publicKey = legacyEnv.MERCADO_PAGO_TEST_PUBLIC_KEY ?? '';
-const payerEmail = legacyEnv.MERCADO_PAGO_TEST_BUYER_EMAIL?.trim().toLowerCase() ?? '';
-if (!publicKey.startsWith('TEST-') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payerEmail)) {
+const testBuyer = JSON.parse(fs.readFileSync('/etc/dk/csdk/mp-test-buyer.json', 'utf8')) as { id?: string | number };
+const buyerId = String(testBuyer.id ?? '');
+const payerEmail = `test_user_${buyerId}@testuser.com`;
+if (!publicKey.startsWith('TEST-') || !/^\d{6,18}$/.test(buyerId)) {
   throw new Error('Credenciais TEST de tokenização/comprador ausentes.');
 }
 
