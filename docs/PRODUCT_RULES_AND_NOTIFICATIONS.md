@@ -173,3 +173,34 @@ Referências oficiais consultadas: https://www.mercadopago.com.br/developers/pt/
 Interface ligada às rotas: o checkout agora lê somente ofertas ativas de `GET /api/public/offers`, coleta titular PF/PJ, administrador, e-mail e WhatsApp, e redireciona para o checkout hospedado do Mercado Pago. O retorno consulta somente `GET /api/public/orders/:id/status`, sem expor e-mail ou outros dados pessoais. O navegador não coleta cartão e não cria empresa no Firebase nesse fluxo. O site mostra preços, disponibilidade e dados dos planos a partir do PostgreSQL; descrições/preços de adicionais ainda vêm do catálogo Firebase e não são enviados à cobrança. `CSDK_PUBLIC_COMMERCE_ENABLED=false` impede listar oferta, criar pedido ou iniciar checkout, mesmo que alguma oferta esteja ativa.
 
 Pendências atualizadas: cadastrar ofertas comerciais reais; sincronizar catálogo Firebase/PostgreSQL; cupons e adicionais; Pix e pagamento com dois cartões; cancelamento dentro do painel; configurar e testar e-mail de primeiro acesso; testar transação e webhook públicos em TEST; tratar pagamentos recusados, estornos e chargebacks; e disponibilizar ferramentas administrativas de suporte e conciliação. O checkout usa cartão hospedado e não deve ser publicado até essas etapas e a validação de ofertas/preços.
+
+## Estado após integração de certificados PostgreSQL — 20/11/2026
+
+No commit `77922c4`, o CSDK ganhou um fluxo operacional de emissão independente do emissor Firebase legado:
+
+- A prova congela no início os papéis configurados pela empresa, cada um como digital ou físico, com nome e obrigatoriedade. A assinatura do colaborador só é solicitada durante a prova quando existe papel digital obrigatório.
+- O administrador pode cadastrar assinaturas PNG de instrutor, responsável técnico, representante da empresa ou papel personalizado. A API exige responsável ativo da mesma empresa para papéis vinculados a usuário.
+- O painel lista provas aprovadas e permite emitir somente após aprovação. Assinaturas digitais obrigatórias ausentes bloqueiam emissão; papel físico gera campo para assinatura em papel.
+- Cada certificado grava snapshots da empresa, participante, conteúdo e assinaturas. A emissão é idempotente e única por empresa/turma/colaborador; o certificado pode ser impresso e seu QR abre validação pública sem CPF ou imagem de assinatura.
+- Smoke test no `csdk_db` verificou isolamento entre duas empresas, bloqueio sem assinatura obrigatória, emissão repetida sem duplicar, conteúdo impresso e consulta pública limitada. Todos os registros de teste foram removidos.
+- A verificação continua sendo uma imagem de assinatura armazenada, e não uma assinatura digital ICP-Brasil ou certificado criptográfico. O projeto deve descrever a função como coleta/representação de assinatura, sem alegar assinatura eletrônica qualificada.
+
+No commit `a7c8345`, o adicional de modelo próprio também passou a integrar essa emissão:
+
+- Cada empresa pode enviar um PPTX quando o adicional `modelo_proprio` estiver ativo. O servidor confirma a estrutura, conta slides, detecta marcadores suportados e guarda uma cópia versionada em pasta privada da empresa com SHA-256.
+- O cliente coloca marcadores nas caixas de texto do seu PowerPoint. Os marcadores de texto recebem dados do certificado; `{{LOGO}}`, `{{QRCODE}}`, `{{ASSINATURA_ALUNO}}`, `{{ASSINATURA_INSTRUTOR}}`, `{{ASSINATURA_RT}}` e `{{ASSINATURA_1}}` a `{{ASSINATURA_6}}` podem trocar a própria caixa por uma imagem, mantendo tamanho e posição do desenho original. O upload exige participante, treinamento e QR; a emissão exige marcador para cada assinatura obrigatória.
+- O snapshot do certificado aponta para a versão e o hash do modelo usados. Um novo upload ou retorno ao modelo padrão só muda certificados futuros; os arquivos antigos continuam guardados para impressão de documentos existentes.
+- O smoke test gerou um PPTX de teste, subiu a versão 1, emitiu, subiu a versão 2, imprimiu o documento antigo e verificou que ele ainda usou a versão 1. Também tentou carregar o mesmo modelo por outra empresa e recebeu bloqueio.
+- **Limite observado no VPS:** LibreOffice não está instalado. O render validado retornou um `.pptx` já preenchido como fallback; ainda falta instalar e testar o conversor para PDF em ambiente isolado, com arquivo PowerPoint válido e inspeção visual de saída.
+- O motor substitui os marcadores que o cliente insere; ele ainda não reorganiza automaticamente um arquivo sem marcadores nem reconhece toda a tipografia, paleta, linhas e elementos sem mapeamento. Não anunciar “reconhecimento automático de qualquer modelo” antes de criar o fluxo assistido de mapeamento e provar com modelos reais de clientes diferentes.
+
+## Pendências comerciais e operacionais que permanecem
+
+1. **Cobrança e lançamento:** criar ofertas comerciais em TEST e depois PRODUCTION; homologar comprador de teste, cartão, período grátis, webhooks e cancelamento no painel; revisar Pix, cupons, adicionais e cartões múltiplos; configurar e validar e-mail de ativação/recuperação. O checkout fica bloqueado por padrão e não deve ser divulgado.
+2. **Modelos e paridade de certificado:** testar conversão LibreOffice para PDF e revisar visualmente frente/verso e fontes em arquivos PowerPoint reais; adicionar prévia antes de ativar o modelo e mapeamento assistido para clientes que não inserem marcadores. O fluxo atual preenche marcadores explícitos e preserva sua posição, mas não reconhece automaticamente todo desenho arbitrário. O catálogo de adicionais/compra também precisa vender e conceder o direito de modelo próprio no PostgreSQL.
+3. **Operação do treinamento:** completar importação em massa, presença, dossiês, relatórios, cartas de anuência, emissão em lote, revogação e exportação. Validar vencimento e retenção dos certificados e evidências.
+4. **Notificações:** implementar a central do dono descrita acima, sino/caixa por usuário, destinatários por tenant/perfil, agendamento, recorrência, confirmação e histórico. O recurso ainda não está disponível.
+5. **Preparação técnica de produção:** testar backup e restauração do banco e arquivos; colocar CSDK em ambiente HTTPS isolado com serviço próprio; revisar proxy/cookies, observabilidade, arquivos persistentes, acessibilidade e visual em desktop/celular; documentar rollback. O `dk-solucoes.service`, Apache, Wix, DNS, `dkfacilita.com` e `dk_db` permanecem intocados.
+6. **Catálogo e governança:** manter dados novos de cada cliente separados; versionar catálogo e conteúdo sem alterar documentos emitidos; definir suporte operacional, política de correção/revogação, termos, privacidade, retenção e saída/exportação do cliente.
+
+**Resultado:** o staging tem agora o caminho básico PostgreSQL de turma → prova corrigida no servidor → certificado por empresa → impressão/QR público. Isso ainda não representa equivalência funcional completa com o CertificaNR nem liberação para comercialização ou troca do domínio.

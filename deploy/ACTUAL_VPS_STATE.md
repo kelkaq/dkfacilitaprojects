@@ -28,13 +28,16 @@ Atualizado em 20/11/2026. Este arquivo descreve o ambiente observado, não autor
 
 Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 
-## Continuação verificada em 20/11/2026
+## Atualização observada em 20/11/2026 — commits `77922c4` e `a7c8345`
 
-- Staging atualizado até o commit `c43b55e` na branch `feature/csdk-production-waves`; migration `20261121110000_tenant_certificate_setup` aplicada e `prisma migrate status` confirmou schema atualizado.
-- `npm run lint` e `npm run build` passaram no clone da VPS. O build ainda avisa sobre o uso de `__dirname` no Vite e sobre um bundle JavaScript acima de 500 kB.
-- Passaram os smoke tests de configuração do tenant (identidade, cores, logo privado, modelo gratuito, papéis de assinatura próprios, bloqueio de edição por membro e isolamento entre duas empresas), pedido/checkout Mercado Pago, webhook, autenticação/recuperação e equipe/convites.
-- As rotas de pagamento usam respostas Mercado Pago simuladas nos testes; nenhuma cobrança real, assinatura de comprador ou e-mail real foi emitido.
-- Após a limpeza dos smoke tests, `empresas`, `usuarios`, `pedidos` e `pagamento_eventos` ficaram com zero registros; há cinco planos e nenhuma oferta ativa em `csdk_db`.
-- `dk-solucoes.service` permaneceu ativo. Não foi criado ou iniciado serviço CSDK, nem alterados Apache, DNS, Wix, `dkfacilita.com` ou o banco `dk_db`.
-- `CSDK_PUBLIC_COMMERCE_ENABLED` permanece `false` por padrão no exemplo. Além disso, não há ofertas ativas, portanto a compra pública não está disponível.
-- A configuração visual e os papéis de assinatura já são persistidos por empresa no CSDK, mas ainda não foram conectados ao emissor legado de certificados. A emissão e o restante do painel operacional ainda dependem do Firebase.
+- `/var/www/csdk-staging` está no commit `a7c8345` da branch `feature/csdk-production-waves`. Oito migrations estão aplicadas em `csdk_db`; `prisma migrate deploy` aplicou `20261121120000_certificate_tenant_class_employee_unique` após confirmar zero certificados e zero duplicatas na chave empresa/turma/colaborador.
+- `npm run lint` e `npm run build` passaram no clone da VPS. O build ainda avisa sobre `__dirname` no Vite e um bundle JavaScript acima de 500 kB.
+- Passaram os smoke tests de certificados/provas, configuração do tenant, operações, autenticação/recuperação, equipe/convites, pedidos, webhook e contrato Mercado Pago. No fluxo PowerPoint, o teste verificou upload com tokens, bloqueio de outro tenant, emissão com assinaturas obrigatórias, troca de versão sem alterar o certificado já emitido, fallback de PPTX preenchido e remoção do arquivo temporário.
+- Os testes de emissão confirmaram: tentativa aprovada obrigatória; assinatura digital exigida conforme a configuração congelada da empresa; impressão com papéis configurados; QR `csdk_cert`; validação pública sem CPF/imagem de assinatura; bloqueio de leitura/impressão entre empresas; e emissão idempotente com unicidade por tenant/turma/colaborador.
+- Os testes de pagamento usam chamadas e dados simulados. Nenhuma cobrança real, assinatura de comprador ou e-mail real foi emitido.
+- Após a limpeza, `empresas`, `usuarios`, `pedidos`, `assinaturas`, `faturas`, `pagamento_eventos`, `colaboradores`, `contratos_obras`, `treinamentos_empresa`, `turmas_aplicacoes`, `provas_tentativas`, `assinaturas_digitais` e `certificados` ficaram com zero registros. A pasta de modelos PowerPoint também ficou sem arquivos de teste. Permanecem cinco planos e nenhuma oferta comercial ativa.
+- `dk-solucoes.service` foi verificado ativo e `csdk-staging.service` inativo. Não foi criado ou iniciado serviço CSDK, nem alterados Apache, DNS, Wix, `dkfacilita.com` ou o banco `dk_db`.
+- `CSDK_PUBLIC_COMMERCE_ENABLED` continua `false` por padrão e não há ofertas ativas; a compra pública segue indisponível.
+- O painel PostgreSQL já inclui operações de colaboradores, obras, treinamentos, turmas e provas, além de assinaturas digitais, emissão, impressão e validação pública de certificados. A configuração e as evidências usadas ficam em snapshots do certificado.
+- O modelo PowerPoint próprio é carregado por empresa como adicional, fica versionado e privado, e permite substituir caixas de texto por dados, logo, QR e assinaturas nos espaços marcados. Certificados antigos mantêm a versão e o hash do arquivo usado. O VPS não tem LibreOffice instalado; portanto, o smoke test confirmou download do PPTX preenchido, mas a conversão automática para PDF ainda não foi homologada.
+- Permanecem fora desta etapa: análise automática/assistida do layout de PowerPoint sem marcadores, prévia visual e aprovação do mapeamento, importação em massa, dossiês/listas/cartas de anuência equivalentes ao CertificaNR, notificações do dono, cobrança real Mercado Pago, oferta comercial, e-mail de ativação e recuperação real, backups/restauração ensaiados, ambiente HTTPS público e critérios para troca do domínio.
