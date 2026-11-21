@@ -26,6 +26,7 @@ import { PublicDossierView } from './components/client/PublicDossierView.tsx';
 import { SuperAdminApp } from './components/admin/SuperAdminApp.tsx';
 import { AccountPortal } from './components/AccountPortal.tsx';
 import { PostgresWorkspaceApp } from './components/PostgresWorkspaceApp.tsx';
+import { PostgresPublicExamPage } from './components/PostgresPublicExamPage.tsx';
 
 type AppView =
   | 'SITE'
@@ -558,9 +559,11 @@ export default function App() {
   const accountPaths = { '/acesso': 'login', '/entrar': 'login', '/login': 'login', '/resetar-senha': 'reset',
     '/aceitar-convite': 'invite', '/minha-conta': 'team', '/workspace': 'workspace' } as const;
   const portalView = accountPaths[window.location.pathname as keyof typeof accountPaths];
+  const publicExamToken = new URLSearchParams(window.location.search).get('csdk_prova');
   return (
     <ThemeProvider>
-      {portalView === 'workspace' ? <PostgresWorkspaceApp /> : portalView ? <AccountPortal view={portalView} /> : <AppRouter />}
+      {publicExamToken ? <PostgresPublicExamPage token={publicExamToken} /> :
+        portalView === 'workspace' ? <PostgresWorkspaceApp /> : portalView ? <AccountPortal view={portalView} /> : <AppRouter />}
     </ThemeProvider>
   );
 }
