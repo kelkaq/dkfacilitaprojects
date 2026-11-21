@@ -47,7 +47,7 @@ export class MercadoPagoSubscriptions {
     return await response.json() as T;
   }
 
-  createTrialPlan(input: { reason: string; cycleMonths: 1 | 6 | 12; amountCentavos: number; backUrl: string }): Promise<MercadoPagoPlan> {
+  createPlan(input: { reason: string; cycleMonths: 1 | 6 | 12; amountCentavos: number; trialDays: 0 | 7; backUrl: string }): Promise<MercadoPagoPlan> {
     if (!Number.isInteger(input.amountCentavos) || input.amountCentavos < 100 ||
         !/^https:\/\//.test(input.backUrl) || input.reason.trim().length < 3) {
       throw new Error('Dados do plano inválidos.');
@@ -59,10 +59,14 @@ export class MercadoPagoSubscriptions {
         frequency_type: 'months',
         transaction_amount: input.amountCentavos / 100,
         currency_id: 'BRL',
-        free_trial: { frequency: 7, frequency_type: 'days' },
+        ...(input.trialDays ? { free_trial: { frequency: input.trialDays, frequency_type: 'days' } } : {}),
       },
       back_url: input.backUrl,
     });
+  }
+
+  createTrialPlan(input: { reason: string; cycleMonths: 1 | 6 | 12; amountCentavos: number; backUrl: string }): Promise<MercadoPagoPlan> {
+    return this.createPlan({ ...input, trialDays: 7 });
   }
 
   createSubscription(input: {

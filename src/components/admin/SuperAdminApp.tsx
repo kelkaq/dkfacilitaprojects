@@ -10,6 +10,7 @@ import {
   Megaphone,
   Menu,
   MonitorPlay,
+  CreditCard,
   RefreshCw,
   ShieldCheck,
   TicketPercent,
@@ -36,6 +37,7 @@ import { SuperAdminCatalogManager } from './SuperAdminCatalogManager.tsx';
 import { SuperAdminSiteCms } from './SuperAdminSiteCms.tsx';
 import { SuperAdminCupons } from './SuperAdminCupons.tsx';
 import { SuperAdminComunicados } from './SuperAdminComunicados.tsx';
+import { SuperAdminCommerceOffers } from './SuperAdminCommerceOffers.tsx';
 
 type AdminTab =
   | 'dashboard'
@@ -44,7 +46,8 @@ type AdminTab =
   | 'cupons'
   | 'comunicados'
   | 'notificacoes'
-  | 'catalogo';
+  | 'catalogo'
+  | 'cobranca';
 
 interface SuperAdminAppProps {
   userEmail: string;
@@ -146,6 +149,7 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
     { id: 'empresas', label: 'Empresas', icon: Building2 },
     { id: 'site_cms', label: 'Site & Campanhas', icon: MonitorPlay },
     { id: 'catalogo', label: 'Planos & Catálogo', icon: Layers },
+    { id: 'cobranca', label: 'Ofertas & Cobrança', icon: CreditCard },
     { id: 'cupons', label: 'Cupons', icon: TicketPercent },
     { id: 'comunicados', label: 'Comunicados', icon: Megaphone },
     { id: 'notificacoes', label: 'Notificações', icon: Bell, badge: unreadCount },
@@ -269,6 +273,7 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
                 {activeTab === 'comunicados' && 'DK Facilita | Central de Comunicados'}
                 {activeTab === 'notificacoes' && 'Central de Notificações'}
                 {activeTab === 'catalogo' && 'Planos, Preços & Catálogo Global'}
+                {activeTab === 'cobranca' && 'Ofertas & Cobrança'}
               </h1>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate inline-flex items-center gap-2">
                 <span className="dk-live-dot bg-emerald-400 shadow-[0_0_8px_#34D399]" />
@@ -342,6 +347,8 @@ export const SuperAdminApp: React.FC<SuperAdminAppProps> = ({
               onRefresh={handleCatalogRefresh}
             />
           )}
+
+          {activeTab === 'cobranca' && <SuperAdminCommerceOffers catalogPlans={adminCatalog.planos} />}
         </main>
       </div>
     </div>

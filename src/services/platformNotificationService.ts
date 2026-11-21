@@ -60,7 +60,7 @@ async function getAdminToken(): Promise<string> {
   return cachedAdminToken;
 }
 
-async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function platformAdminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAdminToken();
   const response = await fetch(path, {
     ...init,
@@ -77,18 +77,18 @@ async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function listPlatformNotices(): Promise<PlatformNotice[]> {
-  const result = await adminFetch<{ comunicados: PlatformNotice[] }>('/api/admin/platform-notices');
+  const result = await platformAdminFetch<{ comunicados: PlatformNotice[] }>('/api/admin/platform-notices');
   return result.comunicados;
 }
 
 export async function listNoticeTargets(): Promise<NoticeTargets> {
-  return adminFetch<NoticeTargets>('/api/admin/notification-targets');
+  return platformAdminFetch<NoticeTargets>('/api/admin/notification-targets');
 }
 
 export async function savePlatformNotice(input: Omit<PlatformNotice, 'id' | 'entregas' | 'lidas' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<void> {
-  await adminFetch('/api/admin/platform-notices', { method: 'POST', body: JSON.stringify(input) });
+  await platformAdminFetch('/api/admin/platform-notices', { method: 'POST', body: JSON.stringify(input) });
 }
 
 export async function deletePlatformNotice(id: string): Promise<void> {
-  await adminFetch(`/api/admin/platform-notices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  await platformAdminFetch(`/api/admin/platform-notices/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }

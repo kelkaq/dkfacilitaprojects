@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   getDocs,
   serverTimestamp,
   setDoc,
@@ -16,6 +17,7 @@ import type {
 } from '../data/globalCatalogSeed.ts';
 import type { GlobalCatalogSnapshot } from './catalogService.ts';
 import type { CicloCobranca, StatusEmpresa } from '../types/domain.ts';
+import { platformAdminFetch } from './platformNotificationService.ts';
 
 function sanitizeId(raw: string, prefix: string): string {
   const clean = raw
@@ -139,6 +141,28 @@ export async function adminSavePlano(plano: PlanoCatalogo): Promise<PlanoCatalog
 
   try {
     await setDoc(doc(db, 'planos', id), payload);
+    await platformAdminFetch('/api/admin/commerce/plans', {
+      method: 'POST',
+      body: JSON.stringify({
+        slug: payload.slug,
+        nome: payload.nome,
+        subtitulo: payload.subtitulo,
+        descricao: payload.descricao,
+        precoMensalCentavos: payload.precoMensalCentavos,
+        descontoSemestral: payload.descontoSemestral,
+        descontoAnual: payload.descontoAnual,
+        limiteColaboradores: payload.limiteColaboradores,
+        limiteUsuarios: payload.limiteUsuarios,
+        limiteObras: payload.limiteObras,
+        incluiCartaAnuencia: payload.incluiCartaAnuencia,
+        incluiDossieLink: payload.incluiDossieLink,
+        incluiAlertasWpp: payload.incluiAlertasWpp,
+        incluiDominioProprio: payload.incluiDominioProprio,
+        destaque: payload.destaque,
+        ativo: payload.ativo,
+        ordem: payload.ordem,
+      }),
+    });
     return {
       ...plano,
       id,
@@ -154,6 +178,11 @@ export async function adminSavePlano(plano: PlanoCatalogo): Promise<PlanoCatalog
 
 export async function adminDeletePlano(planoId: string): Promise<void> {
   try {
+    const snapshot = await getDoc(doc(db, 'planos', planoId));
+    const plano = snapshot.data() as PlanoCatalogo | undefined;
+    if (plano?.slug) {
+      await platformAdminFetch(`/api/admin/commerce/plans/${encodeURIComponent(plano.slug)}`, { method: 'DELETE' });
+    }
     await deleteDoc(doc(db, 'planos', planoId));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, `planos/${planoId}`);
