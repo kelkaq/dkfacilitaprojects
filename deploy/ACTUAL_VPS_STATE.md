@@ -89,3 +89,4 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 - Validações locais: `npm run lint`, `npm run build` e o contrato simulado do Mercado Pago passaram. Ainda falta executar os smoke tests no banco isolado da VPS com esta versão e concluir a homologação ponta a ponta com um comprador TEST. A versão corrigida ainda não foi declarada homologada.
 - O checkout de assinatura aceita cartão pelo fluxo hospedado do Mercado Pago. Pix recorrente e pagamento dividido em dois cartões não estão implementados nem homologados; não anunciar esses meios até definir integração compatível.
 - A produção e o staging continuam com `CSDK_PUBLIC_COMMERCE_ENABLED=false`; nenhuma compra ou cobrança real foi iniciada.
+- O health check agora distingue credenciais Mercado Pago TEST/PRODUCTION configuradas e informa separadamente se a compra pública está habilitada; isso indica configuração, não homologação financeira ponta a ponta.

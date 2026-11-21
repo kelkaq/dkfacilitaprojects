@@ -62,11 +62,17 @@ apiRouter.use(notificationRouter);
 // 1. HEALTH CHECK & RUNTIME CAPABILITIES
 // ----------------------------------------------------------------------------
 apiRouter.get('/api/health', (_req: Request, res: Response) => {
+  const paymentEnvironment = process.env.CSDK_PAYMENT_ENVIRONMENT;
+  const paymentToken = paymentEnvironment === 'TEST' ? process.env.MERCADO_PAGO_TEST_ACCESS_TOKEN :
+    paymentEnvironment === 'PRODUCTION' ? process.env.MERCADO_PAGO_ACCESS_TOKEN : undefined;
+  const paymentPrefix = paymentEnvironment === 'TEST' ? 'TEST-' : paymentEnvironment === 'PRODUCTION' ? 'APP_USR-' : '';
+  const paymentConfigured = Boolean(paymentToken && paymentPrefix && paymentToken.startsWith(paymentPrefix));
   res.json({
     ok: true,
     service: 'DK Facilita — Certifica Software - DK API',
     timestamp: new Date().toISOString(),
-    paymentProvider: 'MERCADO_PAGO_PENDING',
+    paymentProvider: paymentConfigured ? `MERCADO_PAGO_${paymentEnvironment}_CONFIGURED` : 'MERCADO_PAGO_PENDING',
+    publicCommerceEnabled: process.env.CSDK_PUBLIC_COMMERCE_ENABLED === 'true',
   });
 });
 
