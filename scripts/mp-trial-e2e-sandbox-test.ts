@@ -14,7 +14,7 @@ const webhookSecret = process.env.MERCADO_PAGO_TEST_WEBHOOK_SECRET ?? '';
 const planFile = process.env.CSDK_TEST_PLAN_OUTPUT ?? '';
 const chromiumPath = process.env.CSDK_CHROMIUM_PATH ?? '';
 if (!dbUrl.includes('csdk_db') || !mpToken.startsWith('TEST-') || !webhookSecret ||
-    !planFile.startsWith('/etc/dk/csdk/') || !chromiumPath.startsWith('/usr/')) {
+    !planFile.startsWith('/etc/dk/csdk/') || !(/^\/usr\//.test(chromiumPath) || chromiumPath === '/snap/bin/chromium')) {
   throw new Error('Este smoke exige somente banco csdk_db, credenciais TEST, plano privado e Chromium do staging.');
 }
 
