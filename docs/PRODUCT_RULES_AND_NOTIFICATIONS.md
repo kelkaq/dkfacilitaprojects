@@ -204,3 +204,24 @@ No commit `a7c8345`, o adicional de modelo próprio também passou a integrar es
 6. **Catálogo e governança:** manter dados novos de cada cliente separados; versionar catálogo e conteúdo sem alterar documentos emitidos; definir suporte operacional, política de correção/revogação, termos, privacidade, retenção e saída/exportação do cliente.
 
 **Resultado:** o staging tem agora o caminho básico PostgreSQL de turma → prova corrigida no servidor → certificado por empresa → impressão/QR público. Isso ainda não representa equivalência funcional completa com o CertificaNR nem liberação para comercialização ou troca do domínio.
+
+## Verificação de continuidade — 21/11/2026
+
+Estado confirmado nesta revisão:
+
+- `csdk.service`, `csdk-staging.service` e `dk-solucoes.service` permanecem ativos. `https://dkfacilita.com` responde HTTP 200 com TLS válido; `/api/health` responde 200. O domínio e o serviço legado continuam preservados.
+- A API de produção informa `publicCommerceEnabled=false`. `GET /api/public/offers` responde 503, impedindo pedidos e checkout enquanto a homologação comercial não estiver completa. `GET /api/admin/commerce` sem sessão responde 401.
+- No banco isolado de staging, `prisma migrate status` confirmou as 9 migrations aplicadas. `npm run lint` e `npm run build` passaram; o build ainda alerta sobre bundle JavaScript acima de 500 kB e configuração Vite a atualizar.
+- A bateria de staging passou em autenticação/recuperação, convites e usuários, configurações de tenant, operações/limites, provas e certificados, notificações, cancelamento de trial, webhook simulado, pedidos, template/PDF, contrato Mercado Pago e contrato de e-mail. Os registros criados pelos scripts são descartados ao final. O teste de autenticação precisou executar com `EMAIL_PROVIDER=RESEND` porque o ambiente de staging define outro provedor; isso foi isolamento do mock, não falha do produto.
+- `npm audit --omit=dev` reportou 9 vulnerabilidades altas nas dependências instaladas, associadas a Firebase/Firestore e gRPC, Prisma e `xlsx`. O registry consultado não oferece correção direta para `xlsx`; a troca exige adaptar e validar as exportações de planilhas.
+
+Pendências que impedem afirmar “100% pronto para vender”:
+
+1. **Cobrança ponta a ponta ainda não homologada:** não houve assinatura real de teste com cartão, retorno comprovado do Mercado Pago, conciliação de renovação nem confirmação do cancelamento pelo comprador. A integração usa plano hospedado para trial; a referência oficial de criação do plano/assinatura não documenta `notification_url`, enquanto a documentação de Webhooks diz que assinaturas devem receber URL configurada durante a criação. Sem callback verificável, manter o checkout público fechado. Um comprador de teste foi criado no Mercado Pago e seus dados permanecem protegidos em arquivo 0600 no VPS; nenhuma credencial deve ser publicada ou copiada para o repositório.
+2. **Métodos de pagamento e oferta:** não estão implementados/homologados Pix, dois cartões, cupons e adicionais no checkout. A assinatura recorrente atual usa cartão hospedado. Ainda não há ofertas comerciais reais ativadas para produção.
+3. **Integração da aplicação:** grande parte da interface principal ainda autentica e grava por Firebase/Firestore; as rotas PostgreSQL de conta, operações e cobrança coexistem com serviços antigos. O usuário provisionado pelo fluxo novo precisa conseguir entrar na aplicação completa em PostgreSQL, sem depender da autenticação Firebase ou de regras que permitam ao navegador editar fatos financeiros. A migração ponta a ponta ainda não foi concluída.
+4. **E-mail e acesso:** contratos de envio passaram com mock, mas faltam homologar e-mail real de primeiro acesso, convite e recuperação no CSDK de staging e confirmar entrega no domínio final.
+5. **Modelos de certificado:** smoke test de layout/PDF passa em Chromium, mas ainda faltam casos reais de PowerPoint de empresas diferentes, teste visual de fidelidade frente/verso e o fluxo de mapeamento assistido para modelos sem marcadores. O motor atual substitui marcadores; não reconhece qualquer PowerPoint arbitrário automaticamente.
+6. **Segurança e operação:** resolver ou mitigar as vulnerabilidades do audit; validar backup e restauração de banco e arquivos; revisar limites/rate limit e observabilidade; confirmar política e processo de estorno, chargeback, correção/revogação de certificados e suporte ao cliente.
+
+Não tratar os testes de contrato ou o webhook simulado como transação de provedor. O endereço comercial serve a aplicação CSDK, mas a venda ao público continua bloqueada deliberadamente até os pontos acima serem demonstrados em staging e os preços/ofertas serem revisados.

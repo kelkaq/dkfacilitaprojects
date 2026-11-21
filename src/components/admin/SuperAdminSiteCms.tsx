@@ -1392,6 +1392,7 @@ export const SuperAdminSiteCms: React.FC<SuperAdminSiteCmsProps> = ({
                   <textarea rows={3} maxLength={320} value={cms.secaoPlanos.descricao} onChange={(event) => setCms((current) => ({ ...current,
                     secaoPlanos: { ...current.secaoPlanos, descricao: event.target.value } }))}
                     className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-sm text-slate-900 dark:text-white" />
+                  <span className="mt-1 block text-[10px] text-slate-500 dark:text-slate-400">Destaque os benefícios para a empresa. Detalhes de configuração interna não aparecem na página de vendas.</span>
                 </label>
                 <h4 className="pt-2 text-xs font-bold text-slate-800 dark:text-slate-100">Mensagem exibida quando não há planos para contratar</h4>
                 <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">Título da mensagem

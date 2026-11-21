@@ -72,7 +72,7 @@ export const EMPTY_SITE_CMS_CONFIG: SiteCmsConfigDoc = {
   secaoPlanos: {
     etiqueta: 'Planos para sua empresa',
     titulo: 'A solução ideal para a sua equipe',
-    descricao: 'Organize treinamentos, avaliações e certificados da sua empresa em um só lugar. Escolha o plano que acompanha o tamanho da sua operação.',
+    descricao: 'Compare os recursos e encontre o plano que melhor acompanha o ritmo da sua equipe. Organize treinamentos, acompanhe colaboradores e emita certificados em um só lugar.',
     semOfertasTitulo: 'Conheça em breve as opções para sua empresa',
     semOfertasDescricao: 'Estamos preparando condições comerciais para atender empresas de diferentes tamanhos. Enquanto isso, clientes atuais podem acessar sua conta normalmente.',
     botaoEntrar: 'Já sou cliente — entrar',

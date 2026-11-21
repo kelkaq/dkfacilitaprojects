@@ -33,6 +33,8 @@ import mobileImage from '../assets/images/showcase_mobile_exam_1795121884518.jpg
 
 const HERO_IMAGE = heroImage;
 const MOBILE_IMAGE = mobileImage;
+const DEFAULT_PLANS_DESCRIPTION =
+  'Compare os recursos e encontre o plano que melhor acompanha o ritmo da sua equipe. Organize treinamentos, acompanhe colaboradores e emita certificados em um só lugar.';
 
 export interface CheckoutSelection {
   planoSlug: string;
@@ -347,6 +349,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       ordem: offer.ordem,
     }));
   }, [offers]);
+  const plansDescription = /preços e disponibilidade vêm do checkout do mercado pago|em implantação|em implementação/i.test(
+    cms.secaoPlanos.descricao,
+  )
+    ? DEFAULT_PLANS_DESCRIPTION
+    : cms.secaoPlanos.descricao;
   const topBarClasses = getTopBarThemeClasses(cms.faixaTopo.corTema);
   const activeSlide =
     activeCarouselSlides.length > 0
@@ -826,7 +833,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {cms.secaoPlanos.titulo}
             </h2>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              {cms.secaoPlanos.descricao}
+              {plansDescription}
             </p>
           </div>
 
