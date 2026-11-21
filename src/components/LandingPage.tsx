@@ -913,12 +913,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         <span
                           className={`text-3xl font-bold font-mono tabular-nums ${plano.destaque ? 'text-[#2563EB] dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}
                         >
-                          {monthlyEquivalent === null ? 'Indisponível' : formatarMoedaBRL(monthlyEquivalent)}
+                          {monthlyEquivalent === null ? 'Consulte disponibilidade' : formatarMoedaBRL(monthlyEquivalent)}
                         </span>
                         {monthlyEquivalent !== null && <span className="text-xs text-slate-500 dark:text-slate-400">/mês equivalente</span>}
                       </div>
                       <p className="mt-1 text-xs font-mono tabular-nums text-slate-500 dark:text-slate-400">
-                        {displayOffer ? `${formatarMoedaBRL(displayOffer.totalCentavos)} no ciclo ${ciclo.toLowerCase()}` : 'Sem oferta neste ciclo'}
+                        {displayOffer ? `${formatarMoedaBRL(displayOffer.totalCentavos)} no ciclo ${ciclo.toLowerCase()}` : 'Consulte disponibilidade'}
                       </p>
                     </div>
 
@@ -976,7 +976,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       }
                       className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${plano.destaque ? 'bg-gradient-to-r from-[#1D4ED8] to-[#3B82F6] text-white hover:from-[#1E40AF] hover:to-[#2563EB] shadow-md shadow-blue-600/25' : 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'}`}
                     >
-                      {trialOffer ? `Testar Grátis por ${trialOffer.trialDias} Dias` : 'Teste indisponível neste ciclo'}
+                      {trialOffer ? `Testar Grátis por ${trialOffer.trialDias} Dias` : 'Disponível em breve'}
                     </button>
                     <button
                       type="button"
@@ -991,7 +991,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       }
                       className="w-full py-2 px-4 rounded-xl border border-slate-200 dark:border-white/15 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {immediateOffer ? 'Assinar Agora' : 'Assinatura indisponível neste ciclo'}
+                      {immediateOffer ? 'Assinar Agora' : 'Disponível em breve'}
                     </button>
                   </div>
                 </div>
@@ -1017,11 +1017,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   Expansão sob demanda
                 </p>
                 <h2 className="mt-1.5 text-2xl font-bold tracking-tight dk-gradient-title">
-                  Serviços Adicionais (Add-ons)
+                  Recursos adicionais
                 </h2>
                 <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                  Marque os recursos que deseja incluir já na contratação ou contrate depois com
-                  liberação automática dentro do painel.
+                  Consulte a disponibilidade de recursos extras para o seu plano e personalize a contratação conforme a necessidade da sua operação.
                 </p>
               </div>
 
@@ -1050,7 +1049,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     }
                     className="px-3.5 py-2 rounded-lg bg-[#1D4ED8] text-white text-xs font-semibold hover:bg-[#1E40AF] whitespace-nowrap cursor-pointer"
                   >
-                    Levar ao Checkout
+                    Avançar para contratação
                   </button>
                 </div>
               )}
