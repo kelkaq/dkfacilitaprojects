@@ -118,9 +118,9 @@ tenantOperationsRouter.post('/api/tenant/colaboradores', requireDatabaseAuth, as
   let cpf = '';
   try { cpf = validateHolderDocument('PF', typeof body.cpf === 'string' ? body.cpf : ''); }
   catch { res.status(400).json({ error: 'CPF do colaborador inválido.' }); return; }
-  const matricula = cleanOptionalText(body.matricula, 80);
-  const rg = cleanOptionalText(body.rg, 40);
-  const email = cleanOptionalText(body.email, 160);
+  const matricula = body.matricula === undefined ? null : cleanOptionalText(body.matricula, 80);
+  const rg = body.rg === undefined ? null : cleanOptionalText(body.rg, 40);
+  const email = body.email === undefined ? null : cleanOptionalText(body.email, 160);
   const telefone = typeof body.telefone === 'string' ? body.telefone.replace(/\D/g, '').slice(0, 15) : null;
   const contratoObraId = body.contratoObraId === null || body.contratoObraId === '' ? null : body.contratoObraId;
   if (nome.length < 2 || funcao.length < 2 || matricula === undefined || rg === undefined || email === undefined ||
