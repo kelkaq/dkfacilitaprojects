@@ -111,7 +111,7 @@ try {
     </form><script src="https://sdk.mercadopago.com/js/v2"></script><script>
       const mp=new MercadoPago(${JSON.stringify(publicKey)},{locale:'pt-BR'});
       window.mpReady=false;window.mpToken=null;window.mpError=null;
-      const cardForm=mp.cardForm({amount:${JSON.stringify((offer.totalCentavos / 100).toFixed(2))},iframe:true,form:{id:'form-checkout',cardNumber:{id:'form-checkout__cardNumber'},expirationDate:{id:'form-checkout__expirationDate'},securityCode:{id:'form-checkout__securityCode'},cardholderName:{id:'form-checkout__cardholderName'},issuer:{id:'form-checkout__issuer'},installments:{id:'form-checkout__installments'},identificationType:{id:'form-checkout__identificationType'},identificationNumber:{id:'form-checkout__identificationNumber'},cardholderEmail:{id:'form-checkout__cardholderEmail'}},callbacks:{onFormMounted:error=>{window.mpReady=!error;if(error)window.mpError='mount';},onSubmit:event=>{event.preventDefault();window.mpToken=cardForm.getCardFormData().token;},onError:error=>{window.mpError=typeof error==='string'?error:JSON.stringify({name:error?.name,message:error?.message,type:error?.type,code:error?.code});}}});
+      const cardForm=mp.cardForm({amount:${JSON.stringify((offer.totalCentavos / 100).toFixed(2))},iframe:true,form:{id:'form-checkout',cardNumber:{id:'form-checkout__cardNumber'},expirationDate:{id:'form-checkout__expirationDate'},securityCode:{id:'form-checkout__securityCode'},cardholderName:{id:'form-checkout__cardholderName'},issuer:{id:'form-checkout__issuer'},installments:{id:'form-checkout__installments'},identificationType:{id:'form-checkout__identificationType'},identificationNumber:{id:'form-checkout__identificationNumber'},cardholderEmail:{id:'form-checkout__cardholderEmail'}},callbacks:{onFormMounted:error=>{window.mpReady=!error;if(error)window.mpError='mount';},onSubmit:event=>{event.preventDefault();const data=cardForm.getCardFormData();window.mpSubmit={token:Boolean(data.token),paymentMethodId:Boolean(data.paymentMethodId),issuerId:Boolean(data.issuerId)};window.mpToken=data.token;},onError:error=>{window.mpError=typeof error==='string'?error:JSON.stringify({name:error?.name,message:error?.message,type:error?.type,code:error?.code,keys:Object.keys(error??{})});}}});
     </script></body></html>`));
   server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve, reject) => { server!.once('listening', resolve); server!.once('error', reject); });
@@ -119,6 +119,18 @@ try {
   if (!address || typeof address === 'string') throw new Error('Não foi possível iniciar o endpoint local de tokenização.');
   browser = await puppeteer.launch({ executablePath: chromiumPath, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const page = await browser.newPage();
+  let tokenResponse: { status: number; error?: string; message?: string; causes?: string[] } | null = null;
+  page.on('response', async (response) => {
+    try {
+      if (new URL(response.url()).pathname === '/v1/card_tokens') {
+        const body = await response.json() as { error?: unknown; message?: unknown; cause?: Array<{ code?: unknown }> };
+        tokenResponse = { status: response.status(),
+          error: typeof body.error === 'string' ? body.error : undefined,
+          message: typeof body.message === 'string' ? body.message.slice(0, 100) : undefined,
+          causes: Array.isArray(body.cause) ? body.cause.map((cause) => String(cause.code ?? '')).slice(0, 5) : undefined };
+      }
+    } catch { /* não registrar conteúdo de cartão nem token */ }
+  });
   await page.goto(`http://127.0.0.1:${address.port}/token-test`, { waitUntil: 'networkidle2', timeout: 45_000 });
   await page.waitForFunction(() => (window as unknown as { mpReady?: boolean }).mpReady === true, { timeout: 30_000 });
 
@@ -151,8 +163,9 @@ try {
   const tokenResult = await page.evaluate(() => ({
     token: (window as unknown as { mpToken?: string }).mpToken,
     error: (window as unknown as { mpError?: string }).mpError,
+    submitted: (window as unknown as { mpSubmit?: { token: boolean; paymentMethodId: boolean; issuerId: boolean } }).mpSubmit,
   }));
-  if (!tokenResult.token) throw new Error(`Tokenização TEST recusada (${tokenResult.error ?? 'sem token'}).`);
+  if (!tokenResult.token) throw new Error(`Tokenização TEST recusada (${tokenResult.error ?? 'sem token'}; formulário:${JSON.stringify(tokenResult.submitted ?? {})}; provedor:${JSON.stringify(tokenResponse ?? {})}).`);
 
   const subscription = await provider.createSubscription({
     planId, payerEmail: buyerEmail, cardTokenId: tokenResult.token,
