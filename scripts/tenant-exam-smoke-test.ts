@@ -85,7 +85,8 @@ try {
   const headersA = bearer(ownerA.id, emailA, companyA.id);
   const headersB = bearer(ownerB.id, emailB, companyB.id);
   const pptx = new pptxgen();
-  pptx.layout = 'LAYOUT_4X3';
+  pptx.defineLayout({ name: 'CSDK_TEST_4X3', width: 10, height: 7.5 });
+  pptx.layout = 'CSDK_TEST_4X3';
   for (const title of ['Synthetic CSDK front page', 'Synthetic CSDK back page']) {
     const slide = pptx.addSlide();
     slide.background = { color: 'F5F8FC' };
