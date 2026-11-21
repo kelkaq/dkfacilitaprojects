@@ -109,6 +109,14 @@ Não inserir tokens, senhas, IDs de conta ou dados pessoais neste arquivo.
 - A versão também está em produção. Backup da aplicação anterior ao commit está em `/root/csdk-cutover-20261121T145855Z/csdk-production-before-74bad3d.tar.gz` (`600`). HTTPS e API respondem `200`, a rota administrativa sem login retorna `401`, a rota pública de ofertas continua `503`, e `csdk.service`, `csdk-staging.service` e `dk-solucoes.service` permanecem ativos.
 - Ainda não declarar venda 100% homologada: não foi concluída uma compra por comprador de teste com cartão e webhook recebido; a configuração do webhook de produção no painel Mercado Pago ainda precisa ser verificada. Pix e dois cartões continuam sem implementação/homologação para assinatura recorrente. Vendas públicas seguem bloqueadas até essas validações.
 
+## Reconciliação do retorno do trial — 21/11/2026
+
+- O código dos commits `fbca5e5` e `09b2282` foi atualizado no staging, validado com lint/build e smoke de pedido. O smoke simulou uma assinatura autorizada e confirmou o provisionamento idempotente de empresa, assinatura e uso de trial; todos os registros foram removidos ao final. `csdk-staging.service` permaneceu ativo e a health API respondeu `200`.
+- A tela de retorno agora recupera o pedido salvo antes de sair para o checkout hospedado. Se o webhook ainda não processou, o status pode reconciliar a assinatura de trial pesquisando por pagador/plano e consultando o recurso completo do provedor. Isso é recuperação do retorno, não substitui webhook ou compra real.
+- Uma sondagem isolada em Mercado Pago TEST tentou criar assinatura vinculada ao plano sem token de cartão; a API respondeu `400 card_token_id is required`, sem criar assinatura. Nenhum pagamento foi feito nessa tentativa. A documentação oficial confirma que `/preapproval/search` aceita `payer_email` e `preapproval_plan_id` como filtros.
+- A produção e o domínio não foram atualizados nesta onda. `CSDK_PUBLIC_COMMERCE_ENABLED` continua desativado, ofertas públicas continuam indisponíveis e não foi usada credencial produtiva.
+- Continuam pendentes a compra ponta a ponta com comprador/cartão TEST e webhook recebido, a confirmação de configuração de webhook da aplicação Mercado Pago em produção, e-mail real de primeiro acesso, cadastro/revisão de ofertas de produção, meios de pagamento adicionais, validação do ambiente PostgreSQL do cliente e do fluxo real de importação de modelos de PowerPoint de clientes distintos.
+
 ## Correção de texto da vitrine — 21/11/2026
 
 - Commit `29dd76c` troca a descrição técnica persistida no CMS da seção de preços por uma chamada comercial. O Super Admin continua editando os textos em “Site & Campanhas”; uma dica no campo orienta escrever benefícios para o cliente. Descrições antigas que falam de checkout ou de funções “em implantação” são substituídas visualmente pela chamada comercial.
