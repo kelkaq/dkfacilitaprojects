@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import express from 'express';
-import JSZip from 'jszip';
+import pptxgen from 'pptxgenjs';
 import { apiRouter } from '../server/routes/apiRoutes.ts';
 import { getPrisma } from '../server/lib/prisma.ts';
 import { hashPassword, signJwtToken } from '../server/lib/security.ts';
@@ -84,26 +84,42 @@ try {
 
   const headersA = bearer(ownerA.id, emailA, companyA.id);
   const headersB = bearer(ownerB.id, emailB, companyB.id);
-  const pptx = new JSZip();
-  pptx.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>');
-  pptx.file('ppt/presentation.xml', '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>');
-  const shape = (id: number, tag: string) => `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Shape ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1000000" cy="1000000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>${tag}</a:t></a:r></a:p></p:txBody></p:sp>`;
-  pptx.file('ppt/slides/slide1.xml', `<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${shape(2, '{{NOME_COLABORADOR}}')}${shape(3, '{{NORMA_NR}}')}${shape(4, '{{QRCODE}}')}${shape(5, '{{ASSINATURA_1}}')}${shape(6, '{{ASSINATURA_2}}')}${shape(7, '{{NOME_ASSINANTE_2}}')}</p:spTree></p:cSld></p:sld>`);
-  const pptxBytes = await pptx.generateAsync({ type: 'nodebuffer' });
+  const pptx = new pptxgen();
+  pptx.layout = 'LAYOUT_4X3';
+  for (const title of ['Synthetic CSDK front page', 'Synthetic CSDK back page']) {
+    const slide = pptx.addSlide();
+    slide.background = { color: 'F5F8FC' };
+    slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 10, h: 0.7, line: { color: '173B69' }, fill: { color: '173B69' } });
+    slide.addText(title, { x: 0.5, y: 1.4, w: 9, h: 1.1, fontFace: 'Arial', fontSize: 28, bold: true, color: '173B69', align: 'center' });
+    slide.addText('Synthetic artwork only', { x: 1, y: 3.4, w: 8, h: 0.8, fontFace: 'Arial', fontSize: 20, color: '334155', align: 'center' });
+  }
+  const pptxBytes = Buffer.from(await pptx.write({ outputType: 'nodebuffer' }) as ArrayBuffer);
   const templateResponse = await fetch(`${base}/api/tenant/certificate-template`, { method: 'POST', headers: headersA,
     body: JSON.stringify({ fileName: 'modelo-da-empresa.pptx', base64Content: pptxBytes.toString('base64') }) });
   assert.equal(templateResponse.status, 201);
-  const templateBody = await templateResponse.json() as { modelo: { fileName: string; detectedTags: string[]; version: number } };
-  assert.equal(templateBody.modelo.fileName, 'modelo-da-empresa.pptx');
-  assert.equal(templateBody.modelo.version, 1);
-  assert.ok(templateBody.modelo.detectedTags.includes('{{QRCODE}}'));
+  const templateBody = await templateResponse.json() as { rascunho: { templateKey: string; fileName: string; pageCount: number; version: number; layout: unknown } };
+  assert.equal(templateBody.rascunho.fileName, 'modelo-da-empresa.pptx');
+  assert.equal(templateBody.rascunho.version, 1);
+  assert.equal(templateBody.rascunho.pageCount, 2);
+  const frontImage = await fetch(`${base}/api/tenant/certificate-template/${templateBody.rascunho.templateKey}/front`, { headers: headersA });
+  assert.equal(frontImage.status, 200);
+  assert.match(frontImage.headers.get('content-type') ?? '', /image\/png/);
+  const preview = await fetch(`${base}/api/tenant/certificate-template/preview`, { method: 'POST', headers: headersA,
+    body: JSON.stringify({ templateKey: templateBody.rascunho.templateKey, layout: templateBody.rascunho.layout }) });
+  assert.equal(preview.status, 200);
+  assert.match(preview.headers.get('content-type') ?? '', /application\/pdf/);
+  assert.equal(Buffer.from(await preview.arrayBuffer()).subarray(0, 4).toString('ascii'), '%PDF');
   const otherTemplateState = await fetch(`${base}/api/tenant/certificate-template`, { headers: headersB });
   assert.deepEqual((await otherTemplateState.json() as { contratado: boolean; ativo: boolean }).contratado, false);
   assert.equal((await fetch(`${base}/api/tenant/certificate-template`, { method: 'POST', headers: headersB,
     body: JSON.stringify({ fileName: 'modelo-da-empresa.pptx', base64Content: pptxBytes.toString('base64') }) })).status, 403);
+  const activate = await fetch(`${base}/api/tenant/certificate-template/layout`, { method: 'POST', headers: headersA,
+    body: JSON.stringify({ templateKey: templateBody.rascunho.templateKey, layout: templateBody.rascunho.layout }) });
+  assert.equal(activate.status, 200);
+  assert.equal(((await activate.json()) as { modelo: { version: number } }).modelo.version, 1);
   const companyTemplateConfig = await db.empresa.findUniqueOrThrow({ where: { id: companyA.id }, select: { modeloProprioConfig: true } });
-  const templateKey = (companyTemplateConfig.modeloProprioConfig as { templateKey: string }).templateKey;
-  templateDirectory = path.resolve(process.cwd(), 'storage', 'pptx_templates', companyA.id);
+  const templateKey = (companyTemplateConfig.modeloProprioConfig as { activeTemplateKey: string }).activeTemplateKey;
+  templateDirectory = path.resolve(process.cwd(), 'storage', 'certificate_layouts', companyA.id);
   const catalog = await (await fetch(`${base}/api/tenant/training-catalog`, { headers: headersA })).json() as { nrs: Array<{ variacoes: Array<{ slug: string }> }> };
   const variation = catalog.nrs.find((nr) => nr.variacoes.length)?.variacoes[0];
   assert.ok(variation);
@@ -201,7 +217,7 @@ try {
   const secondTemplateResponse = await fetch(`${base}/api/tenant/certificate-template`, { method: 'POST', headers: headersA,
     body: JSON.stringify({ fileName: 'modelo-da-empresa-v2.pptx', base64Content: pptxBytes.toString('base64') }) });
   assert.equal(secondTemplateResponse.status, 201);
-  assert.equal(((await secondTemplateResponse.json()) as { modelo: { version: number } }).modelo.version, 2);
+  assert.equal(((await secondTemplateResponse.json()) as { rascunho: { version: number } }).rascunho.version, 2);
   const issuedRecord = await db.certificado.findUniqueOrThrow({ where: { id: issuedBody.id }, select: { snapshotEmpresa: true } });
   const issuedModel = (issuedRecord.snapshotEmpresa as { modeloProprio: { templateKey: string; version: number } }).modeloProprio;
   assert.equal(issuedModel.version, 1);
@@ -213,16 +229,8 @@ try {
   assert.equal((await fetch(`${base}/api/tenant/certificates/${issuedBody.id}/print`, { headers: headersB })).status, 404);
   const printed = await fetch(`${base}/api/tenant/certificates/${issuedBody.id}/print`, { headers: headersA });
   assert.equal(printed.status, 200);
-  assert.equal(printed.headers.get('x-csdk-document-mode'), 'PPTX_PREPARED_FALLBACK');
-  assert.match(printed.headers.get('content-type') ?? '', /presentationml\.presentation/);
-  const outputPptx = await JSZip.loadAsync(Buffer.from(await printed.arrayBuffer()));
-  const outputSlide = await outputPptx.file('ppt/slides/slide1.xml')?.async('string');
-  assert.ok(outputSlide);
-  assert.match(outputSlide, /Participante da Prova/);
-  assert.doesNotMatch(outputSlide, /\{\{NOME_COLABORADOR\}\}/);
-  assert.match(outputSlide, /<p:pic>/);
-  assert.doesNotMatch(outputSlide, /\{\{QRCODE\}\}|\{\{ASSINATURA_2\}\}/);
-  assert.ok(Object.keys(outputPptx.files).some((file) => file.startsWith('ppt/media/csdk_')));
+  assert.match(printed.headers.get('content-type') ?? '', /application\/pdf/);
+  assert.equal(Buffer.from(await printed.arrayBuffer()).subarray(0, 4).toString('ascii'), '%PDF');
   const publicValidation = await fetch(`${base}/api/public/certificates/${issuedBody.codigoValidacaoQr}`);
   assert.equal(publicValidation.status, 200);
   const validation = await publicValidation.json() as Record<string, unknown>;
@@ -236,7 +244,7 @@ try {
   assert.equal((await fetch(`${base}/api/tenant/classes/${turma.id}`, { method: 'PATCH', headers: headersB, body: JSON.stringify({ status: 'ENCERRADA' }) })).status, 404);
   assert.equal((await fetch(`${base}/api/tenant/classes/${turma.id}`, { method: 'PATCH', headers: headersA, body: JSON.stringify({ status: 'ENCERRADA' }) })).status, 200);
   assert.equal((await start('Participante da Prova', '54321')).status, 410);
-  process.stdout.write('Provas e certificados do tenant passaram: tenant isolado, PIN protegido, prova corrigida no servidor, assinaturas por empresa, emissão idempotente, impressão dinâmica e validação pública sem CPF.\n');
+  process.stdout.write('Provas e certificados passaram: dois tenants isolados, PPTX importado e pré-visualizado, editor ativado, PDF emitido/reimpresso pela versão original, prova corrigida no servidor e validação pública sem CPF.\n');
 } finally {
   if (signatureIds.length) await db.assinaturaDigital.deleteMany({ where: { id: { in: signatureIds } } });
   await db.auditoriaAcesso.deleteMany({ where: { usuarioId: { in: userIds } } });
