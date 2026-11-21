@@ -12,25 +12,35 @@ import {
   Wrench,
 } from 'lucide-react';
 import type {
-  ComunicadoDoc,
-  PublicoComunicado,
-  RepeticaoComunicado,
-  StatusComunicado,
-  TipoComunicado,
-} from '../../types/domain.ts';
+  PlatformNotice,
+  NoticeTargets,
+} from '../../services/platformNotificationService.ts';
 import type { PlanoCatalogo } from '../../data/globalCatalogSeed.ts';
 import {
-  deleteComunicado,
-  listComunicados,
-  saveComunicado,
-} from '../../services/cmsAndCommsService.ts';
+  deletePlatformNotice,
+  listNoticeTargets,
+  listPlatformNotices,
+  savePlatformNotice,
+} from '../../services/platformNotificationService.ts';
+
+const toLocalInput = (iso: string) => {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+};
+
+const defaultSchedule = () => {
+  const now = new Date(Date.now() + 60_000);
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+};
 
 interface SuperAdminComunicadosProps {
   planos: PlanoCatalogo[];
 }
 
 export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ planos }) => {
-  const [items, setItems] = useState<ComunicadoDoc[]>([]);
+  const [items, setItems] = useState<PlatformNotice[]>([]);
+  const [targets, setTargets] = useState<NoticeTargets>({ empresas: [], usuarios: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -38,20 +48,29 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
   const [editingId, setEditingId] = useState<string | null>(null);
   const [titulo, setTitulo] = useState('');
   const [mensagem, setMensagem] = useState('');
-  const [tipo, setTipo] = useState<TipoComunicado>('NOVIDADE');
+  const [tipo, setTipo] = useState<PlatformNotice['tipo']>('NOVIDADE');
   const [exibirPopup, setExibirPopup] = useState(true);
-  const [publicoAlvo, setPublicoAlvo] = useState<PublicoComunicado>('TODAS');
+  const [exigirConfirmacao, setExigirConfirmacao] = useState(false);
+  const [link, setLink] = useState('');
+  const [publicoAlvo, setPublicoAlvo] = useState<PlatformNotice['publicoAlvo']>('TODAS');
   const [planoAlvoSlug, setPlanoAlvoSlug] = useState('');
-  const [agendadoInicioIso, setAgendadoInicioIso] = useState('');
+  const [perfilAlvo, setPerfilAlvo] = useState('ADMIN_EMPRESA');
+  const [empresaIds, setEmpresaIds] = useState<string[]>([]);
+  const [usuarioIds, setUsuarioIds] = useState<string[]>([]);
+  const [agendadoInicioIso, setAgendadoInicioIso] = useState(defaultSchedule());
   const [agendadoFimIso, setAgendadoFimIso] = useState('');
-  const [repeticao, setRepeticao] = useState<RepeticaoComunicado>('UNICO');
-  const [status, setStatus] = useState<StatusComunicado>('ATIVO');
+  const [fusoHorario, setFusoHorario] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo');
+  const [repeticao, setRepeticao] = useState<PlatformNotice['repeticao']>('UNICO');
+  const [status, setStatus] = useState<PlatformNotice['status']>('ATIVO');
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await listComunicados(true);
+      const [list, choices] = await Promise.all([listPlatformNotices(), listNoticeTargets()]);
       setItems(list);
+      setTargets(choices);
+    } catch (error) {
+      setFeedback({ type: 'err', text: error instanceof Error ? error.message : 'Não foi possível carregar a central de avisos.' });
     } finally {
       setLoading(false);
     }
@@ -69,22 +88,34 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
     setExibirPopup(true);
     setPublicoAlvo('TODAS');
     setPlanoAlvoSlug('');
-    setAgendadoInicioIso('');
+    setExigirConfirmacao(false);
+    setLink('');
+    setPerfilAlvo('ADMIN_EMPRESA');
+    setEmpresaIds([]);
+    setUsuarioIds([]);
+    setAgendadoInicioIso(defaultSchedule());
     setAgendadoFimIso('');
+    setFusoHorario(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Sao_Paulo');
     setRepeticao('UNICO');
     setStatus('ATIVO');
   };
 
-  const handleEdit = (c: ComunicadoDoc) => {
+  const handleEdit = (c: PlatformNotice) => {
     setEditingId(c.id);
     setTitulo(c.titulo);
     setMensagem(c.mensagem);
     setTipo(c.tipo);
     setExibirPopup(c.exibirPopup);
+    setExigirConfirmacao(c.exigirConfirmacao);
+    setLink(c.link || '');
     setPublicoAlvo(c.publicoAlvo);
     setPlanoAlvoSlug(c.planoAlvoSlug || '');
-    setAgendadoInicioIso(c.agendadoInicioIso || '');
-    setAgendadoFimIso(c.agendadoFimIso || '');
+    setPerfilAlvo(c.perfilAlvo || 'ADMIN_EMPRESA');
+    setEmpresaIds(c.empresaIds || []);
+    setUsuarioIds(c.usuarioIds || []);
+    setAgendadoInicioIso(toLocalInput(c.agendadoInicioIso));
+    setAgendadoFimIso(toLocalInput(c.agendadoFimIso));
+    setFusoHorario(c.fusoHorario || 'America/Sao_Paulo');
     setRepeticao(c.repeticao);
     setStatus(c.status);
   };
@@ -95,16 +126,22 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
     setSaving(true);
     setFeedback(null);
     try {
-      await saveComunicado({
+      await savePlatformNotice({
         id: editingId || undefined,
         titulo,
         mensagem,
         tipo,
         exibirPopup,
+        exigirConfirmacao,
+        link: link.trim() || null,
         publicoAlvo,
         planoAlvoSlug: publicoAlvo === 'PLANO_ESPECIFICO' ? planoAlvoSlug : null,
-        agendadoInicioIso,
-        agendadoFimIso,
+        perfilAlvo: publicoAlvo === 'PERFIL' ? perfilAlvo : null,
+        empresaIds: publicoAlvo === 'EMPRESAS' ? empresaIds : [],
+        usuarioIds: publicoAlvo === 'USUARIOS' ? usuarioIds : [],
+        agendadoInicioIso: new Date(agendadoInicioIso).toISOString(),
+        agendadoFimIso: agendadoFimIso ? new Date(agendadoFimIso).toISOString() : '',
+        fusoHorario,
         repeticao,
         status,
       });
@@ -124,9 +161,9 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
     }
   };
 
-  const handleDelete = async (item: ComunicadoDoc) => {
+  const handleDelete = async (item: PlatformNotice) => {
     try {
-      await deleteComunicado(item.id);
+      await deletePlatformNotice(item.id);
       await load();
       if (editingId === item.id) resetForm();
       setFeedback({ type: 'ok', text: `Comunicado "${item.titulo}" removido.` });
@@ -138,7 +175,24 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
     }
   };
 
-  const renderTipoIcon = (t: TipoComunicado) => {
+  const handleStatusChange = async (item: PlatformNotice, nextStatus: PlatformNotice['status']) => {
+    try {
+      await savePlatformNotice({
+        id: item.id, titulo: item.titulo, mensagem: item.mensagem, tipo: item.tipo,
+        exibirPopup: item.exibirPopup, exigirConfirmacao: item.exigirConfirmacao, link: item.link,
+        publicoAlvo: item.publicoAlvo, planoAlvoSlug: item.planoAlvoSlug, perfilAlvo: item.perfilAlvo,
+        empresaIds: item.empresaIds, usuarioIds: item.usuarioIds, agendadoInicioIso: item.agendadoInicioIso,
+        agendadoFimIso: item.agendadoFimIso, fusoHorario: item.fusoHorario, repeticao: item.repeticao,
+        status: nextStatus,
+      });
+      await load();
+      setFeedback({ type: 'ok', text: `Comunicado "${item.titulo}" atualizado para ${nextStatus}.` });
+    } catch (err) {
+      setFeedback({ type: 'err', text: err instanceof Error ? err.message : 'Erro ao encerrar comunicado.' });
+    }
+  };
+
+  const renderTipoIcon = (t: PlatformNotice['tipo']) => {
     switch (t) {
       case 'URGENTE':
         return <AlertTriangle className="w-4 h-4 text-red-500" />;
@@ -223,7 +277,9 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
                           ? 'bg-emerald-500/10 text-emerald-500'
                           : item.status === 'AGENDADO'
                             ? 'bg-amber-500/10 text-amber-500'
-                            : 'bg-slate-500/10 text-slate-400'
+                            : item.status === 'PAUSADO'
+                              ? 'bg-orange-500/10 text-orange-500'
+                              : 'bg-slate-500/10 text-slate-400'
                       }`}
                     >
                       {item.status === 'ATIVO' && (
@@ -237,6 +293,7 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
                         Pop-up Prioritário
                       </span>
                     )}
+                    {item.exigirConfirmacao && <span className="rounded-md bg-violet-500/10 px-2 py-0.5 text-[10px] font-semibold text-violet-600 dark:text-violet-300">Confirmação obrigatória</span>}
                   </div>
 
                   <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
@@ -247,18 +304,19 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
                     <span>
                       Público:{' '}
                       <strong className="text-slate-700 dark:text-slate-200">
-                        {item.publicoAlvo === 'PLANO_ESPECIFICO'
-                          ? `Plano ${item.planoAlvoSlug || '—'}`
-                          : item.publicoAlvo}
+                        {item.publicoAlvo === 'PLANO_ESPECIFICO' ? `Plano ${item.planoAlvoSlug || '—'}` :
+                          item.publicoAlvo === 'PERFIL' ? `Perfil ${item.perfilAlvo || '—'}` :
+                            item.publicoAlvo === 'EMPRESAS' ? `${item.empresaIds.length} empresa(s)` :
+                              item.publicoAlvo === 'USUARIOS' ? `${item.usuarioIds.length} usuário(s)` : item.publicoAlvo}
                       </strong>
                     </span>
                     <span>Repetição: {item.repeticao}</span>
                     {(item.agendadoInicioIso || item.agendadoFimIso) && (
                       <span>
-                        Janela: {item.agendadoInicioIso || 'Imediato'} →{' '}
-                        {item.agendadoFimIso || 'Sem fim'}
+                        Início: {new Date(item.agendadoInicioIso).toLocaleString('pt-BR')} · Fim: {item.agendadoFimIso ? new Date(item.agendadoFimIso).toLocaleString('pt-BR') : 'Sem fim'} ({item.fusoHorario})
                       </span>
                     )}
+                    <span>Entregues: {item.entregas} · lidos: {item.lidas}</span>
                   </div>
                 </div>
 
@@ -266,15 +324,21 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
                   <button
                     type="button"
                     onClick={() => handleEdit(item)}
+                    disabled={item.entregas > 0}
+                    title={item.entregas > 0 ? 'O conteúdo fica congelado depois da primeira entrega.' : 'Revisar comunicado'}
                     className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/15 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/10 cursor-pointer"
                   >
-                    Revisar / Editar
+                    Revisar
                   </button>
+                  {item.entregas > 0 && ['ATIVO', 'AGENDADO'].includes(item.status) && <button type="button" onClick={() => void handleStatusChange(item, 'PAUSADO')} className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-300">Pausar</button>}
+                  {item.entregas > 0 && item.status === 'PAUSADO' && <button type="button" onClick={() => void handleStatusChange(item, 'ATIVO')} className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300">Retomar</button>}
+                  {item.entregas > 0 && item.status !== 'ENCERRADO' && <button type="button" onClick={() => void handleStatusChange(item, 'ENCERRADO')} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-300">Encerrar</button>}
                   <button
                     type="button"
                     onClick={() => void handleDelete(item)}
+                    disabled={item.entregas > 0}
+                    title={item.entregas > 0 ? 'Avisos entregues permanecem no histórico.' : 'Excluir comunicado'}
                     className="p-1.5 rounded-lg border border-red-200 dark:border-red-500/30 text-red-500 hover:bg-red-500/10 cursor-pointer"
-                    title="Excluir comunicado"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -328,7 +392,7 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
               </label>
               <select
                 value={tipo}
-                onChange={(e) => setTipo(e.target.value as TipoComunicado)}
+                onChange={(e) => setTipo(e.target.value as PlatformNotice['tipo'])}
                 className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white"
               >
                 <option value="NOVIDADE">Novidade / Recurso</option>
@@ -343,12 +407,13 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
               </label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as StatusComunicado)}
+                onChange={(e) => setStatus(e.target.value as PlatformNotice['status'])}
                 className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white"
               >
                 <option value="ATIVO">Ativo (Publicar agora)</option>
                 <option value="AGENDADO">Agendado</option>
                 <option value="RASCUNHO">Rascunho (Não enviar)</option>
+                <option value="PAUSADO">Pausado</option>
                 <option value="ENCERRADO">Encerrado</option>
               </select>
             </div>
@@ -361,13 +426,16 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
               </label>
               <select
                 value={publicoAlvo}
-                onChange={(e) => setPublicoAlvo(e.target.value as PublicoComunicado)}
+                onChange={(e) => setPublicoAlvo(e.target.value as PlatformNotice['publicoAlvo'])}
                 className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white"
               >
                 <option value="TODAS">Todas as empresas</option>
                 <option value="ATIVAS">Somente Ativas (Pagantes)</option>
                 <option value="TRIAL">Somente em Trial (7 dias)</option>
                 <option value="PLANO_ESPECIFICO">Plano específico</option>
+                <option value="PERFIL">Por perfil de usuário</option>
+                <option value="EMPRESAS">Empresas selecionadas</option>
+                <option value="USUARIOS">Usuários selecionados</option>
               </select>
             </div>
             <div>
@@ -376,7 +444,7 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
               </label>
               <select
                 value={repeticao}
-                onChange={(e) => setRepeticao(e.target.value as RepeticaoComunicado)}
+                onChange={(e) => setRepeticao(e.target.value as PlatformNotice['repeticao'])}
                 className="w-full px-3 py-2 rounded-xl bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white"
               >
                 <option value="UNICO">Envio Único</option>
@@ -407,13 +475,35 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
             </div>
           )}
 
+          {publicoAlvo === 'PERFIL' && <div>
+            <label className="mb-1 block font-medium text-slate-700 dark:text-slate-300">Perfil que receberá o aviso</label>
+            <select value={perfilAlvo} onChange={(e) => setPerfilAlvo(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/15 dark:bg-[#060913] dark:text-white">
+              <option value="ADMIN_EMPRESA">Administrador da empresa</option><option value="RT">Responsável técnico</option><option value="INSTRUTOR_TST">Instrutor / TST</option>
+            </select>
+          </div>}
+
+          {publicoAlvo === 'EMPRESAS' && <div>
+            <label className="mb-1 block font-medium text-slate-700 dark:text-slate-300">Empresas (Ctrl/Cmd para selecionar várias)</label>
+            <select multiple size={6} value={empresaIds} onChange={(e) => setEmpresaIds(Array.from(e.currentTarget.selectedOptions, (option) => option.value))} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/15 dark:bg-[#060913] dark:text-white">
+              {targets.empresas.map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.status}</option>)}
+            </select>
+          </div>}
+
+          {publicoAlvo === 'USUARIOS' && <div>
+            <label className="mb-1 block font-medium text-slate-700 dark:text-slate-300">Usuários (Ctrl/Cmd para selecionar vários)</label>
+            <select multiple size={7} value={usuarioIds} onChange={(e) => setUsuarioIds(Array.from(e.currentTarget.selectedOptions, (option) => option.value))} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-white/15 dark:bg-[#060913] dark:text-white">
+              {targets.usuarios.map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.empresa} · {item.email}</option>)}
+            </select>
+          </div>}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Agendar Início
               </label>
               <input
-                type="date"
+                type="datetime-local"
+                required
                 value={agendadoInicioIso}
                 onChange={(e) => setAgendadoInicioIso(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl font-mono bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white"
@@ -424,12 +514,18 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
                 Agendar Fim
               </label>
               <input
-                type="date"
+                type="datetime-local"
                 value={agendadoFimIso}
                 onChange={(e) => setAgendadoFimIso(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl font-mono bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-slate-900 dark:text-white"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block font-medium text-slate-700 dark:text-slate-300">Link opcional (HTTPS ou caminho interno)</label>
+            <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://... ou /ajuda" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-slate-900 dark:border-white/15 dark:bg-[#060913] dark:text-white" />
+            <p className="mt-1 text-[11px] text-slate-500">Agenda no fuso {fusoHorario}; o servidor guarda o horário convertido.</p>
           </div>
 
           <div className="flex items-center justify-between pt-1">
@@ -454,6 +550,11 @@ export const SuperAdminComunicados: React.FC<SuperAdminComunicadosProps> = ({ pl
                 }`}
               />
             </button>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-slate-200 pt-3 dark:border-white/10">
+            <div><p className="font-medium text-slate-700 dark:text-slate-200">Exigir confirmação do usuário</p><p className="text-[11px] text-slate-500">Registra quem confirmou o recebimento.</p></div>
+            <button type="button" aria-pressed={exigirConfirmacao} onClick={() => setExigirConfirmacao((value) => !value)} className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${exigirConfirmacao ? 'bg-violet-600' : 'bg-slate-300 dark:bg-slate-700'}`}><span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${exigirConfirmacao ? 'translate-x-5' : 'translate-x-0.5'}`} /></button>
           </div>
 
           <button

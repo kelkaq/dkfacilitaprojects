@@ -28,6 +28,7 @@ import { AccountPortal } from './components/AccountPortal.tsx';
 import { PostgresWorkspaceApp } from './components/PostgresWorkspaceApp.tsx';
 import { PostgresPublicExamPage } from './components/PostgresPublicExamPage.tsx';
 import { PostgresPublicCertificatePage } from './components/PostgresPublicCertificatePage.tsx';
+import { clearPlatformAdminToken } from './services/platformNotificationService.ts';
 
 type AppView =
   | 'SITE'
@@ -347,6 +348,7 @@ function AppRouter() {
   };
 
   const handleLogout = async () => {
+    clearPlatformAdminToken();
     await signOut(auth);
     setOnboardingEmpresa(null);
     setPostLoginTarget('CLIENT_APP');

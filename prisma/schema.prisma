@@ -120,6 +120,38 @@ enum TipoNotificacaoAdmin {
   TRIAL_EXPIRANDO
 }
 
+enum CategoriaComunicado {
+  INFORMATIVO
+  MANUTENCAO
+  NOVIDADE
+  URGENTE
+}
+
+enum PublicoComunicado {
+  TODAS
+  ATIVAS
+  TRIAL
+  PLANO_ESPECIFICO
+  PERFIL
+  EMPRESAS
+  USUARIOS
+}
+
+enum RepeticaoComunicado {
+  UNICO
+  DIARIO
+  SEMANAL
+  MENSAL
+}
+
+enum StatusComunicado {
+  RASCUNHO
+  AGENDADO
+  ATIVO
+  PAUSADO
+  ENCERRADO
+}
+
 // ============================================================================
 // 1. TABELAS GLOBAIS (CATÁLOGO COMERCIAL E NORMATIVO DK FACILITA)
 // ============================================================================
@@ -306,6 +338,7 @@ model Empresa {
   certificados        Certificado[]
   cartasAnuencia      CartaAnuencia[]
   logsAnalytics       LogAcessoAnalytics[]
+  avisosRecebidos     EntregaComunicado[]
 
   @@map("empresas")
 }
@@ -457,6 +490,8 @@ model Usuario {
   convitesCriados     ConviteUsuario[]    @relation("ConviteCriador")
   recuperacoes        RecuperacaoSenha[]
   auditorias          AuditoriaAcesso[]
+  comunicadosCriados  ComunicadoPlataforma[] @relation("ComunicadoCriador")
+  avisosRecebidos     EntregaComunicado[]
 
   @@index([empresaId])
   @@map("usuarios")
@@ -770,4 +805,57 @@ model NotificacaoAdmin {
 
   @@index([lida, createdAt])
   @@map("notificacoes_admin")
+}
+
+model ComunicadoPlataforma {
+  id                String              @id @default(uuid())
+  titulo            String
+  mensagem          String
+  categoria         CategoriaComunicado @default(INFORMATIVO)
+  exibirPopup       Boolean             @default(false) @map("exibir_popup")
+  exigirConfirmacao Boolean             @default(false) @map("exigir_confirmacao")
+  link              String?
+  publicoAlvo       PublicoComunicado   @default(TODAS) @map("publico_alvo")
+  planoAlvoSlug     String?             @map("plano_alvo_slug")
+  perfilAlvo        PerfilUsuario?      @map("perfil_alvo")
+  empresaIds        Json                @default("[]") @map("empresa_ids")
+  usuarioIds        Json                @default("[]") @map("usuario_ids")
+  inicioEm          DateTime            @map("inicio_em")
+  fimEm             DateTime?           @map("fim_em")
+  fusoHorario       String              @default("America/Sao_Paulo") @map("fuso_horario")
+  repeticao         RepeticaoComunicado @default(UNICO)
+  status            StatusComunicado    @default(RASCUNHO)
+  createdById       String              @map("created_by_id")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  createdBy Usuario             @relation("ComunicadoCriador", fields: [createdById], references: [id])
+  entregas  EntregaComunicado[]
+
+  @@index([status, inicioEm, fimEm])
+  @@index([publicoAlvo, status])
+  @@map("comunicados_plataforma")
+}
+
+model EntregaComunicado {
+  id            String    @id @default(uuid())
+  comunicadoId  String    @map("comunicado_id")
+  ocorrenciaKey String    @map("ocorrencia_key")
+  usuarioId     String    @map("usuario_id")
+  empresaId     String    @map("empresa_id")
+  exibidaEm     DateTime? @map("exibida_em")
+  lidaEm        DateTime? @map("lida_em")
+  dispensadaEm  DateTime? @map("dispensada_em")
+  confirmadaEm  DateTime? @map("confirmada_em")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  comunicado ComunicadoPlataforma @relation(fields: [comunicadoId], references: [id], onDelete: Cascade)
+  usuario    Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  empresa    Empresa             @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([comunicadoId, ocorrenciaKey, usuarioId])
+  @@index([usuarioId, createdAt])
+  @@index([empresaId, createdAt])
+  @@index([comunicadoId, ocorrenciaKey])
+  @@map("entregas_comunicados")
 }

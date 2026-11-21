@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, BadgeCheck, BookOpenCheck, Building2, CheckCircle2, FileBadge, LogOut, Plus, RefreshCw, Users } from 'lucide-react';
 import { ThemeToggleButton } from './ThemeProvider.tsx';
 import { SignaturePadCanvas } from './client/SignaturePadCanvas.tsx';
+import { TenantNotificationBell } from './client/TenantNotificationBell.tsx';
 
 type Tab = 'resumo' | 'colaboradores' | 'obras' | 'treinamentos' | 'turmas' | 'certificados';
 type User = { id: string; nome: string; email: string; perfil: string };
@@ -279,7 +280,7 @@ export const PostgresWorkspaceApp: React.FC = () => {
     <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-white/10 dark:bg-slate-950/90">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <div className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-700 text-sm font-black text-white">DK</span><div className="min-w-0"><p className="truncate text-sm font-bold">Certifica Software - DK</p><p className="truncate text-xs text-slate-500">{summary?.empresa ?? 'Área da empresa'}</p></div></div>
-        <div className="flex items-center gap-2"><a href="/minha-conta" className="hidden rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-100 dark:hover:bg-white/10 sm:inline-flex">Minha conta e equipe</a><ThemeToggleButton compact /><button type="button" onClick={() => void logout()} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-100 dark:hover:bg-white/10"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Sair</span></button></div>
+        <div className="flex items-center gap-2"><a href="/minha-conta" className="hidden rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-100 dark:hover:bg-white/10 sm:inline-flex">Minha conta e equipe</a><TenantNotificationBell /><ThemeToggleButton compact /><button type="button" onClick={() => void logout()} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-slate-100 dark:hover:bg-white/10"><LogOut className="h-4 w-4" /><span className="hidden sm:inline">Sair</span></button></div>
       </div>
     </header>
     <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:py-8">
