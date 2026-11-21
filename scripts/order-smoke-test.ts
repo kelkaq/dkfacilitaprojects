@@ -17,12 +17,14 @@ process.env.APP_URL = 'https://example.invalid';
 process.env.CSDK_PUBLIC_COMMERCE_ENABLED = 'true';
 const nativeFetch = globalThis.fetch;
 let providerCreates = 0;
+let providerPlanReads = 0;
 const providerPlanId = `smoke-plan-${suffix}`;
 const providerBody: { [key: string]: unknown }[] = [];
 globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
   const target = String(url);
   if (!target.startsWith('https://api.mercadopago.com/')) return nativeFetch(url, init);
   if (target === `https://api.mercadopago.com/preapproval_plan/${providerPlanId}`) {
+    providerPlanReads++;
     return new Response(JSON.stringify({ id: providerPlanId, status: 'active',
       init_point: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=mock',
       sandbox_init_point: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=mock-test',
@@ -99,13 +101,11 @@ try {
   const startBody = await start.json() as { checkoutUrl: string; status: string };
   assert.equal(startBody.status, 'AGUARDANDO_CARTAO');
   assert.ok(startBody.checkoutUrl.startsWith('https://www.mercadopago.com.br/'));
-  const sentRecurring = providerBody[0].auto_recurring as { free_trial: { frequency: number; frequency_type: string }; transaction_amount: number };
-  assert.deepEqual(sentRecurring.free_trial, { frequency: 7, frequency_type: 'days' });
-  assert.equal(sentRecurring.transaction_amount, 540);
-  assert.ok(String(providerBody[0].back_url).includes(`/pagamento-retorno?pedido=${created.id}`));
+  assert.equal(providerPlanReads, 1);
   assert.equal(((await (await fetch(statusUrl)).json()) as { status: string }).status, 'AGUARDANDO_CARTAO');
   const repeatedCheckout = await startCheckout();
   assert.equal(repeatedCheckout.status, 200);
+  assert.equal(providerPlanReads, 2);
   assert.equal(providerCreates, 0);
   const separateKeyRetry = await post(body, crypto.randomUUID());
   assert.equal(separateKeyRetry.status, 200);
