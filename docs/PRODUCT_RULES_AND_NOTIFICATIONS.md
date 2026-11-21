@@ -231,3 +231,28 @@ Não tratar os testes de contrato ou o webhook simulado como transação de prov
 - O checkout hospedado do plano de trial usa um link genérico; o retorno do Mercado Pago pode não carregar o ID do pedido. O checkout agora guarda o pedido em `sessionStorage` antes do redirecionamento e a tela de retorno recupera esse ID quando a URL não traz `pedido`.
 - Enquanto um pedido de trial aguarda cartão, a consulta de status pode procurar a assinatura no Mercado Pago por e-mail e plano. Só tenta provisionar após consultar a assinatura completa e confirmar e-mail, plano e status autorizado; o serviço de reconciliação continua validando preço, moeda, ciclo, teste de sete dias e uso único do documento. A resposta pública mantém apenas ID, estado e modalidade do pedido.
 - Esse mecanismo é uma recuperação para o retorno do comprador; não substitui o webhook, nem comprova a entrega de e-mails ou uma transação real. O checkout público permanece fechado até a compra TEST ponta a ponta e o webhook serem demonstrados.
+
+## Estado após correções e implantação — 21/11/2026
+
+Esta seção substitui os estados antigos de auditoria e implantação descritos nas revisões anteriores deste arquivo.
+
+- O código de produção foi atualizado até o commit `40b7014`, com cópia de segurança de `/var/www/csdk-production` em `/root/csdk-cutover-20261121T145855Z/csdk-production-before-40b7014.tar.gz`. O site `https://dkfacilita.com`, o endpoint `/api/health` e os três serviços (`csdk`, `csdk-staging` e `dk-solucoes`) responderam normalmente após a atualização. O Wix, DNS e serviço DK Soluções não foram substituídos.
+- A CSDK continua com o comércio público desligado: `CSDK_PUBLIC_COMMERCE_ENABLED=false`; a API pública de ofertas devolve 503. Não há checkout ou plano de venda exposto enquanto a homologação financeira não terminar.
+- As nove migrations estão aplicadas no banco de staging. Lint, build, smoke tests funcionais, reconciliação simulada, renderização de PPTX/PDF e teste de exportação XLSX/CSV passaram. A auditoria completa das dependências informa zero vulnerabilidades após a remoção do pacote XLSX vulnerável e as atualizações de dependências.
+- O e-mail transacional Brevo está configurado: a chave autenticou, o remetente está ativo e o domínio aparece autenticado/verificado no serviço. Isso confirma a configuração, mas ainda não comprova uma mensagem real de primeiro acesso recebida por um comprador.
+- O fluxo de retorno do trial recupera o pedido, pode reconciliar uma assinatura autorizada consultando o Mercado Pago e mantém a ativação idempotente. Até aqui, os testes de webhook foram simulados; a compra completa com cartão de teste e a entrega pública de um webhook ainda não foram concluídas.
+- A correção de XLSX substituiu `xlsx` por geração OOXML com JSZip e exportação CSV segura contra fórmulas; o teste de contrato confirma conteúdo, preservação de zeros à esquerda e ausência de células com fórmulas executáveis.
+- O checkout informa a oferta, os dados do titular, o valor e o teste grátis com cartão no ambiente seguro do Mercado Pago. O texto da tela de pagamento foi ajustado para explicar preço, período gratuito e cancelamento em linguagem voltada ao comprador, sem expor detalhes internos do CSDK.
+- As telas pesadas de cliente, administração, checkout e operação passaram a ser carregadas sob demanda. O pacote principal caiu de 1,59 MB para 839 KB (256 KB comprimidos); continua acima do limite de 500 KB do build, portanto a otimização de desempenho ainda é parcial.
+
+### Itens ainda necessários antes de anunciar vendas
+
+1. Fazer compra completa com comprador/cartão de teste do Mercado Pago, comprovar a autorização da assinatura do trial, retorno ao CSDK, provisionamento do acesso e cancelamento no provedor.
+2. Validar o webhook público de assinatura em ambiente TEST, incluindo configuração no painel do Mercado Pago, entrega, repetição e eventos de renovação/falha/cancelamento. O endpoint local assinado valida a lógica, mas não comprova roteamento externo pelo Mercado Pago.
+3. Enviar e receber e-mail real de primeiro acesso e recuperação em conta de teste controlada, validando expiração e uso único dos links.
+4. Completar o acesso do cliente em todos os pontos de entrada do produto: a conta PostgreSQL usa `/acesso` e `/workspace`; as telas legadas de Firebase continuam coexistindo e exigem validação da navegação e da equivalência das funções principais com o CertificaNR.
+5. Homologar arquivos PowerPoint reais de clientes diferentes e testar fidelidade de layout, assinaturas configuráveis, frente/verso e importação de modelos que não tenham marcadores conhecidos.
+6. Ativar apenas ofertas reais aprovadas pelo proprietário e revisar preço, termos, política de cancelamento, privacidade, suporte, estorno e chargeback. Pix, dois cartões, cupons e adicionais não estão disponíveis no checkout recorrente atual.
+7. Fazer exercício documentado de backup/restauração do banco e dos arquivos de modelos, revisar monitoramento e continuar reduzindo o pacote JavaScript principal de 839 KB; remover também o aviso de configuração futura do Vite.
+
+Até os itens 1–4 serem comprovados em TEST e os itens 5–7 serem fechados para o escopo comercial escolhido, não declarar o sistema pronto para venda nem ativar a API pública de ofertas.

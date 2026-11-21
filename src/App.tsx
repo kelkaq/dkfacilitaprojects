@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { onAuthStateChanged, signInWithPopup, signOut, type User } from 'firebase/auth';
 import {
   auth,
@@ -15,20 +15,22 @@ import { sendAnalyticsHeartbeat } from './services/analyticsService.ts';
 import { getEmpresaById, listMyEmpresas } from './services/tenantAuthService.ts';
 import type { EmpresaDoc } from './types/domain.ts';
 import { ThemeProvider } from './components/ThemeProvider.tsx';
-import { LandingPage, type CheckoutSelection } from './components/LandingPage.tsx';
-import { HostedCheckoutFlow } from './components/HostedCheckoutFlow.tsx';
-import { PaymentReturnPage } from './components/PaymentReturnPage.tsx';
-import { OnboardingWizard } from './components/OnboardingWizard.tsx';
-import { LoginView } from './components/LoginView.tsx';
-import { ClientSaasApp } from './components/client/ClientSaasApp.tsx';
-import { PublicExamPortal } from './components/client/PublicExamPortal.tsx';
-import { PublicDossierView } from './components/client/PublicDossierView.tsx';
-import { SuperAdminApp } from './components/admin/SuperAdminApp.tsx';
-import { AccountPortal } from './components/AccountPortal.tsx';
-import { PostgresWorkspaceApp } from './components/PostgresWorkspaceApp.tsx';
-import { PostgresPublicExamPage } from './components/PostgresPublicExamPage.tsx';
-import { PostgresPublicCertificatePage } from './components/PostgresPublicCertificatePage.tsx';
+import type { CheckoutSelection } from './components/LandingPage.tsx';
 import { clearPlatformAdminToken } from './services/platformNotificationService.ts';
+
+const LandingPage = lazy(() => import('./components/LandingPage.tsx').then((module) => ({ default: module.LandingPage })));
+const HostedCheckoutFlow = lazy(() => import('./components/HostedCheckoutFlow.tsx').then((module) => ({ default: module.HostedCheckoutFlow })));
+const PaymentReturnPage = lazy(() => import('./components/PaymentReturnPage.tsx').then((module) => ({ default: module.PaymentReturnPage })));
+const OnboardingWizard = lazy(() => import('./components/OnboardingWizard.tsx').then((module) => ({ default: module.OnboardingWizard })));
+const LoginView = lazy(() => import('./components/LoginView.tsx').then((module) => ({ default: module.LoginView })));
+const ClientSaasApp = lazy(() => import('./components/client/ClientSaasApp.tsx').then((module) => ({ default: module.ClientSaasApp })));
+const PublicExamPortal = lazy(() => import('./components/client/PublicExamPortal.tsx').then((module) => ({ default: module.PublicExamPortal })));
+const PublicDossierView = lazy(() => import('./components/client/PublicDossierView.tsx').then((module) => ({ default: module.PublicDossierView })));
+const SuperAdminApp = lazy(() => import('./components/admin/SuperAdminApp.tsx').then((module) => ({ default: module.SuperAdminApp })));
+const AccountPortal = lazy(() => import('./components/AccountPortal.tsx').then((module) => ({ default: module.AccountPortal })));
+const PostgresWorkspaceApp = lazy(() => import('./components/PostgresWorkspaceApp.tsx').then((module) => ({ default: module.PostgresWorkspaceApp })));
+const PostgresPublicExamPage = lazy(() => import('./components/PostgresPublicExamPage.tsx').then((module) => ({ default: module.PostgresPublicExamPage })));
+const PostgresPublicCertificatePage = lazy(() => import('./components/PostgresPublicCertificatePage.tsx').then((module) => ({ default: module.PostgresPublicCertificatePage })));
 
 type AppView =
   | 'SITE'
@@ -566,8 +568,10 @@ export default function App() {
   const publicCertificateCode = new URLSearchParams(window.location.search).get('csdk_cert');
   return (
     <ThemeProvider>
-      {publicCertificateCode ? <PostgresPublicCertificatePage code={publicCertificateCode} /> : publicExamToken ? <PostgresPublicExamPage token={publicExamToken} /> :
-        portalView === 'workspace' ? <PostgresWorkspaceApp /> : portalView ? <AccountPortal view={portalView} /> : <AppRouter />}
+      <Suspense fallback={<div className="min-h-screen dk-ambient-canvas flex items-center justify-center text-sm text-slate-600 dark:text-slate-300" role="status">Carregando sua conta...</div>}>
+        {publicCertificateCode ? <PostgresPublicCertificatePage code={publicCertificateCode} /> : publicExamToken ? <PostgresPublicExamPage token={publicExamToken} /> :
+          portalView === 'workspace' ? <PostgresWorkspaceApp /> : portalView ? <AccountPortal view={portalView} /> : <AppRouter />}
+      </Suspense>
     </ThemeProvider>
   );
 }
