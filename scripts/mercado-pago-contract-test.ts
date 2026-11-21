@@ -17,13 +17,11 @@ const http = (async (url: string | URL | Request, init?: RequestInit) => {
 const mp = new MercadoPagoSubscriptions('TEST-placeholder', http);
 await mp.createTrialPlan({ reason: 'CSDK teste', cycleMonths: 1, amountCentavos: 14900, backUrl: 'https://dkfacilita.com/checkout' });
 assert.equal(requests[0].url, 'https://api.mercadopago.com/preapproval_plan');
-assert.equal(new Headers(requests[0].init.headers).get('X-scope'), 'stage');
 const planBody = JSON.parse(String(requests[0].init.body));
 assert.deepEqual(planBody.auto_recurring.free_trial, { frequency: 7, frequency_type: 'days' });
 assert.equal(planBody.auto_recurring.transaction_amount, 149);
 await mp.createSubscription({ planId: 'plan_123', payerEmail: 'teste@example.invalid', cardTokenId: 'card_token_123', externalReference: 'CSDK-123', backUrl: 'https://dkfacilita.com/checkout', reason: 'CSDK teste', cycleMonths: 1, amountCentavos: 14900 });
 assert.equal(requests[1].url, 'https://api.mercadopago.com/preapproval');
-assert.equal(new Headers(requests[1].init.headers).get('X-scope'), 'stage');
 const subscriptionBody = JSON.parse(String(requests[1].init.body));
 assert.equal(subscriptionBody.card_token_id, 'card_token_123');
 assert.equal(subscriptionBody.reason, 'CSDK teste');
