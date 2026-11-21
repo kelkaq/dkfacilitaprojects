@@ -114,7 +114,7 @@ try {
     </form><script src="https://sdk.mercadopago.com/js/v2"></script><script>
       const mp=new MercadoPago(${JSON.stringify(publicKey)},{locale:'pt-BR'});
       window.mpReady=false;window.mpToken=null;window.mpError=null;
-      const cardForm=mp.cardForm({amount:${JSON.stringify((offer.totalCentavos / 100).toFixed(2))},iframe:true,form:{id:'form-checkout',cardNumber:{id:'form-checkout__cardNumber'},expirationDate:{id:'form-checkout__expirationDate'},securityCode:{id:'form-checkout__securityCode'},cardholderName:{id:'form-checkout__cardholderName'},issuer:{id:'form-checkout__issuer'},installments:{id:'form-checkout__installments'},identificationType:{id:'form-checkout__identificationType'},identificationNumber:{id:'form-checkout__identificationNumber'},cardholderEmail:{id:'form-checkout__cardholderEmail'}},callbacks:{onFormMounted:error=>{window.mpReady=!error;if(error)window.mpError='mount';},onSubmit:event=>{event.preventDefault();const data=cardForm.getCardFormData();window.mpSubmit={token:Boolean(data.token),paymentMethodId:Boolean(data.paymentMethodId),issuerId:Boolean(data.issuerId)};window.mpToken=data.token;},onError:error=>{window.mpError=String(error).slice(0,120);}}});
+      const cardForm=mp.cardForm({amount:${JSON.stringify((offer.totalCentavos / 100).toFixed(2))},iframe:true,form:{id:'form-checkout',cardNumber:{id:'form-checkout__cardNumber'},expirationDate:{id:'form-checkout__expirationDate'},securityCode:{id:'form-checkout__securityCode'},cardholderName:{id:'form-checkout__cardholderName'},issuer:{id:'form-checkout__issuer'},installments:{id:'form-checkout__installments'},identificationType:{id:'form-checkout__identificationType'},identificationNumber:{id:'form-checkout__identificationNumber'},cardholderEmail:{id:'form-checkout__cardholderEmail'}},callbacks:{onFormMounted:error=>{window.mpReady=!error;if(error)window.mpError='mount';},onSubmit:event=>{event.preventDefault();const data=cardForm.getCardFormData();window.mpSubmit={token:Boolean(data.token),paymentMethodId:Boolean(data.paymentMethodId),issuerId:Boolean(data.issuerId)};window.mpToken=data.token;},onError:error=>{window.mpError=JSON.stringify(Array.isArray(error)?error.map(item=>({keys:Object.keys(item??{}),type:item?.type,code:item?.code,message:item?.message,field:item?.field})):({keys:Object.keys(error??{}),type:error?.type,code:error?.code,message:error?.message})).slice(0,500);}}});
     </script></body></html>`));
   server = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve, reject) => { server!.once('listening', resolve); server!.once('error', reject); });
@@ -171,7 +171,12 @@ try {
     error: (window as unknown as { mpError?: string }).mpError,
     submitted: (window as unknown as { mpSubmit?: { token: boolean; paymentMethodId: boolean; issuerId: boolean } }).mpSubmit,
   }));
-  if (!tokenResult.token) throw new Error(`Tokenização TEST recusada (${tokenResult.error ?? 'sem token'}; campos:${JSON.stringify(fieldLengths)}; formulário:${JSON.stringify(tokenResult.submitted ?? {})}; provedor:${JSON.stringify(tokenResponse ?? {})}).`);
+  const frameInfo = await Promise.all(page.frames().map(async (frame) => {
+    try { return { name: frame.name(), fields: await frame.$$eval('input', (inputs) => inputs.map((input) => ({ name: input.name, id: input.id,
+      type: input.type, maxLength: input.maxLength, length: input.value.length, placeholder: input.placeholder }))) }; }
+    catch { return { name: frame.name(), fields: [] }; }
+  }));
+  if (!tokenResult.token) throw new Error(`Tokenização TEST recusada (${tokenResult.error ?? 'sem token'}; campos:${JSON.stringify(fieldLengths)}; formulário:${JSON.stringify(tokenResult.submitted ?? {})}; frames:${JSON.stringify(frameInfo).slice(0,1200)}; provedor:${JSON.stringify(tokenResponse ?? {})}).`);
 
   const subscription = await provider.createSubscription({
     planId, payerEmail: buyerEmail, cardTokenId: tokenResult.token,
