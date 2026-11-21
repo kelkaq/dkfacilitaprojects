@@ -4,7 +4,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Database,
   FileBadge,
   Plus,
   QrCode,
@@ -865,10 +864,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         ) : offers.length === 0 || plansForSale.length === 0 ? (
           <div className="dk-glass-card mx-auto max-w-xl rounded-2xl p-8 text-center">
-            <Database className="mx-auto h-8 w-8 text-slate-400" />
-            <h3 className="mt-3 text-base font-semibold text-slate-900 dark:text-white">Checkout em preparação</h3>
-            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">Não há ofertas ativas para compra agora. Acesse sua conta existente ou volte mais tarde.</p>
-            <button type="button" onClick={onGoLogin} className="mt-5 cursor-pointer rounded-xl bg-[#1D4ED8] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#1E40AF]">Entrar na minha conta</button>
+            <FileBadge className="mx-auto h-8 w-8 text-blue-600 dark:text-blue-400" />
+            <h3 className="mt-3 text-base font-semibold text-slate-900 dark:text-white">{cms.secaoPlanos.semOfertasTitulo}</h3>
+            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-400">{cms.secaoPlanos.semOfertasDescricao}</p>
+            <button type="button" onClick={onGoLogin} className="mt-5 cursor-pointer rounded-xl bg-[#1D4ED8] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#1E40AF]">{cms.secaoPlanos.botaoEntrar}</button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-3">

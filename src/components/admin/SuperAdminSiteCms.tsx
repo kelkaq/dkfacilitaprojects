@@ -1393,6 +1393,22 @@ export const SuperAdminSiteCms: React.FC<SuperAdminSiteCmsProps> = ({
                     secaoPlanos: { ...current.secaoPlanos, descricao: event.target.value } }))}
                     className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-sm text-slate-900 dark:text-white" />
                 </label>
+                <h4 className="pt-2 text-xs font-bold text-slate-800 dark:text-slate-100">Mensagem exibida quando não há planos para contratar</h4>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">Título da mensagem
+                  <input maxLength={140} value={cms.secaoPlanos.semOfertasTitulo} onChange={(event) => setCms((current) => ({ ...current,
+                    secaoPlanos: { ...current.secaoPlanos, semOfertasTitulo: event.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-sm text-slate-900 dark:text-white" />
+                </label>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">Descrição
+                  <textarea rows={3} maxLength={320} value={cms.secaoPlanos.semOfertasDescricao} onChange={(event) => setCms((current) => ({ ...current,
+                    secaoPlanos: { ...current.secaoPlanos, semOfertasDescricao: event.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-sm text-slate-900 dark:text-white" />
+                </label>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300">Texto do botão para clientes
+                  <input maxLength={60} value={cms.secaoPlanos.botaoEntrar} onChange={(event) => setCms((current) => ({ ...current,
+                    secaoPlanos: { ...current.secaoPlanos, botaoEntrar: event.target.value } }))}
+                    className="mt-1 w-full px-3 py-2 rounded-lg bg-white dark:bg-[#060913] border border-slate-300 dark:border-white/15 text-sm text-slate-900 dark:text-white" />
+                </label>
                 <button type="button" disabled={saving} onClick={() => void handleSaveCms()}
                   className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-[#2563EB] to-[#3B82F6] text-white text-xs font-semibold disabled:opacity-50">
                   <Save className="w-4 h-4" />{saving ? 'Salvando...' : 'Salvar textos da página inicial'}

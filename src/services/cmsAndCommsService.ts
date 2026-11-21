@@ -73,6 +73,9 @@ export const EMPTY_SITE_CMS_CONFIG: SiteCmsConfigDoc = {
     etiqueta: 'Planos para sua empresa',
     titulo: 'A solução ideal para a sua equipe',
     descricao: 'Organize treinamentos, avaliações e certificados da sua empresa em um só lugar. Escolha o plano que acompanha o tamanho da sua operação.',
+    semOfertasTitulo: 'Conheça em breve as opções para sua empresa',
+    semOfertasDescricao: 'Estamos preparando condições comerciais para atender empresas de diferentes tamanhos. Enquanto isso, clientes atuais podem acessar sua conta normalmente.',
+    botaoEntrar: 'Já sou cliente — entrar',
   },
 };
 
@@ -130,7 +133,7 @@ export async function fetchSiteCmsConfig(): Promise<SiteCmsConfigDoc> {
         : [],
       secaoPlanos: {
         ...EMPTY_SITE_CMS_CONFIG.secaoPlanos,
-        ...(data.secaoPlanos || {}),
+      ...(data.secaoPlanos || {}),
       },
       updatedAt: data.updatedAt ?? null,
     };
@@ -185,6 +188,9 @@ export async function saveSiteCmsConfig(config: SiteCmsConfigDoc): Promise<SiteC
       etiqueta: (config.secaoPlanos.etiqueta || '').trim().slice(0, 80),
       titulo: (config.secaoPlanos.titulo || '').trim().slice(0, 140),
       descricao: (config.secaoPlanos.descricao || '').trim().slice(0, 320),
+      semOfertasTitulo: (config.secaoPlanos.semOfertasTitulo || '').trim().slice(0, 140),
+      semOfertasDescricao: (config.secaoPlanos.semOfertasDescricao || '').trim().slice(0, 320),
+      botaoEntrar: (config.secaoPlanos.botaoEntrar || '').trim().slice(0, 60),
     },
     updatedAt: serverTimestamp(),
   };
