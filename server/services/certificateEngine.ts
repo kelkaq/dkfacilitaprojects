@@ -20,9 +20,19 @@ export const PPTX_SUPPORTED_TAGS = [
   '{{CONTEUDO_COLUNA_1}}',
   '{{CONTEUDO_COLUNA_2}}',
   '{{QRCODE}}',
+  '{{LOGO}}',
+  '{{NOME_EMPRESA}}',
+  '{{NUMERO_CERTIFICADO}}',
+  '{{TITULO_TREINAMENTO}}',
   '{{ASSINATURA_ALUNO}}',
   '{{ASSINATURA_INSTRUTOR}}',
   '{{ASSINATURA_RT}}',
+  '{{ASSINATURA_1}}', '{{ASSINATURA_2}}', '{{ASSINATURA_3}}',
+  '{{ASSINATURA_4}}', '{{ASSINATURA_5}}', '{{ASSINATURA_6}}',
+  '{{NOME_ASSINANTE_1}}', '{{NOME_ASSINANTE_2}}', '{{NOME_ASSINANTE_3}}',
+  '{{NOME_ASSINANTE_4}}', '{{NOME_ASSINANTE_5}}', '{{NOME_ASSINANTE_6}}',
+  '{{PAPEL_ASSINANTE_1}}', '{{PAPEL_ASSINANTE_2}}', '{{PAPEL_ASSINANTE_3}}',
+  '{{PAPEL_ASSINANTE_4}}', '{{PAPEL_ASSINANTE_5}}', '{{PAPEL_ASSINANTE_6}}',
 ] as const;
 
 export interface CertificateRenderPayload {
@@ -48,6 +58,7 @@ export interface CertificateRenderPayload {
     cidade?: string;
     uf?: string;
     logoUrl?: string;
+    modeloProprio?: { templateKey: string; fileName: string; version: number; sha256: string; detectedTags?: string[] } | null;
     corPrimaria?: string;
     instrutorNome?: string;
     instrutorRegistro?: string;
@@ -1299,10 +1310,14 @@ export async function inspectAndSavePptxTemplate(params: {
   supportedTags: readonly string[];
   sizeBytes: number;
 }> {
+  if (!/\.pptx$/i.test(params.fileName)) throw new Error('Envie um arquivo PowerPoint com extensão .pptx.');
   const safeId = sanitizeTenantFileKey(params.empresaId);
   const rawBase64 = params.base64Content.includes(',')
     ? params.base64Content.split(',')[1]
     : params.base64Content;
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(rawBase64) || rawBase64.length > 21 * 1024 * 1024) {
+    throw new Error('Conteúdo PowerPoint inválido ou acima do limite de 15 MB.');
+  }
   const buffer = Buffer.from(rawBase64, 'base64');
 
   if (buffer.length < 100 || buffer.length > 15 * 1024 * 1024) {
@@ -1310,6 +1325,9 @@ export async function inspectAndSavePptxTemplate(params: {
   }
 
   const zip = await JSZip.loadAsync(buffer);
+  if (!zip.file('[Content_Types].xml') || !zip.file('ppt/presentation.xml')) {
+    throw new Error('O arquivo enviado não contém uma apresentação PowerPoint válida.');
+  }
   const slideFiles = Object.keys(zip.files).filter((name) =>
     /^ppt\/slides\/slide\d+\.xml$/i.test(name)
   );
@@ -1318,8 +1336,11 @@ export async function inspectAndSavePptxTemplate(params: {
   }
 
   const foundSet = new Set<string>();
+  let slideXmlBytes = 0;
   for (const slidePath of slideFiles) {
     const xml = await zip.files[slidePath].async('string');
+    slideXmlBytes += Buffer.byteLength(xml, 'utf8');
+    if (slideXmlBytes > 8 * 1024 * 1024) throw new Error('O conteúdo dos slides excede o limite de segurança.');
     // PowerPoint pode quebrar uma tag em vários <a:t> runs; extraímos texto plano dos parágrafos para detecção confiável
     const plainText = xml.replace(/<[^>]+>/g, '');
     for (const tag of PPTX_SUPPORTED_TAGS) {
@@ -1329,9 +1350,9 @@ export async function inspectAndSavePptxTemplate(params: {
     }
   }
 
-  await fs.mkdir(PPTX_STORAGE_DIR, { recursive: true });
+  await fs.mkdir(PPTX_STORAGE_DIR, { recursive: true, mode: 0o750 });
   const targetFile = path.join(PPTX_STORAGE_DIR, `${safeId}.pptx`);
-  await fs.writeFile(targetFile, buffer);
+  await fs.writeFile(targetFile, buffer, { mode: 0o640 });
 
   return {
     empresaId: safeId,
@@ -1353,6 +1374,93 @@ function escapeXml(val: string): string {
     .replace(/'/g, '&apos;');
 }
 
+function decodeXml(val: string): string {
+  return val.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+
+function pptxImageFromDataUrl(value: string | null | undefined): { extension: string; contentType: string; buffer: Buffer } | null {
+  if (!value) return null;
+  const match = value.match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$/);
+  if (!match) return null;
+  const buffer = Buffer.from(match[2], 'base64');
+  const mime = match[1];
+  const valid = mime === 'image/png' ? buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])) :
+    mime === 'image/jpeg' ? buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff :
+      buffer.length >= 12 && buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
+  if (!valid || buffer.length > 1_572_864) return null;
+  return { extension: mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png', contentType: mime, buffer };
+}
+
+async function replacePptxImagePlaceholders(
+  zip: JSZip,
+  slidePath: string,
+  xml: string,
+  images: Record<string, { extension: string; contentType: string; buffer: Buffer; alt: string }>
+): Promise<string> {
+  const relsPath = slidePath.replace(/^ppt\/slides\//, 'ppt/slides/_rels/') + '.rels';
+  const existingRels = zip.file(relsPath);
+  let relXml = existingRels ? await existingRels.async('string') : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+  const occupied = new Set(Array.from(relXml.matchAll(/\bId="([^"]+)"/g), (match) => match[1]));
+  const addedRelations: string[] = [];
+  const addedImageTypes = new Map<string, string>();
+  let relationIndex = 1;
+  let slideXml = xml.replace(/<p:sp(?:\s[^>]*)?>[\s\S]*?<\/p:sp>/g, (shape) => {
+    const text = Array.from(shape.matchAll(/<a:t(?:\s[^>]*)?>([\s\S]*?)<\/a:t>/g), (match) => decodeXml(match[1])).join('');
+    const tag = Object.keys(images).find((candidate) => text.includes(candidate));
+    if (!tag) return shape;
+    const spPr = shape.match(/<p:spPr(?:\s[^>]*)?>([\s\S]*?)<\/p:spPr>/)?.[1];
+    const transform = spPr?.match(/<a:xfrm(?:\s[^>]*)?>[\s\S]*?<\/a:xfrm>/)?.[0];
+    const geometry = spPr?.match(/<a:prstGeom(?:\s[^>]*)?>[\s\S]*?<\/a:prstGeom>/)?.[0] ?? '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>';
+    const shapeId = shape.match(/<p:cNvPr[^>]*\bid="(\d+)"/)?.[1];
+    if (!spPr || !transform || !shapeId) return shape;
+    const item = images[tag];
+    const imageName = `csdk_${crypto.randomUUID()}.${item.extension}`;
+    zip.file(`ppt/media/${imageName}`, item.buffer);
+    addedImageTypes.set(item.extension, item.contentType);
+    let nextRelId = `rIdCSDK${relationIndex++}`;
+    while (occupied.has(nextRelId)) nextRelId = `rIdCSDK${relationIndex++}`;
+    occupied.add(nextRelId);
+    const relationship = `<Relationship Id="${nextRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${imageName}"/>`;
+    addedRelations.push(relationship);
+    const replacement = `<p:pic><p:nvPicPr><p:cNvPr id="${shapeId}" name="CSDK ${escapeXml(item.alt)}" descr="${escapeXml(item.alt)}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${nextRelId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${transform}${geometry}</p:spPr></p:pic>`;
+    return replacement;
+  });
+  if (addedRelations.length) {
+    relXml = relXml.replace('</Relationships>', `${addedRelations.join('')}</Relationships>`);
+    zip.file(relsPath, relXml);
+    const types = zip.file('[Content_Types].xml');
+    if (types) {
+      let contentTypes = await types.async('string');
+      for (const [extension, contentType] of addedImageTypes) {
+        if (!new RegExp(`<Default[^>]+Extension="${extension}"`).test(contentTypes)) {
+          contentTypes = contentTypes.replace('</Types>', `<Default Extension="${extension}" ContentType="${contentType}"/></Types>`);
+        }
+      }
+      zip.file('[Content_Types].xml', contentTypes);
+    }
+  }
+  return slideXml;
+}
+
+function replacePptxTextPlaceholders(xml: string, values: Record<string, string>): string {
+  return xml.replace(/<a:p(?:\s[^>]*)?>[\s\S]*?<\/a:p>/g, (paragraph) => {
+    const runs = Array.from(paragraph.matchAll(/<a:t(\s[^>]*)?>([\s\S]*?)<\/a:t>/g));
+    if (!runs.length) return paragraph;
+    const text = runs.map((match) => decodeXml(match[2])).join('');
+    const replaced = Object.entries(values).reduce((current, [tag, value]) => current.split(tag).join(value.replace(/\r?\n/g, ' · ')), text);
+    if (text === replaced) return paragraph;
+    let first = true;
+    return paragraph.replace(/<a:t(\s[^>]*)?>([\s\S]*?)<\/a:t>/g, (_match, rawAttributes) => {
+      const attributes = String(rawAttributes ?? '');
+      if (!first) return `<a:t${attributes}></a:t>`;
+      first = false;
+      const preserve = /\bxml:space=/.test(attributes) ? attributes : `${attributes} xml:space="preserve"`;
+      return `<a:t${preserve}>${escapeXml(replaced)}</a:t>`;
+    });
+  });
+}
+
 /**
  * Preserva 100% das camadas XML, fontes, vetores e imagens do .pptx da empresa,
  * substituindo as tags suportadas e convertendo para PDF vetorial via LibreOffice headless na VPS Ubuntu.
@@ -1360,14 +1468,22 @@ function escapeXml(val: string): string {
 export async function compilePptxCertificateToPdf(params: {
   empresaId: string;
   payload: CertificateRenderPayload;
+  templateKey?: string;
 }): Promise<{
   mode: 'LIBREOFFICE_PDF' | 'PPTX_PREPARED_FALLBACK';
   pdfBase64?: string;
+  pptxBase64?: string;
   pptxPath?: string;
   message: string;
 }> {
   const safeId = sanitizeTenantFileKey(params.empresaId);
-  const templatePath = path.join(PPTX_STORAGE_DIR, `${safeId}.pptx`);
+  const templatePath = params.templateKey
+    ? path.resolve(PPTX_STORAGE_DIR, safeId, params.templateKey)
+    : path.join(PPTX_STORAGE_DIR, `${safeId}.pptx`);
+  const versionDirectory = path.resolve(PPTX_STORAGE_DIR, safeId);
+  if (params.templateKey && (!/^[0-9a-f-]{36}\.pptx$/i.test(params.templateKey) || !templatePath.startsWith(`${versionDirectory}${path.sep}`))) {
+    throw new Error('Versão do modelo PowerPoint inválida.');
+  }
 
   const rawBuffer = await fs.readFile(templatePath);
   const zip = await JSZip.loadAsync(rawBuffer);
@@ -1383,6 +1499,14 @@ export async function compilePptxCertificateToPdf(params: {
     .map((l) => `${String(l.ordem).padStart(2, '0')}. ${l.descricao}`)
     .join('\n');
 
+  const emp = params.payload.snapshotEmpresa;
+  const employee = params.payload.snapshotColaborador;
+  const configuredSigners = emp.assinaturasCertificado ?? [];
+  const findSigner = (types: string[]) => configuredSigners.find((signer) => types.includes(signer.tipo));
+  const rtSigner = findSigner(['RESPONSAVEL_TECNICO', 'RT']);
+  const instructorSigner = findSigner(['INSTRUTOR']);
+  const qrParam = params.payload.validationQueryParam === 'csdk_cert' ? 'csdk_cert' : 'validar';
+  const qrUrl = `${params.payload.validationBaseUrl.replace(/\/$/, '')}/?${qrParam}=${encodeURIComponent(params.payload.codigoValidacaoQr)}`;
   const tagValues: Record<string, string> = {
     '{{NOME_COLABORADOR}}': params.payload.snapshotColaborador.nome,
     '{{CPF}}': params.payload.snapshotColaborador.cpf,
@@ -1393,28 +1517,55 @@ export async function compilePptxCertificateToPdf(params: {
     '{{DATA_VALIDADE}}': formatDatePtBr(params.payload.dataValidadeIso),
     '{{CONTEUDO_COLUNA_1}}': col1Text,
     '{{CONTEUDO_COLUNA_2}}': col2Text,
-    '{{QRCODE}}': params.payload.codigoValidacaoQr,
+    '{{QRCODE}}': qrUrl,
+    '{{LOGO}}': emp.razaoSocial,
+    '{{NOME_EMPRESA}}': emp.razaoSocial,
+    '{{NUMERO_CERTIFICADO}}': params.payload.numeroCertificado,
+    '{{TITULO_TREINAMENTO}}': params.payload.treinamentoTitulo,
     '{{ASSINATURA_ALUNO}}': params.payload.ocultarAssinaturaColaborador
       ? ''
       : params.payload.snapshotColaborador.nome,
-    '{{ASSINATURA_INSTRUTOR}}': params.payload.snapshotEmpresa.instrutorNome || '',
-    '{{ASSINATURA_RT}}': params.payload.snapshotEmpresa.rtNome || '',
+    '{{ASSINATURA_INSTRUTOR}}': instructorSigner?.nome || emp.instrutorNome || '',
+    '{{ASSINATURA_RT}}': rtSigner?.nome || emp.rtNome || '',
   };
+  const imagePlaceholders: Record<string, { extension: string; contentType: string; buffer: Buffer; alt: string }> = {};
+  const setImage = (tag: string, dataUrl: string | null | undefined, alt: string) => {
+    const image = pptxImageFromDataUrl(dataUrl);
+    if (image) imagePlaceholders[tag] = { ...image, alt };
+  };
+  const qrSvg = await QRCode.toString(qrUrl, { type: 'svg', margin: 1, width: 360 });
+  imagePlaceholders['{{QRCODE}}'] = { extension: 'svg', contentType: 'image/svg+xml', buffer: Buffer.from(qrSvg), alt: 'QR Code de validação do certificado' };
+  setImage('{{LOGO}}', emp.logoUrl, 'Logotipo da empresa');
+  if (!params.payload.ocultarAssinaturaColaborador) setImage('{{ASSINATURA_ALUNO}}', employee.assinaturaDataUrl, `Assinatura de ${employee.nome}`);
+  setImage('{{ASSINATURA_INSTRUTOR}}', instructorSigner?.assinaturaDataUrl || emp.instrutorAssinaturaUrl, 'Assinatura do instrutor');
+  setImage('{{ASSINATURA_RT}}', rtSigner?.assinaturaDataUrl || emp.rtAssinaturaUrl, 'Assinatura do responsável técnico');
+  configuredSigners.slice(0, 6).forEach((signer, index) => {
+    const position = index + 1;
+    tagValues[`{{NOME_ASSINANTE_${position}}}`] = signer.nome;
+    tagValues[`{{PAPEL_ASSINANTE_${position}}}`] = signer.rotulo;
+    tagValues[`{{ASSINATURA_${position}}}`] = signer.nome;
+    setImage(`{{ASSINATURA_${position}}}`, signer.forma === 'FISICA' ? null : signer.assinaturaDataUrl, `Assinatura de ${signer.nome || signer.rotulo}`);
+  });
+  for (let position = configuredSigners.length + 1; position <= 6; position++) {
+    tagValues[`{{NOME_ASSINANTE_${position}}}`] = '';
+    tagValues[`{{PAPEL_ASSINANTE_${position}}}`] = '';
+    tagValues[`{{ASSINATURA_${position}}}`] = '';
+  }
 
-  // Substitui tags preservando todas as camadas, formas, cores e estilos do XML do slide
+  // Tokens em caixas de texto preservam a posição do modelo; tokens de imagem trocam a própria caixa por mídia do PPTX.
   const slideFiles = Object.keys(zip.files).filter((name) =>
     /^ppt\/slides\/slide\d+\.xml$/i.test(name)
   );
   for (const slidePath of slideFiles) {
     let xml = await zip.files[slidePath].async('string');
-    for (const [tag, value] of Object.entries(tagValues)) {
-      xml = xml.split(tag).join(escapeXml(value));
-    }
+    xml = await replacePptxImagePlaceholders(zip, slidePath, xml, imagePlaceholders);
+    xml = replacePptxTextPlaceholders(xml, tagValues);
     zip.file(slidePath, xml);
   }
 
   const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'dk-pptx-'));
-  const mergedPptxPath = path.join(tmpDir, `${params.payload.numeroCertificado}.pptx`);
+  const safeNumber = params.payload.numeroCertificado.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80);
+  const mergedPptxPath = path.join(tmpDir, `${safeNumber}.pptx`);
   const mergedBuffer = await zip.generateAsync({ type: 'nodebuffer' });
   await fs.writeFile(mergedPptxPath, mergedBuffer);
 
@@ -1437,9 +1588,11 @@ export async function compilePptxCertificateToPdf(params: {
   } catch {
     return {
       mode: 'PPTX_PREPARED_FALLBACK',
-      pptxPath: mergedPptxPath,
+      pptxBase64: mergedBuffer.toString('base64'),
       message:
         'PPTX mesclado com camadas preservadas. Instale `libreoffice` na VPS Ubuntu (`sudo apt install libreoffice-impress`) para conversão automática para PDF.',
     };
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
   }
 }

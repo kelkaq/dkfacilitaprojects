@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import express from 'express';
+import JSZip from 'jszip';
 import { apiRouter } from '../server/routes/apiRoutes.ts';
 import { getPrisma } from '../server/lib/prisma.ts';
 import { hashPassword, signJwtToken } from '../server/lib/security.ts';
@@ -25,6 +28,8 @@ const userIds: string[] = [];
 const signatureIds: string[] = [];
 let planId: string | null = null;
 let addonId: string | null = null;
+let modelAddonId: string | null = null;
+let templateDirectory: string | null = null;
 const pngSignature = `data:image/png;base64,${Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1]).toString('base64')}`;
 
 function bearer(userId: string, email: string, empresaId: string) {
@@ -72,9 +77,33 @@ try {
     precoMensalCentavos: 0, recursoChave: 'alertas_whatsapp', incrementoQtd: 1 } });
   addonId = addon.id;
   await db.assinaturaAdicional.create({ data: { assinaturaId: subscriptionA.id, adicionalId: addon.id, quantidade: 1, valorCentavos: 0 } });
+  const modelAddon = await db.adicional.create({ data: { slug: `exam-model-${suffix}`, nome: 'Modelo próprio de teste', descricao: 'Somente para homologação',
+    precoMensalCentavos: 0, tipoCobranca: 'UNICO', recursoChave: 'modelo_proprio', incrementoQtd: 1 } });
+  modelAddonId = modelAddon.id;
+  await db.assinaturaAdicional.create({ data: { assinaturaId: subscriptionA.id, adicionalId: modelAddon.id, quantidade: 1, valorCentavos: 0 } });
 
   const headersA = bearer(ownerA.id, emailA, companyA.id);
   const headersB = bearer(ownerB.id, emailB, companyB.id);
+  const pptx = new JSZip();
+  pptx.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/></Types>');
+  pptx.file('ppt/presentation.xml', '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>');
+  const shape = (id: number, tag: string) => `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Shape ${id}"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1000000" cy="1000000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>${tag}</a:t></a:r></a:p></p:txBody></p:sp>`;
+  pptx.file('ppt/slides/slide1.xml', `<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>${shape(2, '{{NOME_COLABORADOR}}')}${shape(3, '{{NORMA_NR}}')}${shape(4, '{{QRCODE}}')}${shape(5, '{{ASSINATURA_1}}')}${shape(6, '{{ASSINATURA_2}}')}${shape(7, '{{NOME_ASSINANTE_2}}')}</p:spTree></p:cSld></p:sld>`);
+  const pptxBytes = await pptx.generateAsync({ type: 'nodebuffer' });
+  const templateResponse = await fetch(`${base}/api/tenant/certificate-template`, { method: 'POST', headers: headersA,
+    body: JSON.stringify({ fileName: 'modelo-da-empresa.pptx', base64Content: pptxBytes.toString('base64') }) });
+  assert.equal(templateResponse.status, 201);
+  const templateBody = await templateResponse.json() as { modelo: { fileName: string; detectedTags: string[]; version: number } };
+  assert.equal(templateBody.modelo.fileName, 'modelo-da-empresa.pptx');
+  assert.equal(templateBody.modelo.version, 1);
+  assert.ok(templateBody.modelo.detectedTags.includes('{{QRCODE}}'));
+  const otherTemplateState = await fetch(`${base}/api/tenant/certificate-template`, { headers: headersB });
+  assert.deepEqual((await otherTemplateState.json() as { contratado: boolean; ativo: boolean }).contratado, false);
+  assert.equal((await fetch(`${base}/api/tenant/certificate-template`, { method: 'POST', headers: headersB,
+    body: JSON.stringify({ fileName: 'modelo-da-empresa.pptx', base64Content: pptxBytes.toString('base64') }) })).status, 403);
+  const companyTemplateConfig = await db.empresa.findUniqueOrThrow({ where: { id: companyA.id }, select: { modeloProprioConfig: true } });
+  const templateKey = (companyTemplateConfig.modeloProprioConfig as { templateKey: string }).templateKey;
+  templateDirectory = path.resolve(process.cwd(), 'storage', 'pptx_templates', companyA.id);
   const catalog = await (await fetch(`${base}/api/tenant/training-catalog`, { headers: headersA })).json() as { nrs: Array<{ variacoes: Array<{ slug: string }> }> };
   const variation = catalog.nrs.find((nr) => nr.variacoes.length)?.variacoes[0];
   assert.ok(variation);
@@ -169,6 +198,14 @@ try {
   const issuedBody = await issued.json() as { id: string; numeroCertificado: string; codigoValidacaoQr: string; criado: boolean };
   assert.equal(issuedBody.criado, true);
   assert.equal(issuedBody.codigoValidacaoQr.length, 43);
+  const secondTemplateResponse = await fetch(`${base}/api/tenant/certificate-template`, { method: 'POST', headers: headersA,
+    body: JSON.stringify({ fileName: 'modelo-da-empresa-v2.pptx', base64Content: pptxBytes.toString('base64') }) });
+  assert.equal(secondTemplateResponse.status, 201);
+  assert.equal(((await secondTemplateResponse.json()) as { modelo: { version: number } }).modelo.version, 2);
+  const issuedRecord = await db.certificado.findUniqueOrThrow({ where: { id: issuedBody.id }, select: { snapshotEmpresa: true } });
+  const issuedModel = (issuedRecord.snapshotEmpresa as { modeloProprio: { templateKey: string; version: number } }).modeloProprio;
+  assert.equal(issuedModel.version, 1);
+  assert.equal(issuedModel.templateKey, templateKey);
   const duplicate = await issue();
   assert.equal(duplicate.status, 200);
   assert.equal(((await duplicate.json()) as { id: string; criado: boolean }).id, issuedBody.id);
@@ -176,10 +213,16 @@ try {
   assert.equal((await fetch(`${base}/api/tenant/certificates/${issuedBody.id}/print`, { headers: headersB })).status, 404);
   const printed = await fetch(`${base}/api/tenant/certificates/${issuedBody.id}/print`, { headers: headersA });
   assert.equal(printed.status, 200);
-  const printedHtml = await printed.text();
-  assert.match(printedHtml, /Responsável técnico/);
-  assert.match(printedHtml, /Participante da Prova/);
-  assert.match(printedHtml, /csdk_cert=/);
+  assert.equal(printed.headers.get('x-csdk-document-mode'), 'PPTX_PREPARED_FALLBACK');
+  assert.match(printed.headers.get('content-type') ?? '', /presentationml\.presentation/);
+  const outputPptx = await JSZip.loadAsync(Buffer.from(await printed.arrayBuffer()));
+  const outputSlide = await outputPptx.file('ppt/slides/slide1.xml')?.async('string');
+  assert.ok(outputSlide);
+  assert.match(outputSlide, /Participante da Prova/);
+  assert.doesNotMatch(outputSlide, /\{\{NOME_COLABORADOR\}\}/);
+  assert.match(outputSlide, /<p:pic>/);
+  assert.doesNotMatch(outputSlide, /\{\{QRCODE\}\}|\{\{ASSINATURA_2\}\}/);
+  assert.ok(Object.keys(outputPptx.files).some((file) => file.startsWith('ppt/media/csdk_')));
   const publicValidation = await fetch(`${base}/api/public/certificates/${issuedBody.codigoValidacaoQr}`);
   assert.equal(publicValidation.status, 200);
   const validation = await publicValidation.json() as Record<string, unknown>;
@@ -199,7 +242,9 @@ try {
   await db.auditoriaAcesso.deleteMany({ where: { usuarioId: { in: userIds } } });
   for (const empresaId of companyIds) await db.empresa.deleteMany({ where: { id: empresaId } });
   if (addonId) await db.adicional.deleteMany({ where: { id: addonId } });
+  if (modelAddonId) await db.adicional.deleteMany({ where: { id: modelAddonId } });
   if (planId) await db.plano.deleteMany({ where: { id: planId } });
+  if (templateDirectory) { try { await fs.rm(templateDirectory, { recursive: true, force: true }); } catch { /* tenant test file cleanup */ } }
   server.close();
   await db.$disconnect();
 }

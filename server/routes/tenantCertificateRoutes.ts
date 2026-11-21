@@ -2,15 +2,17 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Router, type Request, type Response } from 'express';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { getPrisma } from '../lib/prisma.ts';
 import { requireDatabaseAuth } from '../middleware/databaseAuth.ts';
 import { evaluateTenantAccess } from '../middleware/tenantGuard.ts';
 import { effectiveTenantLimits } from '../lib/tenantLimits.ts';
-import { renderCertificateFrontAndBackHtml, type CertificateRenderPayload } from '../services/certificateEngine.ts';
+import { compilePptxCertificateToPdf, inspectAndSavePptxTemplate, PPTX_SUPPORTED_TAGS,
+  renderCertificateFrontAndBackHtml, type CertificateRenderPayload } from '../services/certificateEngine.ts';
 
 export const tenantCertificateRouter = Router();
 const LOGO_ROOT = path.resolve(process.cwd(), 'storage', 'tenant-logos');
+const PPTX_ROOT = path.resolve(process.cwd(), 'storage', 'pptx_templates');
 const SIGNATURE_TYPES = ['INSTRUTOR', 'RESPONSAVEL_TECNICO', 'EMPRESA', 'PERSONALIZADO'] as const;
 
 function tenantContext(res: Response) {
@@ -66,6 +68,22 @@ async function lockAndCheckAccess(tx: Prisma.TransactionClient, empresaId: strin
     trialExpiraEmIso: company.trialExpiraEm?.toISOString(), ...limits,
     colaboradoresAtuais: 0, usuariosAtuais: 0, obrasAtuais: 0 });
   if (!access.permitido) throw new Error('ACCOUNT_BLOCKED');
+  return subscription;
+}
+
+function storedTemplateKey(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const key = (value as Record<string, unknown>).templateKey;
+  return typeof key === 'string' && /^[0-9a-f-]{36}\.pptx$/i.test(key) ? key : null;
+}
+
+function tenantTemplatePath(empresaId: string, key: string): string {
+  const directory = path.resolve(PPTX_ROOT, empresaId);
+  const fullPath = path.resolve(directory, key);
+  if (!directory.startsWith(`${PPTX_ROOT}${path.sep}`) || !fullPath.startsWith(`${directory}${path.sep}`) || !/^[0-9a-f-]{36}\.pptx$/i.test(key)) {
+    throw new Error('TEMPLATE_PATH_INVALID');
+  }
+  return fullPath;
 }
 
 async function logoDataUrl(empresaId: string, logoUrl: string | null): Promise<string | undefined> {
@@ -96,6 +114,103 @@ function addMonths(date: Date, months: number): Date {
 function signerMatchesType(type: string, signerType: string): boolean {
   return type === signerType || (type === 'RESPONSAVEL_TECNICO' && signerType === 'RT');
 }
+
+tenantCertificateRouter.get('/api/tenant/certificate-template', requireDatabaseAuth, async (_req: Request, res: Response) => {
+  const tenant = tenantContext(res);
+  if (!tenant) { res.status(403).json({ error: 'Conta de empresa obrigatória.' }); return; }
+  try {
+    const [company, subscription] = await Promise.all([
+      getPrisma().empresa.findUnique({ where: { id: tenant.empresaId }, select: { modeloProprioUrl: true, modeloProprioConfig: true } }),
+      getPrisma().assinatura.findFirst({ where: { empresaId: tenant.empresaId }, orderBy: { createdAt: 'desc' }, include: {
+        adicionais: { where: { ativo: true }, include: { adicional: { select: { recursoChave: true } } } },
+      } }),
+    ]);
+    if (!company) { res.status(404).json({ error: 'Conta não encontrada.' }); return; }
+    const config = company.modeloProprioConfig && typeof company.modeloProprioConfig === 'object' && !Array.isArray(company.modeloProprioConfig)
+      ? company.modeloProprioConfig as Record<string, unknown> : {};
+    const contratado = Boolean(subscription?.adicionais.some((item) => item.adicional.recursoChave === 'modelo_proprio'));
+    const ativo = contratado && company.modeloProprioUrl === `pptx-tenant:${String(config.templateKey ?? '')}` && Boolean(storedTemplateKey(config));
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ contratado, ativo, modelo: ativo ? {
+      fileName: config.fileName, slideCount: config.slideCount, detectedTags: config.detectedTags,
+      sizeBytes: config.sizeBytes, version: config.version, uploadedAt: config.uploadedAt,
+    } : null, supportedTags: PPTX_SUPPORTED_TAGS });
+  } catch { res.status(503).json({ error: 'Não foi possível consultar o modelo de certificado.' }); }
+});
+
+tenantCertificateRouter.post('/api/tenant/certificate-template', requireDatabaseAuth, async (req: Request, res: Response) => {
+  const tenant = tenantContext(res);
+  if (!tenant?.isAdmin) { res.status(403).json({ error: 'Somente o administrador da empresa pode alterar o modelo.' }); return; }
+  const fileName = typeof req.body?.fileName === 'string' ? req.body.fileName.trim().slice(0, 120) : '';
+  const base64Content = typeof req.body?.base64Content === 'string' ? req.body.base64Content : '';
+  if (!/^[^\\/:*?"<>|]+\.pptx$/i.test(fileName) || base64Content.length < 100 || base64Content.length > 21 * 1024 * 1024) {
+    res.status(400).json({ error: 'Envie um arquivo PowerPoint .pptx válido com até 15 MB.' }); return;
+  }
+  let temporaryPath = '';
+  let destinationPath = '';
+  let committed = false;
+  try {
+    const version = crypto.randomUUID();
+    const stagingId = `${tenant.empresaId}_${version}`;
+    const inspected = await inspectAndSavePptxTemplate({ empresaId: stagingId, fileName, base64Content });
+    temporaryPath = path.resolve(process.cwd(), inspected.storageRelativePath);
+    const foundTags = new Set(inspected.detectedTags);
+    const missingRequiredTags = ['{{NOME_COLABORADOR}}', '{{QRCODE}}'].filter((tag) => !foundTags.has(tag));
+    if (!foundTags.has('{{NORMA_NR}}') && !foundTags.has('{{TITULO_TREINAMENTO}}')) missingRequiredTags.push('{{NORMA_NR}} ou {{TITULO_TREINAMENTO}}');
+    if (missingRequiredTags.length) throw new Error(`TEMPLATE_TAGS_REQUIRED:${missingRequiredTags.join(', ')}`);
+    const templateKey = `${version}.pptx`;
+    destinationPath = tenantTemplatePath(tenant.empresaId, templateKey);
+    await fs.mkdir(path.dirname(destinationPath), { recursive: true, mode: 0o750 });
+    await fs.rename(temporaryPath, destinationPath);
+    const metadata = await getPrisma().$transaction(async (tx) => {
+      const subscription = await lockAndCheckAccess(tx, tenant.empresaId);
+      if (!subscription.adicionais.some((item) => item.adicional.recursoChave === 'modelo_proprio')) throw new Error('MODEL_ADDON_REQUIRED');
+      const company = await tx.empresa.findUnique({ where: { id: tenant.empresaId }, select: { modeloProprioConfig: true } });
+      if (!company) throw new Error('TENANT_NOT_FOUND');
+      const prior = company.modeloProprioConfig && typeof company.modeloProprioConfig === 'object' && !Array.isArray(company.modeloProprioConfig)
+        ? company.modeloProprioConfig as Record<string, unknown> : {};
+      const config = { templateKey, fileName, slideCount: inspected.slideCount, detectedTags: inspected.detectedTags,
+        supportedTags: inspected.supportedTags, sizeBytes: inspected.sizeBytes, version: Number(prior.version ?? 0) + 1,
+        sha256: crypto.createHash('sha256').update(await fs.readFile(destinationPath)).digest('hex'),
+        uploadedAt: new Date().toISOString() };
+      await tx.empresa.update({ where: { id: tenant.empresaId }, data: {
+        modeloProprioUrl: `pptx-tenant:${templateKey}`, modeloProprioConfig: config as unknown as Prisma.InputJsonValue,
+      } });
+      await tx.auditoriaAcesso.create({ data: { usuarioId: tenant.usuarioId, empresaId: tenant.empresaId,
+        acao: 'TENANT_PPTX_TEMPLATE_UPLOADED', detalhes: { fileName, slideCount: inspected.slideCount, version: config.version } } });
+      return config;
+    });
+    committed = true;
+    res.status(201).json({ ok: true, contratado: true, ativo: true, modelo: {
+      fileName: metadata.fileName, slideCount: metadata.slideCount, detectedTags: metadata.detectedTags,
+      sizeBytes: metadata.sizeBytes, version: metadata.version, uploadedAt: metadata.uploadedAt,
+    }, supportedTags: PPTX_SUPPORTED_TAGS });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : '';
+    if (code.startsWith('TEMPLATE_TAGS_REQUIRED:')) { res.status(400).json({ error: `O PowerPoint precisa conter os marcadores obrigatórios: ${code.slice('TEMPLATE_TAGS_REQUIRED:'.length)}.` }); return; }
+    if (code === 'ACCOUNT_BLOCKED') { res.status(403).json({ error: 'Conta sem acesso operacional ativo.' }); return; }
+    if (code === 'MODEL_ADDON_REQUIRED') { res.status(403).json({ error: 'Este recurso exige o adicional Modelo Próprio de Certificado.' }); return; }
+    if (code === 'TENANT_NOT_FOUND') { res.status(404).json({ error: 'Conta não encontrada.' }); return; }
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Não foi possível validar o PowerPoint.' });
+  } finally {
+    if (temporaryPath) { try { await fs.unlink(temporaryPath); } catch { /* the file was moved or was not created */ } }
+    if (!committed && destinationPath) { try { await fs.unlink(destinationPath); } catch { /* incomplete upload cleanup is best effort */ } }
+  }
+});
+
+tenantCertificateRouter.delete('/api/tenant/certificate-template', requireDatabaseAuth, async (_req: Request, res: Response) => {
+  const tenant = tenantContext(res);
+  if (!tenant?.isAdmin) { res.status(403).json({ error: 'Somente o administrador da empresa pode alterar o modelo.' }); return; }
+  try {
+    await getPrisma().$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM empresas WHERE id = ${tenant.empresaId} FOR UPDATE`;
+      await tx.empresa.update({ where: { id: tenant.empresaId }, data: { modeloProprioUrl: null, modeloProprioConfig: Prisma.DbNull } });
+      await tx.auditoriaAcesso.create({ data: { usuarioId: tenant.usuarioId, empresaId: tenant.empresaId,
+        acao: 'TENANT_PPTX_TEMPLATE_DISABLED' } });
+    });
+    res.status(204).end();
+  } catch { res.status(503).json({ error: 'Não foi possível retornar ao modelo padrão.' }); }
+});
 
 tenantCertificateRouter.get('/api/tenant/signatures', requireDatabaseAuth, async (_req: Request, res: Response) => {
   const tenant = tenantContext(res);
@@ -207,7 +322,7 @@ tenantCertificateRouter.post('/api/tenant/certificates/issue', requireDatabaseAu
   if (!isUuid(tentativaId)) { res.status(400).json({ error: 'Tentativa de prova inválida.' }); return; }
   try {
     const result = await getPrisma().$transaction(async (tx) => {
-      await lockAndCheckAccess(tx, tenant.empresaId);
+      const subscription = await lockAndCheckAccess(tx, tenant.empresaId);
       const attempt = await tx.provaTentativa.findFirst({ where: { id: tentativaId, empresaId: tenant.empresaId }, include: {
         turma: { include: { treinamento: { include: { conteudoLinhas: { orderBy: { ordem: 'asc' } } } }, instrutor: true, rt: true } },
         colaborador: true,
@@ -219,6 +334,31 @@ tenantCertificateRouter.post('/api/tenant/certificates/issue', requireDatabaseAu
       if (attempt.turma.status === 'CANCELADA') throw new Error('CLASS_CANCELLED');
       const company = await tx.empresa.findUnique({ where: { id: tenant.empresaId } });
       if (!company) throw new Error('TENANT_NOT_FOUND');
+      const modelConfig = company.modeloProprioConfig && typeof company.modeloProprioConfig === 'object' && !Array.isArray(company.modeloProprioConfig)
+        ? company.modeloProprioConfig as Record<string, unknown> : {};
+      const templateKey = storedTemplateKey(modelConfig);
+      const templateActive = Boolean(templateKey && company.modeloProprioUrl === `pptx-tenant:${templateKey}`);
+      if (templateActive && !subscription.adicionais.some((item) => item.adicional.recursoChave === 'modelo_proprio')) throw new Error('MODEL_ADDON_REQUIRED');
+      let modelSnapshot: CertificateRenderPayload['snapshotEmpresa']['modeloProprio'] = null;
+      if (templateActive && templateKey) {
+        const templatePath = tenantTemplatePath(company.id, templateKey);
+        const bytes = await fs.readFile(templatePath);
+        const checksum = crypto.createHash('sha256').update(bytes).digest('hex');
+        if (checksum !== modelConfig.sha256) throw new Error('TEMPLATE_INTEGRITY_FAILED');
+        modelSnapshot = { templateKey, fileName: String(modelConfig.fileName ?? 'modelo.pptx').slice(0, 120),
+          version: Number(modelConfig.version ?? 1), sha256: checksum,
+          detectedTags: Array.isArray(modelConfig.detectedTags) ? modelConfig.detectedTags.filter((tag): tag is string => typeof tag === 'string').slice(0, 40) : [] };
+        const modelTags = new Set(modelSnapshot.detectedTags ?? []);
+        for (const [index, signer] of snapshotSigners((attempt.respostasJson as { assinaturasCertificado?: unknown[] }).assinaturasCertificado).entries()) {
+          if (!signer.obrigatoria) continue;
+          const indexToken = `{{ASSINATURA_${index + 1}}}`;
+          const legacyToken = signer.tipo === 'COLABORADOR' ? '{{ASSINATURA_ALUNO}}' : signer.tipo === 'INSTRUTOR' ? '{{ASSINATURA_INSTRUTOR}}' :
+            signer.tipo === 'RESPONSAVEL_TECNICO' ? '{{ASSINATURA_RT}}' : '';
+          if (!modelTags.has(indexToken) && (!legacyToken || !modelTags.has(legacyToken))) throw new Error(`TEMPLATE_SIGNER_TAG_REQUIRED:${signer.rotulo}`);
+        }
+      } else if (company.modeloProprioUrl?.startsWith('pptx-tenant:')) {
+        throw new Error('TEMPLATE_CONFIG_INVALID');
+      }
       const training = attempt.turma.treinamento;
       const proofSnapshot = attempt.respostasJson as { assinaturasCertificado?: unknown[] };
       const signersConfig = snapshotSigners(proofSnapshot.assinaturasCertificado);
@@ -271,7 +411,8 @@ tenantCertificateRouter.post('/api/tenant/certificates/issue', requireDatabaseAu
           emailRodape: company.emailFinanceiro, endereco: company.endereco, cidade: company.cidade, uf: company.uf,
           logoUrl: logo, corPrimaria: company.corPrimaria, corSecundaria: company.corSecundaria,
           instrutorNome: instructor?.nome, instrutorRegistro: instructor?.registroProfissional,
-          rtNome: rt?.nome, rtRegistro: rt?.registroProfissional, assinaturasCertificado: renderedSigners } as unknown as Prisma.InputJsonValue,
+          rtNome: rt?.nome, rtRegistro: rt?.registroProfissional, assinaturasCertificado: renderedSigners,
+          modeloProprio: modelSnapshot } as unknown as Prisma.InputJsonValue,
         snapshotColaborador: { nome: attempt.colaborador.nome, cpf: attempt.colaborador.cpf,
           funcao: attempt.colaborador.funcao, assinaturaDataUrl: attempt.assinaturaDataUrl } as unknown as Prisma.InputJsonValue,
       } });
@@ -287,6 +428,10 @@ tenantCertificateRouter.post('/api/tenant/certificates/issue', requireDatabaseAu
     if (code === 'ATTEMPT_NOT_APPROVED') { res.status(409).json({ error: 'Só é possível emitir certificado para prova aprovada.' }); return; }
     if (code === 'CLASS_CANCELLED') { res.status(409).json({ error: 'Turma cancelada não permite emissão.' }); return; }
     if (code === 'ACCOUNT_BLOCKED') { res.status(403).json({ error: 'Conta sem acesso operacional ativo.' }); return; }
+    if (code === 'MODEL_ADDON_REQUIRED') { res.status(403).json({ error: 'O adicional Modelo Próprio não está ativo nesta conta.' }); return; }
+    if (code.startsWith('TEMPLATE_SIGNER_TAG_REQUIRED:')) { res.status(409).json({ error: `O modelo ativo não contém marcador para a assinatura obrigatória “${code.slice('TEMPLATE_SIGNER_TAG_REQUIRED:'.length)}”. Envie uma nova versão com a tag da assinatura.` }); return; }
+    if (code === 'TEMPLATE_INTEGRITY_FAILED' || code === 'TEMPLATE_CONFIG_INVALID') { res.status(409).json({ error: 'O modelo PowerPoint desta empresa está inválido ou foi alterado. Revise o modelo antes de emitir.' }); return; }
+    if (code === 'ENOENT') { res.status(409).json({ error: 'O arquivo da versão de modelo não está disponível. Envie novamente o PowerPoint.' }); return; }
     if (code.startsWith('SIGNATURE_REQUIRED:')) { res.status(409).json({ error: `Cadastre a assinatura digital obrigatória: ${code.slice('SIGNATURE_REQUIRED:'.length)}` }); return; }
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') { res.status(409).json({ error: 'Este certificado já foi emitido. Atualize a lista.' }); return; }
     res.status(503).json({ error: 'Não foi possível emitir o certificado.' });
@@ -299,18 +444,44 @@ tenantCertificateRouter.get('/api/tenant/certificates/:id/print', requireDatabas
   const id = String(req.params.id ?? '');
   if (!isUuid(id)) { res.status(400).json({ error: 'Certificado inválido.' }); return; }
   try {
-    const cert = await getPrisma().certificado.findFirst({ where: { id, empresaId: tenant.empresaId }, include: { empresa: true } });
+    const cert = await getPrisma().certificado.findFirst({ where: { id, empresaId: tenant.empresaId } });
     if (!cert) { res.status(404).json({ error: 'Certificado não encontrado nesta empresa.' }); return; }
     const company = cert.snapshotEmpresa as CertificateRenderPayload['snapshotEmpresa'];
     const collaborator = cert.snapshotColaborador as CertificateRenderPayload['snapshotColaborador'];
     const lines = cert.snapshotConteudoLinhas as CertificateRenderPayload['snapshotConteudoLinhas'];
     const appUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const base = new URL(appUrl).origin;
-    const rendered = await renderCertificateFrontAndBackHtml({ numeroCertificado: cert.numeroCertificado,
+    const payload: CertificateRenderPayload = { numeroCertificado: cert.numeroCertificado,
       codigoValidacaoQr: cert.codigoValidacaoQr, nrCodigo: cert.nrCodigo, treinamentoTitulo: cert.treinamentoTitulo,
       cargaHorariaHoras: cert.cargaHorariaHoras, dataRealizacaoIso: cert.dataRealizacao.toISOString(),
       dataValidadeIso: cert.dataValidade.toISOString(), validationBaseUrl: base, validationQueryParam: 'csdk_cert',
-      snapshotEmpresa: company, snapshotColaborador: collaborator, snapshotConteudoLinhas: lines });
+      snapshotEmpresa: company, snapshotColaborador: collaborator, snapshotConteudoLinhas: lines };
+    if (company.modeloProprio) {
+      const model = company.modeloProprio;
+      const templatePath = tenantTemplatePath(tenant.empresaId, model.templateKey);
+      const templateBytes = await fs.readFile(templatePath);
+      const checksum = crypto.createHash('sha256').update(templateBytes).digest('hex');
+      if (checksum !== model.sha256) { res.status(409).json({ error: 'O arquivo do modelo deste certificado não corresponde à versão emitida.' }); return; }
+      const compiled = await compilePptxCertificateToPdf({ empresaId: tenant.empresaId, templateKey: model.templateKey, payload });
+      res.setHeader('Cache-Control', 'private, no-store');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-CSDK-Document-Mode', compiled.mode);
+      if (compiled.mode === 'LIBREOFFICE_PDF' && compiled.pdfBase64) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${cert.numeroCertificado.replace(/[^A-Za-z0-9_-]/g, '_')}.pdf"`);
+        res.send(Buffer.from(compiled.pdfBase64, 'base64'));
+        return;
+      }
+      if (compiled.pptxBase64) {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+        res.setHeader('Content-Disposition', `attachment; filename="${cert.numeroCertificado.replace(/[^A-Za-z0-9_-]/g, '_')}.pptx"`);
+        res.send(Buffer.from(compiled.pptxBase64, 'base64'));
+        return;
+      }
+      res.status(503).json({ error: compiled.message });
+      return;
+    }
+    const rendered = await renderCertificateFrontAndBackHtml(payload);
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
