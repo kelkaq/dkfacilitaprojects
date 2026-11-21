@@ -137,22 +137,20 @@ try {
   await page.goto(`http://127.0.0.1:${address.port}/token-test`, { waitUntil: 'networkidle2', timeout: 45_000 });
   await page.waitForFunction(() => (window as unknown as { mpReady?: boolean }).mpReady === true, { timeout: 30_000 });
 
-  async function enterIFrameField(containerId: string, value: string): Promise<number> {
-    await page.waitForSelector(`#${containerId} iframe`, { timeout: 20_000 });
-    const iframe = await page.$(`#${containerId} iframe`);
-    const frame = iframe ? await iframe.contentFrame() : null;
-    if (!frame) throw new Error('Campo de cartão seguro indisponível.');
-    await frame.waitForSelector('input', { timeout: 10_000 });
-    const input = await frame.$('input');
-    if (!input) throw new Error('Campo de cartão seguro vazio.');
+  await page.waitForFunction(() => document.querySelector('#form-checkout__cardNumber iframe') !== null, { timeout: 20_000 });
+  const secureFrame = page.frames().find((frame) => frame.name() === 'cardNumber');
+  if (!secureFrame) throw new Error('Campos seguros do cartão indisponíveis.');
+  async function enterSecureField(name: string, value: string) {
+    const input = await secureFrame.waitForSelector(`input[name="${name}"]`, { timeout: 10_000 });
+    if (!input) throw new Error('Campo seguro do cartão ausente.');
     await input.type(value, { delay: 15 });
     return await input.evaluate((element) => element.value.length);
   }
-
   const fieldLengths = {
-    cardNumber: await enterIFrameField('form-checkout__cardNumber', '4235647728025682'),
-    expirationDate: await enterIFrameField('form-checkout__expirationDate', '11/30'),
-    securityCode: await enterIFrameField('form-checkout__securityCode', '123'),
+    cardNumber: await enterSecureField('cardNumber', '4235647728025682'),
+    expirationMonth: await enterSecureField('expirationMonth', '11'),
+    expirationYear: await enterSecureField('expirationYear', '30'),
+    securityCode: await enterSecureField('securityCode', '123'),
   };
   await page.type('#form-checkout__cardholderName', 'APRO');
   await page.select('#form-checkout__identificationType', 'CPF');
