@@ -98,7 +98,7 @@ try {
   assert.equal(start.status, 200);
   const startBody = await start.json() as { checkoutUrl: string; status: string };
   assert.equal(startBody.status, 'AGUARDANDO_CARTAO');
-  assert.ok(startBody.checkoutUrl.startsWith('https://www.mercadopago.com/'));
+  assert.ok(startBody.checkoutUrl.startsWith('https://www.mercadopago.com.br/'));
   const sentRecurring = providerBody[0].auto_recurring as { free_trial: { frequency: number; frequency_type: string }; transaction_amount: number };
   assert.deepEqual(sentRecurring.free_trial, { frequency: 7, frequency_type: 'days' });
   assert.equal(sentRecurring.transaction_amount, 540);
