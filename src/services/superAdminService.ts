@@ -141,6 +141,11 @@ export async function adminSavePlano(plano: PlanoCatalogo): Promise<PlanoCatalog
 
   try {
     await setDoc(doc(db, 'planos', id), payload);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, `planos/${id}`);
+  }
+
+  try {
     await platformAdminFetch('/api/admin/commerce/plans', {
       method: 'POST',
       body: JSON.stringify({
@@ -163,17 +168,19 @@ export async function adminSavePlano(plano: PlanoCatalogo): Promise<PlanoCatalog
         ordem: payload.ordem,
       }),
     });
-    return {
-      ...plano,
-      id,
-      slug: payload.slug,
-      precoMensalCentavos: payload.precoMensalCentavos,
-      precoPromocionalCentavos: payload.precoPromocionalCentavos,
-      seloPromocional: payload.seloPromocional,
-    };
   } catch (error) {
-    handleFirestoreError(error, OperationType.WRITE, `planos/${id}`);
+    const detail = error instanceof Error ? ` (${error.message})` : '';
+    throw new Error(`O plano foi salvo no site, mas a sincronização da oferta de cobrança falhou. Salve novamente após corrigir o acesso ao painel.${detail}`);
   }
+
+  return {
+    ...plano,
+    id,
+    slug: payload.slug,
+    precoMensalCentavos: payload.precoMensalCentavos,
+    precoPromocionalCentavos: payload.precoPromocionalCentavos,
+    seloPromocional: payload.seloPromocional,
+  };
 }
 
 export async function adminDeletePlano(planoId: string): Promise<void> {
