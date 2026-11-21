@@ -20,6 +20,7 @@ const nativeFetch = globalThis.fetch;
 let providerCreates = 0;
 let providerPlanReads = 0;
 let trialAuthorized = false;
+let sandboxLinkAvailable = true;
 const providerPlanId = `smoke-plan-${suffix}`;
 const providerBody: { [key: string]: unknown }[] = [];
 globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit) => {
@@ -29,7 +30,7 @@ globalThis.fetch = (async (url: Parameters<typeof fetch>[0], init?: RequestInit)
     providerPlanReads++;
     return new Response(JSON.stringify({ id: providerPlanId, status: 'active',
       init_point: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=mock',
-      sandbox_init_point: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=mock-test',
+      ...(sandboxLinkAvailable ? { sandbox_init_point: 'https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=mock-test' } : {}),
       auto_recurring: { frequency: 6, frequency_type: 'months', transaction_amount: 540,
         currency_id: 'BRL', free_trial: { frequency: 7, frequency_type: 'days' } } }), { status: 200 });
   }
@@ -115,6 +116,16 @@ try {
   assert.equal(repeatedCheckout.status, 200);
   assert.equal(providerPlanReads, 2);
   assert.equal(providerCreates, 0);
+  sandboxLinkAvailable = false;
+  const fallbackOrderResponse = await post({ ...body, documento: '111.444.777-35', emailComprador: `fallback-${suffix}@example.invalid` }, crypto.randomUUID());
+  assert.equal(fallbackOrderResponse.status, 201);
+  const fallbackOrder = await fallbackOrderResponse.json() as { id: string };
+  const fallbackCheckout = await fetch(`${url}/${fallbackOrder.id}/checkout`, { method: 'POST' });
+  assert.equal(fallbackCheckout.status, 502);
+  const heldOrder = await db.pedido.findUniqueOrThrow({ where: { id: fallbackOrder.id } });
+  assert.equal(heldOrder.status, 'CARRINHO');
+  assert.equal(heldOrder.checkoutLockUntil, null);
+  sandboxLinkAvailable = true;
   const separateKeyRetry = await post(body, crypto.randomUUID());
   assert.equal(separateKeyRetry.status, 200);
   assert.equal((await separateKeyRetry.json() as { id: string }).id, created.id);

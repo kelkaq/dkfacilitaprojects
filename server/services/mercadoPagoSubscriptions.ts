@@ -40,12 +40,7 @@ export class MercadoPagoSubscriptions {
     const response = await this.http(`https://api.mercadopago.com${path}`, {
       method,
       signal: AbortSignal.timeout(12000),
-      headers: {
-        Authorization: `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json',
-        ...(this.accessToken.startsWith('TEST-') && path === '/preapproval' && method === 'POST'
-          ? { 'X-scope': 'stage' } : {}),
-      },
+      headers: { Authorization: `Bearer ${this.accessToken}`, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) throw new Error(`Mercado Pago retornou ${response.status}.`);
