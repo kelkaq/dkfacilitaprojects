@@ -1,6 +1,6 @@
 # Implantação do Certifica Software - DK
 
-Estado verificado em 21/11/2026, commit `74bad3d`. A situação concreta da VPS está em [ACTUAL_VPS_STATE.md](./ACTUAL_VPS_STATE.md). O CSDK já atende `dkfacilita.com`; checkout e ofertas públicas seguem desligados até a homologação financeira e operacional ser concluída.
+Estado verificado em 21/11/2026, código da vitrine no commit `29dd76c`. A situação concreta da VPS está em [ACTUAL_VPS_STATE.md](./ACTUAL_VPS_STATE.md). O CSDK já atende `dkfacilita.com`; checkout e ofertas públicas seguem desligados até a homologação financeira e operacional ser concluída.
 
 ## Ambientes existentes
 
