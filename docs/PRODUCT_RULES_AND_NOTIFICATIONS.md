@@ -237,6 +237,7 @@ Não tratar os testes de contrato ou o webhook simulado como transação de prov
 Esta seção substitui os estados antigos de auditoria e implantação descritos nas revisões anteriores deste arquivo.
 
 - O código de produção foi atualizado até o commit `40b7014`, com cópia de segurança de `/var/www/csdk-production` em `/root/csdk-cutover-20261121T145855Z/csdk-production-before-40b7014.tar.gz`. O site `https://dkfacilita.com`, o endpoint `/api/health` e os três serviços (`csdk`, `csdk-staging` e `dk-solucoes`) responderam normalmente após a atualização. O Wix, DNS e serviço DK Soluções não foram substituídos.
+- Em seguida, o build web do commit `3a6acae` foi produzido no staging e publicado em `/var/www/csdk-production/dist`, com cópia de retorno em `/root/csdk-production-dist-before-3a6acae.tar.gz` (permissão 600). O backend de produção continua no código do commit `40b7014`; a alteração `3a6acae` foi apenas no frontend e na documentação.
 - A CSDK continua com o comércio público desligado: `CSDK_PUBLIC_COMMERCE_ENABLED=false`; a API pública de ofertas devolve 503. Não há checkout ou plano de venda exposto enquanto a homologação financeira não terminar.
 - As nove migrations estão aplicadas no banco de staging. Lint, build, smoke tests funcionais, reconciliação simulada, renderização de PPTX/PDF e teste de exportação XLSX/CSV passaram. A auditoria completa das dependências informa zero vulnerabilidades após a remoção do pacote XLSX vulnerável e as atualizações de dependências.
 - O e-mail transacional Brevo está configurado: a chave autenticou, o remetente está ativo e o domínio aparece autenticado/verificado no serviço. Isso confirma a configuração, mas ainda não comprova uma mensagem real de primeiro acesso recebida por um comprador.
@@ -244,6 +245,7 @@ Esta seção substitui os estados antigos de auditoria e implantação descritos
 - A correção de XLSX substituiu `xlsx` por geração OOXML com JSZip e exportação CSV segura contra fórmulas; o teste de contrato confirma conteúdo, preservação de zeros à esquerda e ausência de células com fórmulas executáveis.
 - O checkout informa a oferta, os dados do titular, o valor e o teste grátis com cartão no ambiente seguro do Mercado Pago. O texto da tela de pagamento foi ajustado para explicar preço, período gratuito e cancelamento em linguagem voltada ao comprador, sem expor detalhes internos do CSDK.
 - As telas pesadas de cliente, administração, checkout e operação passaram a ser carregadas sob demanda. O pacote principal caiu de 1,59 MB para 839 KB (256 KB comprimidos); continua acima do limite de 500 KB do build, portanto a otimização de desempenho ainda é parcial.
+- Após a publicação web, o Chrome headless confirmou resposta 200 e conteúdo renderizado na página inicial, no login PostgreSQL em `/acesso` e no checkout fechado em `/checkout`, sem erro JavaScript. A API de saúde respondeu 200; ofertas responderam 503 como esperado; painel administrativo e cancelamento sem sessão responderam 401.
 
 ### Itens ainda necessários antes de anunciar vendas
 
