@@ -25,6 +25,17 @@ sudo -u dkapp npm run lint
 sudo -u dkapp npm run build
 ```
 
+O editor de modelos próprios usa o mesmo fluxo visual do CertificaNR: o PowerPoint da empresa é renderizado como fundo, os campos variáveis são posicionados num editor por tenant, e o certificado final é montado em HTML/CSS e impresso em PDF por Chromium headless. Na VPS, a importação precisa de `libreoffice-impress` e `poppler-utils`; a prévia e a emissão precisam de `chromium`. Configure os caminhos `CSDK_LIBREOFFICE_PATH`, `CSDK_PDFTOPPM_PATH` e `CSDK_CHROMIUM_PATH` no ambiente protegido do CSDK. O desenho do PPTX fica preservado como fundo rasterizado; os campos de dados são configurados por cima, sem prometer edição automática dos vetores do arquivo.
+
+Para preparar uma VPS nova, instale os componentes do sistema antes de iniciar o serviço:
+
+```bash
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y libreoffice-impress poppler-utils chromium
+```
+
+Cada versão ativa guarda, em diretório privado da empresa, as páginas PNG, os hashes e o layout JSON. A reimpressão usa a versão imutável registrada no certificado. Inclua `storage/certificate_layouts` nos backups/restaurações do banco; sem esses arquivos as versões antigas não podem ser reimpressas.
+
 Esses comandos atualizam apenas a homologação. Não alteram Apache, domínio, DNS ou o serviço atual. Testes de integração usam `csdk_db` e devem remover seus próprios registros temporários.
 
 ## Critérios antes da publicação

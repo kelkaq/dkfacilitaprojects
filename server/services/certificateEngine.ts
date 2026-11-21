@@ -43,6 +43,7 @@ export interface CertificateRenderPayload {
   cargaHorariaHoras: number;
   dataRealizacaoIso: string;
   dataValidadeIso: string;
+  dataEmissaoIso?: string;
   validationBaseUrl: string;
   validationQueryParam?: 'validar' | 'csdk_cert';
   ocultarAssinaturaColaborador?: boolean;
@@ -58,7 +59,8 @@ export interface CertificateRenderPayload {
     cidade?: string;
     uf?: string;
     logoUrl?: string;
-    modeloProprio?: { templateKey: string; fileName: string; version: number; sha256: string; detectedTags?: string[] } | null;
+    modeloProprio?: { engine?: 'PPTX_TAGS_V1' | 'CSDK_LAYOUT_V1'; templateKey: string; fileName: string; version: number;
+      sha256?: string; detectedTags?: string[]; frontSha256?: string; backSha256?: string; layout?: unknown } | null;
     corPrimaria?: string;
     instrutorNome?: string;
     instrutorRegistro?: string;
