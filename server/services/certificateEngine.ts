@@ -6,6 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { pathToFileURL } from 'node:url';
 
 const execFileAsync = promisify(execFile);
 
@@ -1572,25 +1573,33 @@ export async function compilePptxCertificateToPdf(params: {
   try {
     await execFileAsync('libreoffice', [
       '--headless',
+      '--nologo',
+      '--nodefault',
+      '--norestore',
+      '--nolockcheck',
       '--convert-to',
-      'pdf',
+      'pdf:impress_pdf_Export',
       '--outdir',
       tmpDir,
+      `-env:UserInstallation=${pathToFileURL(path.join(tmpDir, 'lo-profile')).href}`,
       mergedPptxPath,
-    ]);
+    ], { timeout: 45_000, maxBuffer: 2 * 1024 * 1024, windowsHide: true });
     const pdfPath = mergedPptxPath.replace(/\.pptx$/i, '.pdf');
     const pdfBuffer = await fs.readFile(pdfPath);
+    if (pdfBuffer.length < 5 || pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+      throw new Error('O conversor não gerou um arquivo PDF válido.');
+    }
     return {
       mode: 'LIBREOFFICE_PDF',
       pdfBase64: pdfBuffer.toString('base64'),
-      message: 'PDF vetorial compilado via LibreOffice headless preservando 100% das camadas .pptx.',
+      message: 'PDF gerado pelo LibreOffice a partir do modelo PowerPoint desta empresa.',
     };
   } catch {
     return {
       mode: 'PPTX_PREPARED_FALLBACK',
       pptxBase64: mergedBuffer.toString('base64'),
       message:
-        'PPTX mesclado com camadas preservadas. Instale `libreoffice` na VPS Ubuntu (`sudo apt install libreoffice-impress`) para conversão automática para PDF.',
+        'O PowerPoint foi preenchido e está disponível para download. A conversão em PDF falhou; tente novamente ou baixe o PPTX.',
     };
   } finally {
     await fs.rm(tmpDir, { recursive: true, force: true });
