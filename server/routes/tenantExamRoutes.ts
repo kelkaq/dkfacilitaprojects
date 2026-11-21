@@ -310,7 +310,7 @@ tenantExamRouter.post('/api/public/exams/:token/start', async (req: Request, res
       const existing = await tx.provaTentativa.findFirst({ where: { turmaId: turma.id, colaboradorId: collaborator.id,
         status: 'EM_ANDAMENTO', iniciadaEm: { gt: new Date(Date.now() - 2 * 60 * 60_000) } } });
       if (existing) {
-        const priorSnapshot = existing.respostasJson as { assinaturaColaboradorObrigatoria?: boolean; questoes?: Array<{
+        const priorSnapshot = existing.respostasJson as { assinaturaColaboradorObrigatoria?: boolean; assinaturasCertificado?: unknown[]; questoes?: Array<{
           id: string; ordem: number; enunciado: string; alternativas: Alternative[];
         }> };
         if (!Array.isArray(priorSnapshot.questoes) || !priorSnapshot.questoes.length) throw new Error('ATTEMPT_IN_PROGRESS');
@@ -322,11 +322,21 @@ tenantExamRouter.post('/api/public/exams/:token/start', async (req: Request, res
       const questions = await tx.bancoQuestao.findMany({ where: { empresaId: turma.empresaId, treinamentoId: turma.treinamentoId, ativa: true }, orderBy: { createdAt: 'asc' } });
       if (questions.length < 1) throw new Error('NO_QUESTIONS');
       const shuffledQuestions = shuffled(questions);
-      const signerConfig = Array.isArray(turma.empresa.assinaturasCertificado) ? turma.empresa.assinaturasCertificado as Array<{ tipo?: unknown; obrigatoria?: unknown }> : [];
-      const employeeSignatureRequired = signerConfig.some((item) => item.tipo === 'COLABORADOR' && item.obrigatoria === true);
+      const configuredSigners = Array.isArray(turma.empresa.assinaturasCertificado)
+        ? turma.empresa.assinaturasCertificado as Array<{ tipo?: unknown; rotulo?: unknown; obrigatoria?: unknown; forma?: unknown; nomeSignatario?: unknown }>
+        : [];
+      const signerConfig = configuredSigners.length ? configuredSigners.map((item) => ({
+        tipo: typeof item.tipo === 'string' ? item.tipo : 'PERSONALIZADO',
+        rotulo: typeof item.rotulo === 'string' ? item.rotulo : 'Assinante',
+        obrigatoria: item.obrigatoria === true,
+        forma: item.forma === 'FISICA' ? 'FISICA' : 'DIGITAL',
+        nomeSignatario: typeof item.nomeSignatario === 'string' ? item.nomeSignatario : '',
+      })) : [{ tipo: 'COLABORADOR', rotulo: 'Colaborador', obrigatoria: true, forma: 'DIGITAL', nomeSignatario: '' }];
+      const employeeSignatureRequired = signerConfig.some((item) => item.tipo === 'COLABORADOR' && item.obrigatoria && item.forma === 'DIGITAL');
       const snapshot = {
         versao: 1,
         assinaturaColaboradorObrigatoria: employeeSignatureRequired,
+        assinaturasCertificado: signerConfig,
         questoes: shuffledQuestions.map((question, index) => ({
           id: question.id, ordem: index + 1, enunciado: question.enunciado,
           alternativas: question.alternativas, correta: question.correta, peso: question.peso,
@@ -372,7 +382,7 @@ tenantExamRouter.post('/api/public/exams/:token/finish', async (req: Request, re
     } });
     if (!initial || initial.status !== 'EM_ANDAMENTO') { res.status(404).json({ error: 'Tentativa não encontrada ou já concluída.' }); return; }
     if (initial.iniciadaEm.getTime() < Date.now() - 2 * 60 * 60_000) { res.status(410).json({ error: 'O tempo da avaliação expirou. Solicite um novo link.' }); return; }
-    const snapshot = initial.respostasJson as { assinaturaColaboradorObrigatoria?: boolean; questoes?: Array<{
+    const snapshot = initial.respostasJson as { assinaturaColaboradorObrigatoria?: boolean; assinaturasCertificado?: unknown[]; questoes?: Array<{
       id: string; ordem: number; enunciado: string; alternativas: Alternative[]; correta: string; peso: number;
     }> };
     if (!Array.isArray(snapshot.questoes) || snapshot.questoes.length < 1) { res.status(409).json({ error: 'A avaliação não tem questões válidas.' }); return; }
@@ -406,7 +416,8 @@ tenantExamRouter.post('/api/public/exams/:token/finish', async (req: Request, re
       const current = await tx.provaTentativa.findUnique({ where: { id: tentativaId } });
       if (!current || current.status !== 'EM_ANDAMENTO') throw new Error('ATTEMPT_FINISHED');
       return tx.provaTentativa.update({ where: { id: tentativaId }, data: {
-        respostasJson: { assinaturaColaboradorObrigatoria: snapshot.assinaturaColaboradorObrigatoria ?? false, questoes: respostas } as unknown as Prisma.InputJsonValue,
+        respostasJson: { assinaturaColaboradorObrigatoria: snapshot.assinaturaColaboradorObrigatoria ?? false,
+          assinaturasCertificado: snapshot.assinaturasCertificado ?? [], questoes: respostas } as unknown as Prisma.InputJsonValue,
         notaPercentual, status, assinaturaDataUrl: assinatura, selfieDataUrl: selfie, concluidaEm: new Date(),
       } });
     });

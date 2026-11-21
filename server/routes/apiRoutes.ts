@@ -42,6 +42,7 @@ import { tenantAccessRouter } from './tenantAccessRoutes.ts';
 import { tenantSettingsRouter } from './tenantSettingsRoutes.ts';
 import { tenantOperationsRouter } from './tenantOperationsRoutes.ts';
 import { tenantExamRouter } from './tenantExamRoutes.ts';
+import { tenantCertificateRouter } from './tenantCertificateRoutes.ts';
 
 export const apiRouter = Router();
 const loginAttempts = new Map<string, { count: number; until: number }>();
@@ -53,6 +54,7 @@ apiRouter.use(tenantAccessRouter);
 apiRouter.use(tenantSettingsRouter);
 apiRouter.use(tenantOperationsRouter);
 apiRouter.use(tenantExamRouter);
+apiRouter.use(tenantCertificateRouter);
 
 // ----------------------------------------------------------------------------
 // 1. HEALTH CHECK & RUNTIME CAPABILITIES

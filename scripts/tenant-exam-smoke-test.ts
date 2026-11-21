@@ -22,6 +22,7 @@ if (!address || typeof address === 'string') throw new Error('Falha HTTP.');
 const base = `http://127.0.0.1:${address.port}`;
 const companyIds: string[] = [];
 const userIds: string[] = [];
+const signatureIds: string[] = [];
 let planId: string | null = null;
 let addonId: string | null = null;
 const pngSignature = `data:image/png;base64,${Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1]).toString('base64')}`;
@@ -45,7 +46,10 @@ try {
   const plan = await db.plano.create({ data: { slug: `exam-${suffix}`, nome: 'Provas smoke', subtitulo: 'Teste',
     descricao: 'Plano de smoke test', precoMensalCentavos: 10000, limiteColaboradores: 5, limiteUsuarios: 3, limiteObras: 2 } });
   planId = plan.id;
-  const signerConfig = [{ tipo: 'COLABORADOR', rotulo: 'Participante', obrigatoria: true }];
+  const signerConfig = [
+    { tipo: 'COLABORADOR', rotulo: 'Participante', obrigatoria: true, forma: 'DIGITAL', nomeSignatario: '' },
+    { tipo: 'RESPONSAVEL_TECNICO', rotulo: 'Responsável técnico', obrigatoria: true, forma: 'DIGITAL', nomeSignatario: '' },
+  ];
   const companyA = await db.empresa.create({ data: { tipoDocumento: 'PJ', documento: '11222333000181', razaoSocial: 'Empresa Prova A',
     emailFinanceiro: emailA, whatsapp: '11999999999', status: 'TRIAL', trialExpiraEm: new Date(Date.now() + 86400000),
     assinaturasCertificado: signerConfig } });
@@ -59,6 +63,9 @@ try {
   const ownerB = await db.usuario.create({ data: { empresaId: companyB.id, nome: 'Admin Prova B', email: emailB,
     senhaHash: hashPassword(crypto.randomBytes(24).toString('hex')), perfil: 'ADMIN_EMPRESA' } });
   userIds.push(ownerB.id);
+  const rtA = await db.usuario.create({ data: { empresaId: companyA.id, nome: 'RT da Empresa A', email: `rt-${suffix}@example.invalid`,
+    senhaHash: hashPassword(crypto.randomBytes(24).toString('hex')), perfil: 'RT', registroProfissional: 'MTE 12345' } });
+  userIds.push(rtA.id);
   const subscriptionA = await db.assinatura.create({ data: { empresaId: companyA.id, planoId: plan.id, ciclo: 'MENSAL', status: 'TRIAL', valorCentavos: 10000 } });
   await db.assinatura.create({ data: { empresaId: companyB.id, planoId: plan.id, ciclo: 'MENSAL', status: 'TRIAL', valorCentavos: 10000 } });
   const addon = await db.adicional.create({ data: { slug: `exam-addon-${suffix}`, nome: 'Questão de teste', descricao: 'Somente para o teste',
@@ -91,7 +98,7 @@ try {
   assert.equal(collaboratorResponse.status, 201);
   const classResponse = await fetch(`${base}/api/tenant/classes`, { method: 'POST', headers: headersA, body: JSON.stringify({
     codigoTurma: 'PROVA-001', titulo: 'Prova de homologação', treinamentoId: training.id,
-    dataRealizacao: new Date().toISOString().slice(0, 10), modoIdentificacao: 'CPF_PIN', pin: '54321',
+    dataRealizacao: new Date().toISOString().slice(0, 10), modoIdentificacao: 'CPF_PIN', pin: '54321', rtId: rtA.id,
   }) });
   assert.equal(classResponse.status, 201);
   const turma = await classResponse.json() as { id: string; tokenPublico: string; pinAcesso?: string; linkPublico: string };
@@ -132,11 +139,63 @@ try {
   assert.equal(result.totalQuestoes, 2);
   assert.equal((await finish({ tentativaId: exam.tentativaId, respostas: answers, assinaturaDataUrl: pngSignature })).status, 404);
 
+  const attemptsResponse = await fetch(`${base}/api/tenant/classes/${turma.id}/attempts`, { headers: headersA });
+  assert.equal(attemptsResponse.status, 200);
+  const attemptsBody = await attemptsResponse.json() as { tentativas: Array<{ id: string; certificado: null }> };
+  assert.equal(attemptsBody.tentativas.length, 1);
+  assert.equal(attemptsBody.tentativas[0].certificado, null);
+  assert.equal((await fetch(`${base}/api/tenant/classes/${turma.id}/attempts`, { headers: headersB })).status, 404);
+
+  const missingSignature = await fetch(`${base}/api/tenant/certificates/issue`, { method: 'POST', headers: headersA,
+    body: JSON.stringify({ tentativaId: exam.tentativaId }) });
+  assert.equal(missingSignature.status, 409);
+  assert.match(((await missingSignature.json()) as { error: string }).error, /Responsável técnico/);
+  assert.deepEqual(((await (await fetch(`${base}/api/tenant/signatures`, { headers: headersB })).json()) as { assinaturas: unknown[] }).assinaturas, []);
+  assert.equal((await fetch(`${base}/api/tenant/signatures`, { headers: headersB })).status, 200);
+  assert.equal((await fetch(`${base}/api/tenant/signatures`, { headers: headersB, method: 'POST', body: JSON.stringify({
+    tipo: 'RESPONSAVEL_TECNICO', nomeSignatario: 'RT de outra empresa', usuarioId: rtA.id, imagemDataUrl: pngSignature,
+  }) })).status, 404);
+  const signatureResponse = await fetch(`${base}/api/tenant/signatures`, { method: 'POST', headers: headersA, body: JSON.stringify({
+    tipo: 'RESPONSAVEL_TECNICO', nomeSignatario: rtA.nome, registro: rtA.registroProfissional, usuarioId: rtA.id, imagemDataUrl: pngSignature,
+  }) });
+  assert.equal(signatureResponse.status, 201);
+  const storedSignature = await signatureResponse.json() as { id: string };
+  signatureIds.push(storedSignature.id);
+
+  const issue = () => fetch(`${base}/api/tenant/certificates/issue`, { method: 'POST', headers: headersA,
+    body: JSON.stringify({ tentativaId: exam.tentativaId }) });
+  const issued = await issue();
+  assert.equal(issued.status, 201);
+  const issuedBody = await issued.json() as { id: string; numeroCertificado: string; codigoValidacaoQr: string; criado: boolean };
+  assert.equal(issuedBody.criado, true);
+  assert.equal(issuedBody.codigoValidacaoQr.length, 43);
+  const duplicate = await issue();
+  assert.equal(duplicate.status, 200);
+  assert.equal(((await duplicate.json()) as { id: string; criado: boolean }).id, issuedBody.id);
+  assert.equal((await db.certificado.count({ where: { empresaId: companyA.id } })), 1);
+  assert.equal((await fetch(`${base}/api/tenant/certificates/${issuedBody.id}/print`, { headers: headersB })).status, 404);
+  const printed = await fetch(`${base}/api/tenant/certificates/${issuedBody.id}/print`, { headers: headersA });
+  assert.equal(printed.status, 200);
+  const printedHtml = await printed.text();
+  assert.match(printedHtml, /Responsável técnico/);
+  assert.match(printedHtml, /Participante da Prova/);
+  assert.match(printedHtml, /csdk_cert=/);
+  const publicValidation = await fetch(`${base}/api/public/certificates/${issuedBody.codigoValidacaoQr}`);
+  assert.equal(publicValidation.status, 200);
+  const validation = await publicValidation.json() as Record<string, unknown>;
+  assert.equal(validation.participante, 'Participante da Prova');
+  assert.equal('cpf' in validation, false);
+  assert.equal('assinaturaDataUrl' in validation, false);
+  assert.equal((await fetch(`${base}/api/tenant/certificates`, { headers: headersA })).status, 200);
+  assert.equal((await fetch(`${base}/api/tenant/certificates`, { headers: headersB })).status, 200);
+  assert.deepEqual(((await (await fetch(`${base}/api/tenant/certificates`, { headers: headersB })).json()) as { certificados: unknown[] }).certificados, []);
+
   assert.equal((await fetch(`${base}/api/tenant/classes/${turma.id}`, { method: 'PATCH', headers: headersB, body: JSON.stringify({ status: 'ENCERRADA' }) })).status, 404);
   assert.equal((await fetch(`${base}/api/tenant/classes/${turma.id}`, { method: 'PATCH', headers: headersA, body: JSON.stringify({ status: 'ENCERRADA' }) })).status, 200);
   assert.equal((await start('Participante da Prova', '54321')).status, 410);
-  process.stdout.write('Provas do tenant passaram: questões privadas, aula vinculada ao tenant, PIN protegido, identidade do participante, correção no servidor, assinatura obrigatória e encerramento.\n');
+  process.stdout.write('Provas e certificados do tenant passaram: tenant isolado, PIN protegido, prova corrigida no servidor, assinaturas por empresa, emissão idempotente, impressão dinâmica e validação pública sem CPF.\n');
 } finally {
+  if (signatureIds.length) await db.assinaturaDigital.deleteMany({ where: { id: { in: signatureIds } } });
   await db.auditoriaAcesso.deleteMany({ where: { usuarioId: { in: userIds } } });
   for (const empresaId of companyIds) await db.empresa.deleteMany({ where: { id: empresaId } });
   if (addonId) await db.adicional.deleteMany({ where: { id: addonId } });

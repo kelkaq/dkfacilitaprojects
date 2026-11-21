@@ -11,7 +11,7 @@ const LOGO_ROOT = path.resolve(process.cwd(), 'storage', 'tenant-logos');
 const SIGNER_TYPES = ['COLABORADOR', 'RESPONSAVEL_TECNICO', 'INSTRUTOR', 'EMPRESA', 'PERSONALIZADO'] as const;
 
 type SignerType = typeof SIGNER_TYPES[number];
-interface SignerConfig { tipo: SignerType; rotulo: string; obrigatoria: boolean }
+interface SignerConfig { tipo: SignerType; rotulo: string; obrigatoria: boolean; forma: 'DIGITAL' | 'FISICA'; nomeSignatario: string }
 
 function currentTenant(res: Response): { empresaId: string; usuarioId: string; isAdmin: boolean } | null {
   const user = res.locals.authUser;
@@ -34,9 +34,12 @@ function parseSigners(value: unknown): SignerConfig[] | null {
     const signer = item as Record<string, unknown>;
     const tipo = signer.tipo;
     const rotulo = typeof signer.rotulo === 'string' ? signer.rotulo.trim().slice(0, 80) : '';
+    const forma = signer.forma === undefined ? 'DIGITAL' : signer.forma;
+    const nomeSignatario = typeof signer.nomeSignatario === 'string' ? signer.nomeSignatario.trim().slice(0, 120) : '';
     if (typeof tipo !== 'string' || !SIGNER_TYPES.includes(tipo as SignerType) || rotulo.length < 2 ||
-        typeof signer.obrigatoria !== 'boolean') return null;
-    signers.push({ tipo: tipo as SignerType, rotulo, obrigatoria: signer.obrigatoria });
+        typeof signer.obrigatoria !== 'boolean' || !['DIGITAL', 'FISICA'].includes(forma as string)) return null;
+    signers.push({ tipo: tipo as SignerType, rotulo, obrigatoria: signer.obrigatoria,
+      forma: forma as 'DIGITAL' | 'FISICA', nomeSignatario });
   }
   return signers;
 }

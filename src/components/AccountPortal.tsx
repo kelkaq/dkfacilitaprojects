@@ -9,7 +9,7 @@ type Team = { users: User[]; invites: Invite[]; limiteUsuarios: number };
 type Access = { permitido: boolean; motivo?: string; status?: string; plano?: { nome: string };
   limites?: { usuariosAtuais: number; limiteUsuarios: number } };
 type SignerType = 'COLABORADOR' | 'RESPONSAVEL_TECNICO' | 'INSTRUTOR' | 'EMPRESA' | 'PERSONALIZADO';
-type CertificateSigner = { tipo: SignerType; rotulo: string; obrigatoria: boolean };
+type CertificateSigner = { tipo: SignerType; rotulo: string; obrigatoria: boolean; forma: 'DIGITAL' | 'FISICA'; nomeSignatario: string };
 type CertificateTemplate = { id: string; slug: string; nome: string; descricao: string; categoria: string; previewCssToken: string };
 type TenantSettings = { tipoDocumento: 'PF' | 'PJ'; documento: string; razaoSocial: string; nomeFantasia: string | null;
   emailFinanceiro: string; whatsapp: string; endereco: string | null; cidade: string | null; uf: string | null;
@@ -61,7 +61,7 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
     setTeam(teamResponse.ok ? await teamResponse.json() as Team : { users: [], invites: [], limiteUsuarios: 0 });
     const tenantSettings = await settingsResponse.json() as TenantSettings;
     if (!tenantSettings.assinaturasCertificado.length) {
-      tenantSettings.assinaturasCertificado = [{ tipo: 'COLABORADOR', rotulo: 'Colaborador', obrigatoria: true }];
+      tenantSettings.assinaturasCertificado = [{ tipo: 'COLABORADOR', rotulo: 'Colaborador', obrigatoria: true, forma: 'DIGITAL', nomeSignatario: '' }];
     }
     setSettings(tenantSettings);
   };
@@ -167,7 +167,7 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
 
   const addSigner = () => setSettings((current) => current && current.assinaturasCertificado.length < 6 ? ({
     ...current,
-    assinaturasCertificado: [...current.assinaturasCertificado, { tipo: 'PERSONALIZADO', rotulo: 'Responsável', obrigatoria: false }],
+    assinaturasCertificado: [...current.assinaturasCertificado, { tipo: 'PERSONALIZADO', rotulo: 'Responsável', obrigatoria: false, forma: 'DIGITAL', nomeSignatario: '' }],
   }) : current);
 
   const logout = async () => {
@@ -234,11 +234,13 @@ export const AccountPortal: React.FC<{ view: PortalView }> = ({ view }) => {
               <label className="block text-sm font-medium">Modelo de certificado<select className={`${field} mt-1`} value={settings.modeloCertificadoId ?? ''} disabled={!settings.editavel} onChange={(event) => setSettings({ ...settings, modeloCertificadoId: event.target.value || null })}><option value="">Escolher depois</option>{settings.templates.map((template) => <option key={template.id} value={template.id}>{template.nome} · {template.categoria}</option>)}</select></label>
               <section className="rounded-xl border border-slate-200 p-4 dark:border-white/10">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">Assinaturas que aparecem no certificado</h3><p className="mt-1 text-xs text-slate-500">Escolha os papéis desta empresa. Cada cliente define sua própria combinação.</p></div><button type="button" onClick={addSigner} disabled={!settings.editavel || settings.assinaturasCertificado.length >= 6} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:opacity-50 dark:border-white/10"><Plus className="h-4 w-4" /> Adicionar campo</button></div>
-                <div className="space-y-3">{settings.assinaturasCertificado.map((signer, index) => <div key={`${signer.tipo}-${index}`} className="grid gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/[0.04] sm:grid-cols-[1fr_1fr_auto_auto] sm:items-end">
+                <div className="space-y-3">{settings.assinaturasCertificado.map((signer, index) => <div key={`${signer.tipo}-${index}`} className="grid gap-3 rounded-xl bg-slate-50 p-3 dark:bg-white/[0.04] sm:grid-cols-2">
                   <label className="block text-xs font-semibold">Papel<select className={`${field} mt-1`} value={signer.tipo} disabled={!settings.editavel} onChange={(event) => { const tipo = event.target.value as SignerType; const defaultLabel: Record<SignerType, string> = { COLABORADOR: 'Colaborador', RESPONSAVEL_TECNICO: 'Responsável técnico', INSTRUTOR: 'Instrutor', EMPRESA: 'Empresa', PERSONALIZADO: 'Assinante' }; updateSigner(index, { tipo, rotulo: defaultLabel[tipo] }); }}><option value="COLABORADOR">Colaborador</option><option value="RESPONSAVEL_TECNICO">Responsável técnico</option><option value="INSTRUTOR">Instrutor / TST</option><option value="EMPRESA">Empresa</option><option value="PERSONALIZADO">Outro papel</option></select></label>
                   <label className="block text-xs font-semibold">Rótulo exibido<input className={`${field} mt-1`} required minLength={2} maxLength={80} value={signer.rotulo} disabled={!settings.editavel} onChange={(event) => updateSigner(index, { rotulo: event.target.value })} /></label>
-                  <label className="flex items-center gap-2 pb-3 text-xs font-medium"><input type="checkbox" checked={signer.obrigatoria} disabled={!settings.editavel} onChange={(event) => updateSigner(index, { obrigatoria: event.target.checked })} />Obrigatória</label>
-                  <button type="button" aria-label="Remover campo de assinatura" disabled={!settings.editavel || settings.assinaturasCertificado.length <= 1} onClick={() => setSettings({ ...settings, assinaturasCertificado: settings.assinaturasCertificado.filter((_item, itemIndex) => itemIndex !== index) })} className="mb-2 rounded p-2 text-red-600 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
+                  <label className="block text-xs font-semibold">Forma<select className={`${field} mt-1`} value={signer.forma ?? 'DIGITAL'} disabled={!settings.editavel} onChange={(event) => updateSigner(index, { forma: event.target.value as 'DIGITAL' | 'FISICA' })}><option value="DIGITAL">Assinatura digital</option><option value="FISICA">Linha para assinatura física</option></select></label>
+                  {(signer.tipo === 'EMPRESA' || signer.tipo === 'PERSONALIZADO') && <label className="block text-xs font-semibold">Nome do signatário<input className={`${field} mt-1`} maxLength={120} value={signer.nomeSignatario ?? ''} disabled={!settings.editavel} onChange={(event) => updateSigner(index, { nomeSignatario: event.target.value })} /></label>}
+                  <label className="flex items-center gap-2 text-xs font-medium"><input type="checkbox" checked={signer.obrigatoria} disabled={!settings.editavel} onChange={(event) => updateSigner(index, { obrigatoria: event.target.checked })} />Obrigatória</label>
+                  <button type="button" aria-label="Remover campo de assinatura" disabled={!settings.editavel || settings.assinaturasCertificado.length <= 1} onClick={() => setSettings({ ...settings, assinaturasCertificado: settings.assinaturasCertificado.filter((_item, itemIndex) => itemIndex !== index) })} className="justify-self-start rounded p-2 text-red-600 disabled:opacity-30"><Trash2 className="h-4 w-4" /></button>
                 </div>)}</div>
               </section>
               {settings.editavel && <button type="submit" disabled={savingSettings} className={`${primary} sm:w-auto sm:px-6`}>{savingSettings ? 'Salvando...' : 'Salvar configuração da empresa'}</button>}

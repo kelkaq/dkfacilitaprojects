@@ -713,6 +713,7 @@ model Certificado {
   colaborador Colaborador    @relation(fields: [colaboradorId], references: [id])
 
   @@unique([empresaId, numeroCertificado])
+  @@unique([empresaId, turmaId, colaboradorId])
   @@index([empresaId, dataValidade])
   @@map("certificados")
 }

@@ -34,6 +34,7 @@ export interface CertificateRenderPayload {
   dataRealizacaoIso: string;
   dataValidadeIso: string;
   validationBaseUrl: string;
+  validationQueryParam?: 'validar' | 'csdk_cert';
   ocultarAssinaturaColaborador?: boolean;
   modeloProprioUrl?: string | null;
   snapshotEmpresa: {
@@ -54,6 +55,14 @@ export interface CertificateRenderPayload {
     rtNome?: string;
     rtRegistro?: string;
     rtAssinaturaUrl?: string;
+    assinaturasCertificado?: Array<{
+      tipo: string;
+      rotulo: string;
+      nome: string;
+      registro?: string | null;
+      forma?: 'DIGITAL' | 'FISICA';
+      assinaturaDataUrl?: string | null;
+    }>;
   };
   snapshotColaborador: {
     nome: string;
@@ -297,7 +306,8 @@ export async function renderCertificateFrontAndBackHtml(
   integrityHash: string;
 }> {
   const base = payload.validationBaseUrl.replace(/\/$/, '');
-  const validationUrl = `${base}/?validar=${encodeURIComponent(payload.codigoValidacaoQr)}`;
+  const validationParam = payload.validationQueryParam === 'csdk_cert' ? 'csdk_cert' : 'validar';
+  const validationUrl = `${base}/?${validationParam}=${encodeURIComponent(payload.codigoValidacaoQr)}`;
   const qrCodeSvg = await QRCode.toString(validationUrl, {
     type: 'svg',
     margin: 1,
@@ -350,6 +360,24 @@ export async function renderCertificateFrontAndBackHtml(
   const emp = payload.snapshotEmpresa;
   const colab = payload.snapshotColaborador;
   const fullAddress = formatEmpresaAddress(emp);
+  const signers = emp.assinaturasCertificado?.length ? emp.assinaturasCertificado : [
+    { tipo: 'RT', rotulo: 'Responsável Técnico', nome: emp.rtNome || 'Responsável Técnico', registro: emp.rtRegistro,
+      assinaturaDataUrl: emp.rtAssinaturaUrl, forma: 'DIGITAL' as const },
+    { tipo: 'INSTRUTOR', rotulo: 'Instrutor / TST', nome: emp.instrutorNome || 'Instrutor / TST', registro: emp.instrutorRegistro,
+      assinaturaDataUrl: emp.instrutorAssinaturaUrl, forma: 'DIGITAL' as const },
+    { tipo: 'COLABORADOR', rotulo: 'Colaborador', nome: colab.nome, registro: `CPF ${colab.cpf}`,
+      assinaturaDataUrl: colab.assinaturaDataUrl, forma: 'DIGITAL' as const },
+  ];
+  const signatureCardsHtml = signers.map((signer) => {
+    const signature = signer.tipo === 'COLABORADOR' && ocultarAssinaturaAluno ? null : signer.assinaturaDataUrl;
+    const signerName = signer.nome.trim() || signer.rotulo;
+    const physicalHint = signer.forma === 'FISICA' || (signer.tipo === 'COLABORADOR' && ocultarAssinaturaAluno)
+      ? '<span class="sig-physical-hint">Assinatura física</span>' : '';
+    return `<div class="sig-box"><div class="sig-slot">${signature
+      ? `<img class="sig-img" src="${escapeHtml(signature)}" alt="Assinatura de ${escapeHtml(signerName)}" />`
+      : physicalHint}</div><div class="sig-line">${escapeHtml(signerName)}</div><div class="sig-role">${escapeHtml(signer.rotulo)}${signer.registro ? ` · ${escapeHtml(signer.registro)}` : ''}</div></div>`;
+  }).join('');
+  const signatureColumns = Math.min(Math.max(signers.length, 1), 4);
   const isImageCustomBg =
     payload.modeloProprioUrl &&
     (payload.modeloProprioUrl.startsWith('data:image/') ||
@@ -419,7 +447,7 @@ export async function renderCertificateFrontAndBackHtml(
     .body-text { font-size: 13.5px; line-height: 1.65; color: #1e293b; max-width: 220mm; margin: 0 auto; }
     .signatures {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
+      grid-template-columns: repeat(${signatureColumns}, minmax(0, 1fr)) auto;
       gap: 9mm;
       align-items: end;
       padding-top: 6mm;
@@ -488,44 +516,7 @@ export async function renderCertificateFrontAndBackHtml(
       </div>
 
       <div class="signatures">
-        <div class="sig-box">
-          <div class="sig-slot">
-            ${
-              emp.rtAssinaturaUrl
-                ? `<img class="sig-img" src="${escapeHtml(emp.rtAssinaturaUrl)}" alt="Assinatura do Responsável Técnico" />`
-                : ''
-            }
-          </div>
-          <div class="sig-line">${escapeHtml(emp.rtNome || 'Responsável Técnico')}</div>
-          <div class="sig-role">Responsável Técnico · ${escapeHtml(emp.rtRegistro || 'Registro Profissional')}</div>
-        </div>
-
-        <div class="sig-box">
-          <div class="sig-slot">
-            ${
-              emp.instrutorAssinaturaUrl
-                ? `<img class="sig-img" src="${escapeHtml(emp.instrutorAssinaturaUrl)}" alt="Assinatura do Instrutor" />`
-                : ''
-            }
-          </div>
-          <div class="sig-line">${escapeHtml(emp.instrutorNome || 'Instrutor / TST')}</div>
-          <div class="sig-role">Instrutor / TST · ${escapeHtml(emp.instrutorRegistro || 'Profissional Habilitado')}</div>
-        </div>
-
-        <div class="sig-box">
-          <div class="sig-slot">
-            ${
-              !ocultarAssinaturaAluno && colab.assinaturaDataUrl
-                ? `<img class="sig-img" src="${escapeHtml(colab.assinaturaDataUrl)}" alt="Assinatura do Colaborador" />`
-                : ocultarAssinaturaAluno
-                  ? `<span class="sig-physical-hint">Assinatura física</span>`
-                  : ''
-            }
-          </div>
-          <div class="sig-line">${escapeHtml(colab.nome)}</div>
-          <div class="sig-role">Colaborador · CPF ${escapeHtml(colab.cpf)}</div>
-        </div>
-
+        ${signatureCardsHtml}
         <div class="qr-box">
           ${qrCodeSvg}
           <div class="qr-code-text">${escapeHtml(payload.codigoValidacaoQr)}</div>

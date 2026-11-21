@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, BookOpenCheck, Building2, CheckCircle2, FileBadge, LogOut, Plus, RefreshCw, Users } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, BookOpenCheck, Building2, CheckCircle2, FileBadge, LogOut, Plus, RefreshCw, Users } from 'lucide-react';
 import { ThemeToggleButton } from './ThemeProvider.tsx';
+import { SignaturePadCanvas } from './client/SignaturePadCanvas.tsx';
 
-type Tab = 'resumo' | 'colaboradores' | 'obras' | 'treinamentos' | 'turmas';
+type Tab = 'resumo' | 'colaboradores' | 'obras' | 'treinamentos' | 'turmas' | 'certificados';
 type User = { id: string; nome: string; email: string; perfil: string };
 type WorkspaceSummary = { empresa: string; status: string; permitido: boolean; motivo: string | null; plano: string | null;
   limites: { colaboradoresAtuais: number; limiteColaboradores: number; obrasAtuais: number; limiteObras: number } | null;
@@ -25,6 +26,13 @@ type Class = { id: string; codigoTurma: string; titulo: string; dataRealizacao: 
   contratoObra: { id: string; codigo: string; nome: string } | null; instrutor: { id: string; nome: string } | null;
   rt: { id: string; nome: string } | null; _count: { tentativas: number; certificados: number } };
 type Question = { id: string; enunciado: string; alternativas: Choice[]; correta: string; peso: number; ativa: boolean };
+type ProofAttempt = { id: string; notaPercentual: number; concluidaEm: string | null; colaborador: { id: string; nome: string; cpfFinal: string };
+  certificado: { id: string; numeroCertificado: string } | null };
+type DigitalSignature = { id: string; usuarioId: string | null; tipo: string; nomeSignatario: string; registro: string | null;
+  imagemDataUrl: string; ativa: boolean; usuario: { nome: string; perfil: string } | null };
+type Certificate = { id: string; numeroCertificado: string; codigoValidacaoQr: string; nrCodigo: string; treinamentoTitulo: string;
+  dataRealizacao: string; dataValidade: string; status: string; emitidoEm: string; turma: { codigoTurma: string; titulo: string };
+  colaborador: { nome: string; cpfFinal: string } };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: 'same-origin', ...init,
@@ -41,6 +49,7 @@ const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
   { id: 'obras', label: 'Obras', icon: Building2 },
   { id: 'treinamentos', label: 'Treinamentos', icon: BookOpenCheck },
   { id: 'turmas', label: 'Turmas & provas', icon: FileBadge },
+  { id: 'certificados', label: 'Certificados', icon: BadgeCheck },
 ];
 
 function formatCpf(value: string): string {
@@ -62,6 +71,10 @@ export const PostgresWorkspaceApp: React.FC = () => {
   const [classes, setClasses] = useState<Class[]>([]);
   const [operators, setOperators] = useState<Operator[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [approvedAttempts, setApprovedAttempts] = useState<Record<string, ProofAttempt[]>>({});
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [digitalSignatures, setDigitalSignatures] = useState<DigitalSignature[]>([]);
+  const [signatureImage, setSignatureImage] = useState<string | null>(null);
   const [questionTrainingId, setQuestionTrainingId] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -73,6 +86,7 @@ export const PostgresWorkspaceApp: React.FC = () => {
   const [classForm, setClassForm] = useState({ codigoTurma: '', titulo: '', treinamentoId: '', contratoObraId: '',
     dataRealizacao: new Date().toISOString().slice(0, 10), localRealizacao: '', instrutorId: '', rtId: '', modoIdentificacao: 'CPF', pin: '' });
   const [questionForm, setQuestionForm] = useState({ enunciado: '', a: '', b: '', c: '', d: '', correta: 'A' });
+  const [signatureForm, setSignatureForm] = useState({ tipo: 'INSTRUTOR', usuarioId: '', nomeSignatario: '', registro: '' });
 
   const load = async () => {
     setLoading(true); setError('');
@@ -83,11 +97,14 @@ export const PostgresWorkspaceApp: React.FC = () => {
         api<{ obras: Work[] }>('/api/tenant/obras'), api<{ treinamentos: Training[] }>('/api/tenant/trainings'),
         api<{ nrs: Nr[] }>('/api/tenant/training-catalog'),
       ]);
-      const [classData, operatorData] = await Promise.all([
+      const [classData, operatorData, certificateData, signatureData] = await Promise.all([
         api<{ turmas: Class[] }>('/api/tenant/classes'), api<{ responsaveis: Operator[] }>('/api/tenant/operators'),
+        api<{ certificados: Certificate[] }>('/api/tenant/certificates'),
+        ['ADMIN_EMPRESA', 'RT'].includes(me.perfil) ? api<{ assinaturas: DigitalSignature[] }>('/api/tenant/signatures') : Promise.resolve({ assinaturas: [] as DigitalSignature[] }),
       ]);
       setUser(me); setSummary(home); setCollaborators(people.colaboradores); setWorks(sites.obras);
       setTrainings(courses.treinamentos); setCatalog(nrs.nrs); setClasses(classData.turmas); setOperators(operatorData.responsaveis);
+      setCertificates(certificateData.certificados); setDigitalSignatures(signatureData.assinaturas);
       if (!selectedVariation) setSelectedVariation(nrs.nrs.find((nr) => nr.variacoes.length)?.variacoes[0]?.slug ?? '');
       const firstTrainingId = courses.treinamentos[0]?.id ?? '';
       if (!classForm.treinamentoId && firstTrainingId) setClassForm((current) => ({ ...current, treinamentoId: firstTrainingId }));
@@ -160,6 +177,42 @@ export const PostgresWorkspaceApp: React.FC = () => {
   const changeClassStatus = (item: Class) => run(async () => {
     await api(`/api/tenant/classes/${item.id}`, { method: 'PATCH', body: JSON.stringify({ status: item.status === 'ABERTA' ? 'ENCERRADA' : 'ABERTA' }) });
   }, item.status === 'ABERTA' ? 'Turma encerrada.' : 'Turma reaberta.');
+
+  const loadApprovedAttempts = async (classId: string) => {
+    setError('');
+    try {
+      const result = await api<{ tentativas: ProofAttempt[] }>(`/api/tenant/classes/${encodeURIComponent(classId)}/attempts`);
+      setApprovedAttempts((current) => ({ ...current, [classId]: result.tentativas }));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível consultar as provas aprovadas.'); }
+  };
+
+  const issueCertificate = (classId: string, attempt: ProofAttempt) => run(async () => {
+    const issued = await api<{ id: string; numeroCertificado: string; codigoValidacaoQr: string; criado: boolean }>('/api/tenant/certificates/issue', {
+      method: 'POST', body: JSON.stringify({ tentativaId: attempt.id }),
+    });
+    setApprovedAttempts((current) => ({ ...current, [classId]: (current[classId] ?? []).map((item) => item.id === attempt.id
+      ? { ...item, certificado: { id: issued.id, numeroCertificado: issued.numeroCertificado } } : item) }));
+  }, 'Certificado emitido e salvo nesta empresa.');
+
+  const addDigitalSignature = (event: React.FormEvent) => {
+    event.preventDefault();
+    return run(async () => {
+      if (!signatureImage) throw new Error('Registre a assinatura no quadro antes de salvar.');
+      await api('/api/tenant/signatures', { method: 'POST', body: JSON.stringify({ ...signatureForm,
+        usuarioId: signatureForm.usuarioId || null, imagemDataUrl: signatureImage }) });
+      setSignatureImage(null); setSignatureForm({ tipo: 'INSTRUTOR', usuarioId: '', nomeSignatario: '', registro: '' });
+    }, 'Assinatura digital cadastrada.');
+  };
+
+  const changeDigitalSignature = (item: DigitalSignature) => run(async () => {
+    await api(`/api/tenant/signatures/${item.id}`, { method: 'PATCH', body: JSON.stringify({ ativa: !item.ativa }) });
+  }, item.ativa ? 'Assinatura desativada.' : 'Assinatura reativada.');
+
+  const shareCertificate = async (code: string) => {
+    const link = `${window.location.origin}/?csdk_cert=${encodeURIComponent(code)}`;
+    await navigator.clipboard?.writeText(link);
+    setError(''); setNotice('Link público de validação copiado.');
+  };
 
   const copyClassLink = async (item: Class) => {
     const link = `${window.location.origin}/?csdk_prova=${encodeURIComponent(item.tokenPublico)}`;
@@ -247,7 +300,7 @@ export const PostgresWorkspaceApp: React.FC = () => {
 
         {tab === 'turmas' && <div className="space-y-5">
           <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
-            <div className={card}><div className="mb-4"><h2 className="font-bold">Turmas e aplicações</h2><p className="mt-1 text-sm text-slate-500">Links de prova são privados, aleatórios e associados ao treinamento desta empresa.</p></div><div className="space-y-3">{classes.length ? classes.map((item) => <article key={item.id} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="font-semibold">{item.codigoTurma} · {item.titulo}</p><p className="mt-1 text-xs text-slate-500">{item.treinamento.nrCodigo} · {item.treinamento.variacaoNome} · {new Date(item.dataRealizacao).toLocaleDateString('pt-BR')} · {item.treinamento.cargaHorariaHoras}h</p><p className="mt-1 text-xs text-slate-500">{item.instrutor ? `Instrutor: ${item.instrutor.nome}` : 'Instrutor não informado'}{item.rt ? ` · RT: ${item.rt.nome}` : ''}{item.contratoObra ? ` · ${item.contratoObra.codigo}` : ''}</p><p className="mt-2 text-xs text-slate-500">{item._count.tentativas} tentativas · {item._count.certificados} certificados · {item.temPin ? 'PIN ativo' : 'sem PIN'}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${item.status === 'ABERTA' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'}`}>{item.status}</span></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void copyClassLink(item)} className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:bg-blue-500/10 dark:text-blue-200">Copiar link da prova</button>{isWriter && item.status !== 'CANCELADA' && <button type="button" disabled={busy || !summary?.permitido} onClick={() => void changeClassStatus(item)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold dark:border-white/10">{item.status === 'ABERTA' ? 'Encerrar turma' : 'Reabrir turma'}</button>}</div></article>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-white/5">Nenhuma turma criada.</p>}</div></div>
+            <div className={card}><div className="mb-4"><h2 className="font-bold">Turmas e aplicações</h2><p className="mt-1 text-sm text-slate-500">Links de prova são privados, aleatórios e associados ao treinamento desta empresa.</p></div><div className="space-y-3">{classes.length ? classes.map((item) => <article key={item.id} className="rounded-xl border border-slate-200 p-4 dark:border-white/10"><div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><p className="font-semibold">{item.codigoTurma} · {item.titulo}</p><p className="mt-1 text-xs text-slate-500">{item.treinamento.nrCodigo} · {item.treinamento.variacaoNome} · {new Date(item.dataRealizacao).toLocaleDateString('pt-BR')} · {item.treinamento.cargaHorariaHoras}h</p><p className="mt-1 text-xs text-slate-500">{item.instrutor ? `Instrutor: ${item.instrutor.nome}` : 'Instrutor não informado'}{item.rt ? ` · RT: ${item.rt.nome}` : ''}{item.contratoObra ? ` · ${item.contratoObra.codigo}` : ''}</p><p className="mt-2 text-xs text-slate-500">{item._count.tentativas} tentativas · {item._count.certificados} certificados · {item.temPin ? 'PIN ativo' : 'sem PIN'}</p></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${item.status === 'ABERTA' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200' : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'}`}>{item.status}</span></div><div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={() => void copyClassLink(item)} className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:bg-blue-500/10 dark:text-blue-200">Copiar link da prova</button>{isWriter && <button type="button" onClick={() => void loadApprovedAttempts(item.id)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold dark:border-white/10">Ver aprovados e emitir</button>}{isWriter && item.status !== 'CANCELADA' && <button type="button" disabled={busy || !summary?.permitido} onClick={() => void changeClassStatus(item)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold dark:border-white/10">{item.status === 'ABERTA' ? 'Encerrar turma' : 'Reabrir turma'}</button>}</div>{approvedAttempts[item.id] && <div className="mt-4 space-y-2 border-t border-slate-200 pt-3 dark:border-white/10">{approvedAttempts[item.id].length ? approvedAttempts[item.id].map((attempt) => <div key={attempt.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-slate-50 p-3 dark:bg-white/5"><div><p className="text-sm font-semibold">{attempt.colaborador.nome}</p><p className="text-xs text-slate-500">CPF final {attempt.colaborador.cpfFinal} · nota {attempt.notaPercentual}% · {attempt.concluidaEm ? new Date(attempt.concluidaEm).toLocaleString('pt-BR') : ''}</p></div>{attempt.certificado ? <a className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200" href={`/api/tenant/certificates/${attempt.certificado.id}/print`} target="_blank" rel="noreferrer">{attempt.certificado.numeroCertificado} · imprimir</a> : <button type="button" disabled={busy || !summary?.permitido} onClick={() => void issueCertificate(item.id, attempt)} className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">Emitir certificado</button>}</div>) : <p className="text-sm text-slate-500">Nenhuma prova aprovada nesta turma.</p>}</div>}</article>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-white/5">Nenhuma turma criada.</p>}</div></div>
             {isWriter && <form onSubmit={(event) => void addClass(event)} className={`${card} space-y-3`}><div><h2 className="font-bold">Nova turma</h2><p className="mt-1 text-sm text-slate-500">A prova usa questões do banco do treinamento escolhido.</p></div><input className={field} required minLength={2} maxLength={40} placeholder="Código da turma" value={classForm.codigoTurma} onChange={(event) => setClassForm({ ...classForm, codigoTurma: event.target.value })} /><input className={field} required minLength={3} maxLength={180} placeholder="Título da turma" value={classForm.titulo} onChange={(event) => setClassForm({ ...classForm, titulo: event.target.value })} /><select required className={field} value={classForm.treinamentoId} onChange={(event) => setClassForm({ ...classForm, treinamentoId: event.target.value })}><option value="">Selecione o treinamento</option>{trainings.filter((training) => training.ativo).map((training) => <option key={training.id} value={training.id}>{training.nrCodigo} · {training.variacaoNome}</option>)}</select><label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Data de realização<input className={`${field} mt-1`} type="date" required value={classForm.dataRealizacao} onChange={(event) => setClassForm({ ...classForm, dataRealizacao: event.target.value })} /></label><input className={field} maxLength={240} placeholder="Local da aplicação (opcional)" value={classForm.localRealizacao} onChange={(event) => setClassForm({ ...classForm, localRealizacao: event.target.value })} /><select className={field} value={classForm.contratoObraId} onChange={(event) => setClassForm({ ...classForm, contratoObraId: event.target.value })}><option value="">Sem obra vinculada</option>{works.filter((work) => work.ativo).map((work) => <option key={work.id} value={work.id}>{work.codigo} · {work.nome}</option>)}</select><select className={field} value={classForm.instrutorId} onChange={(event) => setClassForm({ ...classForm, instrutorId: event.target.value })}><option value="">Instrutor a definir</option>{operators.filter((item) => ['ADMIN_EMPRESA', 'RT', 'INSTRUTOR_TST'].includes(item.perfil)).map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.perfil}</option>)}</select><select className={field} value={classForm.rtId} onChange={(event) => setClassForm({ ...classForm, rtId: event.target.value })}><option value="">Responsável técnico a definir</option>{operators.filter((item) => ['ADMIN_EMPRESA', 'RT'].includes(item.perfil)).map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.registroProfissional || item.perfil}</option>)}</select><select className={field} value={classForm.modoIdentificacao} onChange={(event) => setClassForm({ ...classForm, modoIdentificacao: event.target.value })}><option value="CPF">CPF</option><option value="CPF_PIN">CPF e PIN</option><option value="CPF_PIN_SELFIE">CPF, PIN e selfie</option></select>{classForm.modoIdentificacao !== 'CPF' && <input className={field} required minLength={4} maxLength={8} inputMode="numeric" placeholder="PIN numérico de 4 a 8 dígitos" value={classForm.pin} onChange={(event) => setClassForm({ ...classForm, pin: event.target.value.replace(/\D/g, '').slice(0, 8) })} />}<button type="submit" disabled={busy || !summary?.permitido || !trainings.length} className={`${button} w-full`}><Plus className="h-4 w-4" />Criar turma</button></form>}
           </section>
 
@@ -255,6 +308,14 @@ export const PostgresWorkspaceApp: React.FC = () => {
             <div className={card}><div className="mb-4"><h2 className="font-bold">Banco de questões</h2><p className="mt-1 text-sm text-slate-500">Gabarito e nota mínima ficam no servidor.</p></div><select className={field} value={questionTrainingId} onChange={(event) => setQuestionTrainingId(event.target.value)}><option value="">Selecione um treinamento</option>{trainings.map((training) => <option key={training.id} value={training.id}>{training.nrCodigo} · {training.variacaoNome}</option>)}</select><div className="mt-4 space-y-3">{questions.length ? questions.map((question, index) => <article key={question.id} className="rounded-xl border border-slate-200 p-3 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">{index + 1}. {question.enunciado}</p><ul className="mt-2 space-y-1 text-xs text-slate-500">{question.alternativas.map((option) => <li key={option.id} className={option.id === question.correta ? 'font-semibold text-emerald-700 dark:text-emerald-300' : ''}>{option.id}. {option.texto}{option.id === question.correta ? ' · gabarito' : ''}</li>)}</ul></div>{isWriter && <button type="button" disabled={busy || !summary?.permitido} onClick={() => void changeQuestionStatus(question)} className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] font-semibold dark:border-white/10">{question.ativa ? 'Desativar' : 'Reativar'}</button>}</div></article>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-white/5">Este treinamento ainda não tem questões.</p>}</div></div>
             {isWriter && <form onSubmit={(event) => void addQuestion(event)} className={`${card} space-y-3`}><div><h2 className="font-bold">Nova questão</h2><p className="mt-1 text-sm text-slate-500">O treinamento selecionado determina em quais turmas a questão aparece.</p></div><textarea className={`${field} min-h-24`} required minLength={10} maxLength={2000} placeholder="Enunciado da questão" value={questionForm.enunciado} onChange={(event) => setQuestionForm({ ...questionForm, enunciado: event.target.value })} />{(['a', 'b', 'c', 'd'] as const).map((key) => <input key={key} className={field} maxLength={600} placeholder={`Alternativa ${key.toUpperCase()}${key === 'a' || key === 'b' ? ' (obrigatória)' : ' (opcional)'}`} required={key === 'a' || key === 'b'} value={questionForm[key]} onChange={(event) => setQuestionForm({ ...questionForm, [key]: event.target.value })} />)}<label className="block text-xs font-semibold">Gabarito<select className={`${field} mt-1`} value={questionForm.correta} onChange={(event) => setQuestionForm({ ...questionForm, correta: event.target.value })}><option value="A">A</option><option value="B">B</option><option value="C" disabled={!questionForm.c.trim()}>C</option><option value="D" disabled={!questionForm.d.trim()}>D</option></select></label><button type="submit" disabled={busy || !summary?.permitido || !questionTrainingId} className={`${button} w-full`}><Plus className="h-4 w-4" />Salvar questão</button></form>}
           </section>
+        </div>}
+
+        {tab === 'certificados' && <div className="space-y-5">
+          <section className={card}><div className="mb-4"><h2 className="font-bold">Certificados emitidos</h2><p className="mt-1 text-sm text-slate-500">Cada certificado guarda os dados e as assinaturas configuradas para a empresa no momento da emissão.</p></div><div className="space-y-3">{certificates.length ? certificates.map((item) => <article key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-4 dark:border-white/10"><div><p className="font-semibold">{item.numeroCertificado} · {item.colaborador.nome}</p><p className="mt-1 text-xs text-slate-500">{item.nrCodigo} · {item.treinamentoTitulo} · turma {item.turma.codigoTurma} · CPF final {item.colaborador.cpfFinal}</p><p className="mt-1 text-xs text-slate-500">Realizado em {new Date(item.dataRealizacao).toLocaleDateString('pt-BR')} · válido até {new Date(item.dataValidade).toLocaleDateString('pt-BR')}</p></div><div className="flex flex-wrap gap-2"><a className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold dark:border-white/10" href={`/api/tenant/certificates/${item.id}/print`} target="_blank" rel="noreferrer">Imprimir</a><button type="button" onClick={() => void shareCertificate(item.codigoValidacaoQr)} className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:bg-blue-500/10 dark:text-blue-200">Copiar validação</button></div></article>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-white/5">Os certificados de provas aprovadas aparecerão aqui depois da emissão.</p>}</div></section>
+          {user?.perfil === 'ADMIN_EMPRESA' && <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
+            <div className={card}><div className="mb-4"><h2 className="font-bold">Assinaturas digitais cadastradas</h2><p className="mt-1 text-sm text-slate-500">Cadastre as assinaturas de instrutores, responsáveis técnicos ou representantes que sua empresa usa.</p></div><div className="space-y-3">{digitalSignatures.length ? digitalSignatures.map((item) => <article key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 dark:border-white/10"><div className="flex min-w-0 items-center gap-3"><img src={item.imagemDataUrl} alt="Assinatura cadastrada" className="h-12 w-28 rounded border border-slate-200 bg-white object-contain p-1" /><div><p className="text-sm font-semibold">{item.nomeSignatario}</p><p className="text-xs text-slate-500">{item.tipo.replaceAll('_', ' ')}{item.registro ? ` · ${item.registro}` : ''}{item.usuario ? ` · ${item.usuario.nome}` : ''}</p></div></div><button type="button" disabled={busy || !summary?.permitido} onClick={() => void changeDigitalSignature(item)} className="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold dark:border-white/10">{item.ativa ? 'Desativar' : 'Reativar'}</button></article>) : <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500 dark:bg-white/5">Nenhuma assinatura digital cadastrada.</p>}</div></div>
+            <form onSubmit={(event) => void addDigitalSignature(event)} className={`${card} space-y-3`}><div><h2 className="font-bold">Nova assinatura digital</h2><p className="mt-1 text-sm text-slate-500">O certificado usará a assinatura somente quando o papel correspondente estiver configurado e atribuído à turma.</p></div><select className={field} value={signatureForm.tipo} onChange={(event) => setSignatureForm({ ...signatureForm, tipo: event.target.value, usuarioId: '' })}><option value="INSTRUTOR">Instrutor</option><option value="RESPONSAVEL_TECNICO">Responsável técnico</option><option value="EMPRESA">Representante da empresa</option><option value="PERSONALIZADO">Outro papel personalizado</option></select>{['INSTRUTOR', 'RESPONSAVEL_TECNICO'].includes(signatureForm.tipo) && <select className={field} required value={signatureForm.usuarioId} onChange={(event) => { const selected = operators.find((item) => item.id === event.target.value); setSignatureForm({ ...signatureForm, usuarioId: event.target.value, nomeSignatario: selected?.nome ?? '' }); }}><option value="">Vincular a usuário da empresa</option>{operators.filter((item) => signatureForm.tipo === 'INSTRUTOR' ? ['ADMIN_EMPRESA', 'RT', 'INSTRUTOR_TST'].includes(item.perfil) : ['ADMIN_EMPRESA', 'RT'].includes(item.perfil)).map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.perfil}</option>)}</select>}<input className={field} required minLength={2} maxLength={120} placeholder="Nome que aparecerá no certificado" value={signatureForm.nomeSignatario} onChange={(event) => setSignatureForm({ ...signatureForm, nomeSignatario: event.target.value })} /><input className={field} maxLength={80} placeholder="Registro profissional (opcional)" value={signatureForm.registro} onChange={(event) => setSignatureForm({ ...signatureForm, registro: event.target.value })} /><SignaturePadCanvas value={signatureImage} onChange={setSignatureImage} height={126} label="Assine com dedo ou mouse" /><button type="submit" disabled={busy || !summary?.permitido || !signatureImage} className={`${button} w-full`}><Plus className="h-4 w-4" />Salvar assinatura</button></form>
+          </section>}
         </div>}
       </main>
     </div>

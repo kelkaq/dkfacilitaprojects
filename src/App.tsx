@@ -27,6 +27,7 @@ import { SuperAdminApp } from './components/admin/SuperAdminApp.tsx';
 import { AccountPortal } from './components/AccountPortal.tsx';
 import { PostgresWorkspaceApp } from './components/PostgresWorkspaceApp.tsx';
 import { PostgresPublicExamPage } from './components/PostgresPublicExamPage.tsx';
+import { PostgresPublicCertificatePage } from './components/PostgresPublicCertificatePage.tsx';
 
 type AppView =
   | 'SITE'
@@ -560,9 +561,10 @@ export default function App() {
     '/aceitar-convite': 'invite', '/minha-conta': 'team', '/workspace': 'workspace' } as const;
   const portalView = accountPaths[window.location.pathname as keyof typeof accountPaths];
   const publicExamToken = new URLSearchParams(window.location.search).get('csdk_prova');
+  const publicCertificateCode = new URLSearchParams(window.location.search).get('csdk_cert');
   return (
     <ThemeProvider>
-      {publicExamToken ? <PostgresPublicExamPage token={publicExamToken} /> :
+      {publicCertificateCode ? <PostgresPublicCertificatePage code={publicCertificateCode} /> : publicExamToken ? <PostgresPublicExamPage token={publicExamToken} /> :
         portalView === 'workspace' ? <PostgresWorkspaceApp /> : portalView ? <AccountPortal view={portalView} /> : <AppRouter />}
     </ThemeProvider>
   );
